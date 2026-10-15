@@ -51,11 +51,18 @@ env:
     # Google Places Text Search: paid calls per day, reset at midnight Europe/Ljubljana (TASK-005).
     PLACES_DAILY_CALL_CAP: "100"
     OWNER_EMAILS: "<%= ENV.fetch("OWNER_EMAILS") %>"
+    # Outreach (TASK-008, ADR-013/019): first-person mailbox. Sending stays off until the owner sets the
+    # GitHub variable OUTREACH_ENABLED=1 (only after DKIM passes) and the secret OUTREACH_SMTP_PASSWORD.
+    OUTREACH_ENABLED: "<%= ENV.fetch("OUTREACH_ENABLED", "0") %>"
+    OUTREACH_DAILY_CAP: "10"
+    OUTREACH_SMTP_USER: david@inzenirji.si
+    OUTREACH_FROM: "David Tacer <david@inzenirji.si>"
   secret:
     - DATABASE_URL
     - BETTER_AUTH_SECRET
     - SMTP_PASSWORD
     - GOOGLE_PLACES_API_KEY
+    - OUTREACH_SMTP_PASSWORD
 
 accessories:
   db:

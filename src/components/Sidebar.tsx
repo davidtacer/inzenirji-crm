@@ -24,7 +24,7 @@ const GROUPS: Group[] = [
     items: [
       { href: "/iskanje", label: "Iskanje strank", icon: Search },
       { href: "/podjetja", label: "Podjetja", icon: Building2 },
-      { href: "/osnutki", label: "Osnutki", icon: Mail, soon: true },
+      { href: "/osnutki", label: "Osnutki", icon: Mail },
       { href: "/klici", label: "Klici", icon: CalendarClock, soon: true },
       { href: "/ponudbe", label: "Ponudbe", icon: FileText, soon: true },
     ],

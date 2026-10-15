@@ -8,6 +8,7 @@ import { getDb } from "@/server/db/client";
 import type { Issue, SiteFacts } from "@/server/research/analyze";
 import { companyDetail } from "@/server/research/run";
 import type { ScorePart } from "@/server/scoring/score";
+import { CompanyOutreach } from "../../osnutki/forms";
 import { ResearchOneButton } from "../buttons";
 
 export const dynamic = "force-dynamic";
@@ -93,6 +94,9 @@ export default async function CompanyPage({ params }: { params: Promise<{ id: st
             </dl>
           </Box>
         ) : null}
+        <Box title="Stik in e-mail">
+          <CompanyOutreach companyId={c.id} stage={d.stage} hasEmail={d.contacts.some((p) => !!p.email)} />
+        </Box>
         <Box title="Podatki">
           <dl>
             <Row k="Ocena" v={c.ratingX10 !== null ? `${(c.ratingX10 / 10).toFixed(1).replace(".", ",")} (${c.reviewCount ?? 0} ocen)` : null} />
