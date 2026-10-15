@@ -6,7 +6,7 @@ import { QuotaError, reserveCall } from "./quota";
 export const PLACES_PROVIDER = "google_places";
 
 export type SearchInput = { query: string; pages: number };
-export type SearchResult = ImportResult & { found: number; calls: number; stoppedByQuota: boolean };
+export type SearchResult = Omit<ImportResult, "ids"> & { found: number; calls: number; stoppedByQuota: boolean };
 
 export function validateSearch(raw: { query?: unknown; pages?: unknown }): SearchInput | null {
   const query = typeof raw.query === "string" ? raw.query.trim().replace(/\s+/g, " ") : "";
@@ -42,6 +42,6 @@ export async function runPlacesSearch(
     if (!page.nextPageToken) break;
     token = page.nextPageToken;
   }
-  const r = await importPlaces(db, all);
-  return { ...r, found: all.length, calls, stoppedByQuota };
+  const { created, updated } = await importPlaces(db, all);
+  return { created, updated, found: all.length, calls, stoppedByQuota };
 }

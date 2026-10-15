@@ -3,6 +3,7 @@ import {
   boolean,
   check,
   date,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -74,6 +75,10 @@ export const companies = pgTable(
     /** Lower-case host without "www.", used for dedupe and the do-not-contact domain check. */
     websiteDomain: text("website_domain"),
     placeId: text("place_id"),
+    /** Google primary type id (e.g. "hair_care"), used for the nearby competitor search (TASK-022). */
+    placeType: text("place_type"),
+    lat: doublePrecision("lat"),
+    lng: doublePrecision("lng"),
     /** Google rating × 10 (4.6 → 46). */
     ratingX10: smallint("rating_x10"),
     reviewCount: integer("review_count"),

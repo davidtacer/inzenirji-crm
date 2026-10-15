@@ -13,7 +13,7 @@ export async function searchAction(_prev: SearchState, form: FormData): Promise<
   if (!input) return { ok: false, message: "Vpiši iskanje (3–100 znakov) in 1–3 strani." };
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
   if (!apiKey) return { ok: false, message: "Ključ GOOGLE_PLACES_API_KEY ni nastavljen na strežniku." };
-  const dailyCap = Number(process.env.PLACES_DAILY_CALL_CAP ?? 50);
+  const dailyCap = Number(process.env.PLACES_DAILY_CALL_CAP ?? 100);
   try {
     const r = await runPlacesSearch(getDb(), input, { apiKey, dailyCap });
     revalidatePath("/iskanje");

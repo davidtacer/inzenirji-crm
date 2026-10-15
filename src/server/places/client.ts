@@ -14,6 +14,8 @@ export const PLACES_FIELD_MASK = [
   "places.rating",
   "places.userRatingCount",
   "places.primaryTypeDisplayName",
+  "places.primaryType",
+  "places.location",
   "places.googleMapsUri",
   "places.businessStatus",
   "nextPageToken",
@@ -29,6 +31,8 @@ export type RawPlace = {
   rating?: number;
   userRatingCount?: number;
   primaryTypeDisplayName?: { text?: string };
+  primaryType?: string;
+  location?: { latitude?: number; longitude?: number };
   googleMapsUri?: string;
   businessStatus?: string;
 };
@@ -44,6 +48,9 @@ export type Place = {
   reviewCount: number | null;
   category: string | null;
   mapsUrl: string | null;
+  placeType: string | null;
+  lat: number | null;
+  lng: number | null;
 };
 
 export class PlacesError extends Error {
@@ -73,6 +80,9 @@ export function mapPlace(p: RawPlace): Place | null {
     reviewCount: typeof p.userRatingCount === "number" ? p.userRatingCount : null,
     category: p.primaryTypeDisplayName?.text ?? null,
     mapsUrl: p.googleMapsUri ?? null,
+    placeType: p.primaryType ?? null,
+    lat: typeof p.location?.latitude === "number" ? p.location.latitude : null,
+    lng: typeof p.location?.longitude === "number" ? p.location.longitude : null,
   };
 }
 
@@ -101,4 +111,55 @@ export async function searchTextPage(
     places: (data.places ?? []).map(mapPlace).filter((p): p is Place => p !== null),
     nextPageToken: data.nextPageToken ?? null,
   };
+}
+
+export const NEARBY_ENDPOINT = "https://places.googleapis.com/v1/places:searchNearby";
+export const NEARBY_FIELD_MASK = PLACES_FIELD_MASK.split(",").filter((f) => f !== "nextPageToken").join(",");
+
+/** Nearby search: same primary type within `radiusM`, ranked by distance (TASK-022). */
+export async function searchNearby(
+  input: { lat: number; lng: number; type: string; radiusM?: number; max?: number },
+  apiKey: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<Place[]> {
+  const res = await fetchImpl(NEARBY_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Goog-Api-Key": apiKey, "X-Goog-FieldMask": NEARBY_FIELD_MASK },
+    body: JSON.stringify({
+      includedTypes: [input.type],
+      maxResultCount: input.max ?? 20,
+      rankPreference: "DISTANCE",
+      languageCode: "sl",
+      regionCode: "SI",
+      locationRestriction: { circle: { center: { latitude: input.lat, longitude: input.lng }, radius: input.radiusM ?? 2000 } },
+    }),
+  });
+  if (!res.ok) throw new PlacesError(res.status);
+  const data = (await res.json()) as { places?: RawPlace[] };
+  return (data.places ?? []).map(mapPlace).filter((p): p is Place => p !== null);
+}
+
+/** Location and primary type of one place (for companies found before TASK-022 stored them). */
+export async function placeLocation(
+  placeId: string,
+  apiKey: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<{ lat: number; lng: number; type: string | null } | null> {
+  const res = await fetchImpl(`https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`, {
+    headers: { "X-Goog-Api-Key": apiKey, "X-Goog-FieldMask": "location,primaryType" },
+  });
+  if (!res.ok) throw new PlacesError(res.status);
+  const d = (await res.json()) as { location?: { latitude?: number; longitude?: number }; primaryType?: string };
+  if (typeof d.location?.latitude !== "number" || typeof d.location?.longitude !== "number") return null;
+  return { lat: d.location.latitude, lng: d.location.longitude, type: d.primaryType ?? null };
+}
+
+/** Great-circle distance in metres. */
+export function distanceM(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 6371000;
+  const rad = (x: number) => (x * Math.PI) / 180;
+  const dLat = rad(b.lat - a.lat);
+  const dLng = rad(b.lng - a.lng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return Math.round(2 * R * Math.asin(Math.sqrt(h)));
 }

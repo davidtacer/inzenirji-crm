@@ -15,7 +15,7 @@ beforeAll(async () => {
   await runMigrations(url);
 });
 beforeEach(async () => {
-  await admin.unsafe("TRUNCATE companies RESTART IDENTITY CASCADE");
+  await admin.unsafe("TRUNCATE companies, api_calls RESTART IDENTITY CASCADE");
 });
 afterAll(async () => {
   await admin.end({ timeout: 5 });
@@ -86,5 +86,52 @@ describe("researchBatch", () => {
     const stages = await admin`select stage, count(*)::int as n from deals group by stage order by stage`;
     // Enum order = funnel order (found → researched → contacted).
     expect(stages).toEqual([{ stage: "researched", n: 2 }, { stage: "contacted", n: 1 }]);
+  });
+});
+
+describe("nearby competitors (TASK-022)", () => {
+  const nearbyResponse = {
+    places: [
+      { id: "self", displayName: { text: "Salon Ana" }, businessStatus: "OPERATIONAL", primaryType: "hair_care", location: { latitude: 46.23, longitude: 15.26 } },
+      { id: "far", displayName: { text: "Salon Daleč" }, businessStatus: "OPERATIONAL", primaryType: "hair_care", location: { latitude: 46.245, longitude: 15.26 }, rating: 4.9, userRatingCount: 90 },
+      { id: "near", displayName: { text: "Salon Blizu" }, businessStatus: "OPERATIONAL", primaryType: "hair_care", location: { latitude: 46.2305, longitude: 15.26 }, websiteUri: "https://blizu.si" },
+    ],
+  };
+  const places = (calls: string[]) =>
+    (async (u: string) => {
+      calls.push(String(u));
+      if (String(u).includes("searchNearby")) return new Response(JSON.stringify(nearbyResponse), { status: 200 });
+      return new Response(JSON.stringify({ location: { latitude: 46.23, longitude: 15.26 }, primaryType: "hair_care" }), { status: 200 });
+    }) as unknown as typeof fetch;
+
+  it("good business: looks up its location once, stores neighbours as companies, nearest first", async () => {
+    const ana = await company({ name: "Salon Ana", placeId: "self", ratingX10: 47, reviewCount: 80 });
+    const calls: string[] = [];
+    const r = await runAudit(db, ana.id, { resolve, places: { apiKey: "K", dailyCap: 10, fetchImpl: places(calls) } });
+    expect(r.competitorSource).toBe("nearby");
+    expect(calls.map((c) => (c.includes("searchNearby") ? "nearby" : "details"))).toEqual(["details", "nearby"]);
+    const d = (await companyDetail(db, ana.id))!;
+    expect(d.competitors.map((c) => [c.name, c.distanceM! < 100])).toEqual([
+      ["Salon Blizu", true],
+      ["Salon Daleč", false],
+    ]);
+    expect(d.company.lat).toBe(46.23);
+    expect((await admin`select count(*)::int as n from companies`)[0].n).toBe(3);
+    // Second research: location is known now, only the nearby call is made.
+    const again: string[] = [];
+    await runAudit(db, ana.id, { resolve, places: { apiKey: "K", dailyCap: 10, fetchImpl: places(again) } });
+    expect(again.every((c) => c.includes("searchNearby"))).toBe(true);
+  });
+
+  it("not a good business or no quota left: falls back to the database, no Google call", async () => {
+    const weak = await company({ name: "Šibek", placeId: "w1", ratingX10: 39, reviewCount: 10 });
+    const calls: string[] = [];
+    const r = await runAudit(db, weak.id, { resolve, places: { apiKey: "K", dailyCap: 10, fetchImpl: places(calls) } });
+    expect(r.competitorSource).toBe("database");
+    const good = await company({ name: "Dober", placeId: "g1", ratingX10: 48, reviewCount: 60, lat: 46.23, lng: 15.26, placeType: "hair_care" });
+    await admin`insert into api_calls (provider, day, count) values ('google_places', ${new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Ljubljana" }).format(new Date())}, 10)`;
+    const r2 = await runAudit(db, good.id, { resolve, places: { apiKey: "K", dailyCap: 10, fetchImpl: places(calls) } });
+    expect(r2.competitorSource).toBe("database");
+    expect(calls).toEqual([]);
   });
 });

@@ -134,7 +134,7 @@ export function proposeGroup(kind: "own" | "social" | "link" | "none", reachable
 }
 
 export function summarize(issues: Issue[], group: "A" | "B"): string {
-  const head = group === "A" ? "Skupina A — ima stran, primerna za prenos na urejevalnik." : "Skupina B — rabi novo spletno stran.";
+  const head = group === "A" ? "Skupina A (prenos) — ima stran, primerna za prenos na urejevalnik." : "Skupina B (nova stran) — rabi novo spletno stran.";
   const top = issues.filter((i) => i.severity !== "low").slice(0, 3).map((i) => i.text);
   return top.length ? `${head} ${top.join(" ")}` : `${head} Večjih težav nismo našli.`;
 }

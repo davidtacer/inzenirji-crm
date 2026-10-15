@@ -58,7 +58,7 @@ describe("group + summary", () => {
   });
   it("summary names the group and top issues", () => {
     expect(summarize([{ code: "no_website", severity: "high", text: "Podjetje nima spletne strani." }], "B")).toBe(
-      "Skupina B — rabi novo spletno stran. Podjetje nima spletne strani.",
+      "Skupina B (nova stran) — rabi novo spletno stran. Podjetje nima spletne strani.",
     );
   });
 });
