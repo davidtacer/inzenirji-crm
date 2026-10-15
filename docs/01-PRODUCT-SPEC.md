@@ -63,6 +63,7 @@ The existing mockup pipeline (custom design from the client's real content + des
 module the owner **starts manually** for a chosen lead. The owner always reviews the result before it is used.
 
 ### 5.5 Outreach and e-mail
+- Sender: `david@inzenirji.si`, written and signed in the first person as David (ADR-013); warm-up and limits are enforced in code.
 - Cold e-mail only to **e-mail addresses published by the business** (website, Google profile, public directories);
   the source of each address is stored.
 - Sequence: day 0 first e-mail → day 3 short follow-up with a new fact → day 8 last follow-up → optional call task.
@@ -143,6 +144,6 @@ follow-up) by ADR; the first e-mail to a new prospect and every proposal always 
 - Deadline = start + 7 calendar days + paused time. The project page shows it at all times.
 
 ## 9. Open questions
-- Which mailbox and domain send outreach (proposal: a separate sending domain or subdomain to protect `inzenirji.si`).
+- ~~Which mailbox sends outreach~~ — answered by ADR-013: `david@inzenirji.si`, first-person.
 - Referral program reward (credit vs. cash). Postaja upsell price/model.
 - Conversation and research data retention period.
