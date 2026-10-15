@@ -20,7 +20,8 @@ Conversation with the owner in Slovenian; code and docs in English.
 - 2026-10-15: repo created by the owner; docs foundation (manifest, product spec, architecture, ADR-001…010,
   task list) from the business plan `inzenirji.si/docs/nacrt-rasti.md`.
 
-- 2026-10-15: TASK-001 scaffold built (PR open).
+- 2026-10-15: TASK-002 deploy skeleton built (PR open). First deploy = owner step below.
+- 2026-10-15: TASK-001 scaffold merged (PR #3, CI green).
 - 2026-10-15: owner merged PR #1 (docs ADR-011..013).
 - 2026-10-15: owner decisions → ADR-011 shared Hetzner VM (Kamal, host nginx edge, own Postgres accessory),
   ADR-012 mode B, ADR-013 outreach from `david@inzenirji.si`. Server facts taken from `DataVallis/postaja` docs
@@ -37,7 +38,14 @@ mailbox `david@inzenirji.si`, GitHub environment `prod` (secrets + variables per
 Seen from the agent (DNS over HTTPS): SPF `v=spf1 +a +mx ~all`, DMARC `p=none`. Not verifiable from the sandbox:
 DKIM and MX → owner runs a mail-tester.com check before the first outreach (TASK-008 is blocked on a score ≥ 9/10).
 
+## First deploy (owner, once TASK-002 is merged to `dev`)
+1. Promote `dev` → `main`: GitHub → Pull requests → New pull request → base `main`, compare `dev` → Create → Merge.
+   This starts "Deploy prod" automatically; the first automatic run fails at deploy (no database yet) — expected.
+2. GitHub → Actions → "Deploy prod" → Run workflow → branch `main` → tick **setup** → Run workflow.
+3. Green run ends with `{"status":"ok","sha":"…"}` in "Smoke check". If it fails, send the log; never change the
+   kamal-proxy settings on the host.
+
 ## Next
 TASK-001 scaffold (Next.js + Tailwind + Drizzle + Postgres in Docker locally, CI), TASK-002 Kamal deploy skeleton, then the C1 phase (prospecting, research, scoring) — target 2026-11-07.
 
-Latest TASK: 019 (planned) · latest ADR: 013.
+Latest TASK: 019 (planned) · latest ADR: 014.

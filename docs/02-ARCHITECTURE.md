@@ -10,7 +10,7 @@ Status labels: **Live** · **Built** · **Planned**. Everything below is **Plann
 | 3 | Worker (pg-boss, same image, role `worker`) | long and scheduled work: prospecting, audits, mailbox sync, follow-ups, reports | Planned (ADR-011) |
 | 4 | Agents (Claude API) | research summaries, classification, drafting, call-note extraction, report analysis | Planned |
 | 5 | Headless browser | site audits (mobile test, speed, screenshots), on-demand mockups | Planned |
-| 6 | PostgreSQL 16 (Kamal accessory `crm-db`, no published port) | companies, deals, audits, messages, drafts, projects, metrics, job queue | Planned (ADR-011) |
+| 6 | PostgreSQL 16 (Kamal accessory `db` → `inzenirji-crm-db`, no published port) | companies, deals, audits, messages, drafts, projects, metrics, job queue | Planned (ADR-011) |
 
 ## Integrations
 | Service | Use | Auth | Status |
@@ -58,7 +58,7 @@ internet ─► host nginx :80/:443 (certbot TLS, one server block per app)     
                                                                         ├─ postaja (dev, prod)  — not ours
                                                                         └─ inzenirji-crm web ─┐
                                                    inzenirji-crm worker (pg-boss) ─────────────┤
-                                                   crm-db (Postgres 16, kamal network only) ◄──┘
+                                                   inzenirji-crm-db (Postgres 16, kamal network) ◄┘
 ```
 Deploy: GitHub Actions → Kamal over SSH with a dedicated deploy key (the agent sandbox cannot SSH).
 Migrations run at web container start. Backups: nightly `pg_dump` to Hetzner Object Storage.

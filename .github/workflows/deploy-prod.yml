@@ -1,0 +1,71 @@
+name: Deploy prod
+
+# https://crm.inzenirji.si on the shared Hetzner VM (ADR-011). Runs when the owner promotes `dev` to `main`,
+# or by hand (input `setup` for the very first run: boots the database accessory, then deploys).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      setup:
+        description: "First run: kamal setup (boots the CRM database accessory, then deploys)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    environment: prod
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    env:
+      PROD_HOST: ${{ vars.PROD_HOST }}
+      OWNER_EMAILS: ${{ vars.OWNER_EMAILS }}
+      KAMAL_REGISTRY_USERNAME: ${{ github.actor }}
+      KAMAL_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      PROD_SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check required settings (names only)
+        run: |
+          missing=""
+          for v in PROD_HOST OWNER_EMAILS POSTGRES_PASSWORD BETTER_AUTH_SECRET DEPLOY_SSH_KEY PROD_SSH_KNOWN_HOSTS; do
+            [ -n "${!v}" ] || missing="$missing $v"
+          done
+          [ -z "$missing" ] || { echo "::error::Missing in GitHub environment 'prod':$missing"; exit 1; }
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+      - name: Install Kamal
+        run: gem install kamal -v "~> 2.7" --no-document
+      - uses: docker/setup-buildx-action@v3
+      - name: SSH key and pinned host key
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$PROD_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
+      - name: First-time setup (CRM database accessory + app; kamal-proxy behind host nginx already runs on this host)
+        if: inputs.setup
+        run: kamal setup
+      - name: Deploy
+        if: ${{ !inputs.setup }}
+        run: kamal deploy
+      - name: Smoke check (exact commit is served)
+        run: |
+          for i in $(seq 1 24); do
+            body=$(curl -fsS https://crm.inzenirji.si/api/health || true)
+            echo "$body" | grep -q "\"sha\":\"${GITHUB_SHA}\"" && break
+            sleep 5
+          done
+          echo "$body"
+          echo "$body" | grep -q "\"sha\":\"${GITHUB_SHA}\""
