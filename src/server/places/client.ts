@@ -163,3 +163,58 @@ export function distanceM(a: { lat: number; lng: number }, b: { lat: number; lng
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
   return Math.round(2 * R * Math.asin(Math.sqrt(h)));
 }
+
+export type PlaceReview = { rating: number | null; text: string; when: string | null };
+export type PlaceProfile = {
+  lat: number | null;
+  lng: number | null;
+  type: string | null;
+  businessStatus: string | null;
+  summary: string | null;
+  mapsUrl: string | null;
+  periods: { open?: { day?: number; hour?: number; minute?: number }; close?: { day?: number; hour?: number; minute?: number } }[];
+  hoursText: string[];
+  reviews: PlaceReview[];
+};
+
+/**
+ * Place Details for one good business (TASK-023): location/type (for competitors), opening hours, status,
+ * Google's short description and up to 5 recent reviews (text only, no reviewer names), in Slovenian when available.
+ * One call; the caller reserves it against the daily cap.
+ */
+export async function placeProfile(placeId: string, apiKey: string, fetchImpl: typeof fetch = fetch): Promise<PlaceProfile> {
+  const res = await fetchImpl(`https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}?languageCode=sl`, {
+    headers: {
+      "X-Goog-Api-Key": apiKey,
+      "X-Goog-FieldMask": "location,primaryType,businessStatus,editorialSummary,googleMapsUri,regularOpeningHours,reviews",
+    },
+  });
+  if (!res.ok) throw new PlacesError(res.status);
+  const d = (await res.json()) as {
+    location?: { latitude?: number; longitude?: number };
+    primaryType?: string;
+    businessStatus?: string;
+    editorialSummary?: { text?: string };
+    googleMapsUri?: string;
+    regularOpeningHours?: { periods?: PlaceProfile["periods"]; weekdayDescriptions?: string[] };
+    reviews?: { rating?: number; text?: { text?: string }; originalText?: { text?: string }; relativePublishTimeDescription?: string }[];
+  };
+  return {
+    lat: typeof d.location?.latitude === "number" ? d.location.latitude : null,
+    lng: typeof d.location?.longitude === "number" ? d.location.longitude : null,
+    type: d.primaryType ?? null,
+    businessStatus: d.businessStatus ?? null,
+    summary: d.editorialSummary?.text ?? null,
+    mapsUrl: d.googleMapsUri ?? null,
+    periods: d.regularOpeningHours?.periods ?? [],
+    hoursText: d.regularOpeningHours?.weekdayDescriptions ?? [],
+    reviews: (d.reviews ?? [])
+      .map((r) => ({
+        rating: typeof r.rating === "number" ? r.rating : null,
+        text: (r.originalText?.text ?? r.text?.text ?? "").trim().slice(0, 500),
+        when: r.relativePublishTimeDescription ?? null,
+      }))
+      .filter((r) => r.text)
+      .slice(0, 5),
+  };
+}

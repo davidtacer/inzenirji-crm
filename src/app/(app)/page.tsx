@@ -7,6 +7,8 @@ import { companyCounts } from "@/server/places/list";
 import { rescoreMissing, topLeads } from "@/server/scoring/apply";
 import { pendingDraftCount } from "@/server/outreach/drafts";
 import { DraftTopButton } from "./osnutki/forms";
+import { DeepenButton } from "./podjetja/buttons";
+import { shallowCount } from "@/server/research/run";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +16,7 @@ export default async function HomePage() {
   const db = getDb();
   // Companies researched before scoring existed get their score once, here.
   await rescoreMissing(db, 200);
-  const [c, top, pending] = await Promise.all([companyCounts(db), topLeads(db, 10), pendingDraftCount(db)]);
+  const [c, top, pending, shallow] = await Promise.all([companyCounts(db), topLeads(db, 10), pendingDraftCount(db), shallowCount(db)]);
   const stats: [string, number][] = [
     ["Podjetij v bazi", c.total],
     ["Dober posel (≥ 4,3, ≥ 30 ocen)", c.good],
@@ -73,6 +75,7 @@ export default async function HomePage() {
         )}
         {top.length ? (
           <div className="flex flex-wrap items-center gap-4 border-t border-border px-5 py-4">
+            {shallow > 0 ? <DeepenButton count={shallow} /> : null}
             <DraftTopButton />
             <Link href="/osnutki" className="font-mono text-xs text-accent hover:underline">
               &gt; Osnutki za odobritev: {pending} →

@@ -51,6 +51,11 @@ describe("composeFirst", () => {
     expect(composeFirst({ ...base, rival: { name: "X", distanceM: 100 } }).body).not.toContain("X,");
   });
 
+  it("hours mismatch becomes the personal remark", () => {
+    const r = remarkFor({ ...base, issues: [{ code: "hours_mismatch", severity: "high", text: "Na strani piše, da ste ob sobotah odprti do 12h, na Googlu pa do 13h." }] });
+    expect(r).toBe("na vaši spletni strani piše, da ste ob sobotah odprti do 12h, na Googlu pa do 13h - stranke ne vedo, kaj velja");
+  });
+
   it("no issues and no great reviews still makes a sentence", () => {
     expect(remarkFor({ ...base, issues: [], ratingX10: 40 })).toBe("bi vaša spletna stran lahko delala bolje za vas");
   });
