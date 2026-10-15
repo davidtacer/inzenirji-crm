@@ -53,11 +53,15 @@ jobs:
           docker build --build-arg GIT_SHA=${{ github.sha }} -t inzenirji-crm:ci .
           psql "postgres://crm:crm@127.0.0.1:5432/postgres" -c "create database crm_docker"
           docker run -d --name crm-ci --network host \
-            -e RUN_MIGRATIONS=1 -e DATABASE_URL=postgres://crm:crm@127.0.0.1:5432/crm_docker inzenirji-crm:ci
+            -e RUN_MIGRATIONS=1 -e DATABASE_URL=postgres://crm:crm@127.0.0.1:5432/crm_docker \
+            -e BETTER_AUTH_SECRET=ci-secret-ci-secret-ci-secret-1234 -e APP_URL=http://127.0.0.1:3000 \
+            -e OWNER_EMAILS=owner@example.com -e SMTP_HOST=127.0.0.1 -e SMTP_PORT=2525 -e SMTP_USER=ci \
+            -e SMTP_PASSWORD=ci -e EMAIL_FROM=ci@example.com inzenirji-crm:ci
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:3000/api/health && break; sleep 1; done
           body=$(curl -fsS http://127.0.0.1:3000/api/health)
           echo "$body"
           echo "$body" | grep -q '"sha":"${{ github.sha }}"' && echo "$body" | grep -q '"db":"ok"'
           test "$(psql "postgres://crm:crm@127.0.0.1:5432/crm_docker" -tAc "select count(*) from drizzle.__drizzle_migrations")" -ge 1
-          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/)" = "200"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/login)" = "200"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/)" = "307"
           docker logs crm-ci | tail -20

@@ -21,6 +21,7 @@ describe("migrations", () => {
     await runMigrations(url);
     const t = await admin`select table_name from information_schema.tables where table_schema = 'public' order by 1`;
     expect(t.map((r) => r.table_name)).toEqual([
+      "account",
       "activities",
       "audits",
       "companies",
@@ -29,6 +30,9 @@ describe("migrations", () => {
       "deals",
       "do_not_contact",
       "drafts",
+      "session",
+      "user",
+      "verification",
     ]);
     const applied = await admin`select count(*)::int as n from drizzle.__drizzle_migrations`;
     expect(applied[0].n).toBe(MIGRATIONS);
