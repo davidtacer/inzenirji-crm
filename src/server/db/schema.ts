@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
+  date,
   index,
   integer,
   jsonb,
@@ -285,4 +286,15 @@ export const verification = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("verification_identifier_idx").on(t.identifier)],
+);
+
+/** Paid API calls per provider and day (TASK-005). Reserved before each call; the cap is checked atomically. */
+export const apiCalls = pgTable(
+  "api_calls",
+  {
+    provider: text("provider").notNull(),
+    day: date("day").notNull(),
+    count: integer("count").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.provider, t.day] }), check("api_calls_count_non_negative", sql`${t.count} >= 0`)],
 );
