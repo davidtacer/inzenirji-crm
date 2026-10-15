@@ -20,7 +20,7 @@ Conversation with the owner in Slovenian; code and docs in English.
 - 2026-10-15: repo created by the owner; docs foundation (manifest, product spec, architecture, ADR-001…010,
   task list) from the business plan `inzenirji.si/docs/nacrt-rasti.md`.
 
-- 2026-10-15: TASK-003 data model built (PR open): 8 tables, startup migrations, DB health, do-not-contact.
+- 2026-10-15: TASK-003 data model merged (PR #7, CI green incl. container + migrations): 8 tables, startup migrations, DB health, do-not-contact.
 - 2026-10-15: TASK-002 deploy skeleton merged (PR #4). First deploy = owner step below.
 - 2026-10-15: TASK-001 scaffold merged (PR #3, CI green).
 - 2026-10-15: owner merged PR #1 (docs ADR-011..013).
@@ -41,12 +41,15 @@ DKIM and MX → owner ran mail-tester.com on 2026-10-15: **9/10**. SPF pass (sen
 78.46.239.231), DMARC pass, not blocklisted, **DKIM missing** (−1). TASK-008 (first outreach send) is **blocked until
 DKIM signs mail from `david@inzenirji.si`** (ADR-013); re-test must show "Your message is signed with DKIM".
 
-## First deploy (owner, once TASK-002 is merged to `dev`)
-1. Promote `dev` → `main`: GitHub → Pull requests → New pull request → base `main`, compare `dev` → Create → Merge.
-   This starts "Deploy prod" automatically; the first automatic run fails at deploy (no database yet) — expected.
-2. GitHub → Actions → "Deploy prod" → Run workflow → branch `main` → tick **setup** → Run workflow.
-3. Green run ends with `{"status":"ok","sha":"…"}` in "Smoke check". If it fails, send the log; never change the
-   kamal-proxy settings on the host.
+## Production state
+- 2026-10-15 15:52: owner promoted `dev` → `main` (PR #6); automatic "Deploy prod" run 38746379019 green; smoke check
+  served `ce9b738` (TASK-002 app, no database yet). `https://crm.inzenirji.si/api/health` →
+  `{"status":"ok","sha":"ce9b738…"}`. **Live on prod** (app only).
+- The database accessory is **not booted yet** (the automatic run skips `setup`). From TASK-003 on the app needs it
+  (migrations at start, `db` in health), so the owner runs `setup` **before** promoting TASK-003:
+  1. Actions → "Deploy prod" → Run workflow → branch `main` → tick **setup** → Run (boots `inzenirji-crm-db`,
+     redeploys the same version).
+  2. Then promote `dev` → `main` as before; the automatic run applies migrations and the smoke check needs `db: ok`.
 
 ## Local Postgres for integration tests
 `TEST_DATABASE_URL` must point to a real Postgres 16; tests drop and recreate the `public` schema, so use a
