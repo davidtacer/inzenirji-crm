@@ -2,7 +2,7 @@
 
 ## What I implemented
 `src/server/ai/anthropic.ts` (Messages API via fetch, prices, cost), `remark.ts` (prompt, validation, budget,
-`ensureAiRemark`), migration 0007 `ai_usage`, AI remark in `createFirstDraft`, banner on "Osnutki", deploy config.
+`ensureAiRemark`), migration 0006 `ai_usage`, AI remark in `createFirstDraft`, banner on "Osnutki", deploy config.
 
 ## Test results
 Unit 63/63 (+ cleanRemark rules, prompt content, client headers/body/cost, error without body). Integration 38/38
