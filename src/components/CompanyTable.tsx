@@ -2,6 +2,7 @@ import Link from "next/link";
 import { GROUP_HELP, GROUP_LABEL, STAGE_LABEL as STAGE } from "@/lib/labels";
 import { isGoodBusiness } from "@/server/places/import";
 import { websiteKind } from "@/server/contact/website";
+import { ScoreBadge } from "./ScoreBadge";
 
 type Row = {
   id: string;
@@ -15,6 +16,7 @@ type Row = {
   phone: string | null;
   stage: string | null;
   group?: "A" | "B" | null;
+  score?: number | null;
 };
 
 
@@ -27,6 +29,7 @@ export function CompanyTable({ rows }: { rows: Row[] }) {
       <table className="w-full min-w-[900px] border-collapse text-left">
         <thead>
           <tr className="border-b border-border bg-surface font-mono text-[10px] uppercase tracking-widest text-text-secondary">
+            <th className="p-3 font-normal" title="Ocena leada 0–100: kakovost posla, priložnost, konkurenti, dosegljivost">Točke</th>
             <th className="p-3 font-normal">Podjetje</th>
             <th className="p-3 font-normal">Kraj</th>
             <th className="p-3 font-normal">Ocena</th>
@@ -39,6 +42,9 @@ export function CompanyTable({ rows }: { rows: Row[] }) {
         <tbody>
           {rows.map((r) => (
             <tr key={r.id} className="border-b border-border last:border-b-0 hover:bg-surface">
+              <td className="p-3">
+                <ScoreBadge score={r.score} />
+              </td>
               <td className="p-3">
                 <Link href={`/podjetja/${r.id}`} className="font-sans text-sm text-text-primary hover:text-accent">
                   {r.name}

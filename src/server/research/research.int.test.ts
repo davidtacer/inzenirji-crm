@@ -47,6 +47,10 @@ describe("runAudit", () => {
     const codes = (d.audit!.issues as { code: string }[]).map((i) => i.code);
     expect(codes).toEqual(expect.arrayContaining(["not_mobile", "old_year", "cms"]));
     expect(d.audit!.summary).toMatch(/^Skupina A/);
+    // TASK-007: scored right after research.
+    expect(r.score).toBeGreaterThan(0);
+    expect(d.company.score).toBe(r.score);
+    expect((d.company.scoreParts as { key: string }[]).map((p) => p.key)).toEqual(["business", "opportunity", "gap", "reach"]);
   });
 
   it("no website → group B without any fetch", async () => {

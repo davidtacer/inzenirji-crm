@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
+import { ScoreBadge } from "@/components/ScoreBadge";
 import { GROUP_HELP, GROUP_LABEL, SOURCE_LABEL, STAGE_LABEL } from "@/lib/labels";
 import { websiteKind } from "@/server/contact/website";
 import { getDb } from "@/server/db/client";
 import type { Issue, SiteFacts } from "@/server/research/analyze";
 import { companyDetail } from "@/server/research/run";
+import type { ScorePart } from "@/server/scoring/score";
 import { ResearchOneButton } from "../buttons";
 
 export const dynamic = "force-dynamic";
@@ -74,6 +76,23 @@ export default async function CompanyPage({ params }: { params: Promise<{ id: st
       )}
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        {c.scoreParts ? (
+          <Box title="Točke leada">
+            <div className="mb-4 flex items-center gap-3">
+              <ScoreBadge score={c.score} />
+              <span className="font-mono text-[10px] uppercase tracking-widest text-text-secondary">od 100 · višje = prej kontaktiraj</span>
+            </div>
+            <dl>
+              {(c.scoreParts as ScorePart[]).map((p) => (
+                <Row
+                  key={p.key}
+                  k={`${p.label} ${p.points}/${p.max}`}
+                  v={<span className="text-text-secondary">{p.reason}</span>}
+                />
+              ))}
+            </dl>
+          </Box>
+        ) : null}
         <Box title="Podatki">
           <dl>
             <Row k="Ocena" v={c.ratingX10 !== null ? `${(c.ratingX10 / 10).toFixed(1).replace(".", ",")} (${c.reviewCount ?? 0} ocen)` : null} />
