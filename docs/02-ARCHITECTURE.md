@@ -10,7 +10,7 @@ Status labels: **Live** · **Built** · **Planned**. Everything below is **Plann
 | 3 | Worker (pg-boss, same image, role `worker`) | long and scheduled work: prospecting, audits, mailbox sync, follow-ups, reports | Planned (ADR-011) |
 | 4 | Agents (Claude API) | research summaries, classification, drafting, call-note extraction, report analysis | Planned |
 | 5 | Headless browser | site audits (mobile test, speed, screenshots), on-demand mockups | Planned |
-| 6 | PostgreSQL 16 (Kamal accessory `db` → `inzenirji-crm-db`, no published port) | companies, deals, audits, messages, drafts, projects, metrics, job queue | Planned (ADR-011) |
+| 6 | PostgreSQL 16 (Kamal accessory `db` → `inzenirji-crm-db`, no published port) | companies, contacts, competitors, audits, deals, activities, drafts, do-not-contact (Built, TASK-003); projects, metrics, job queue (Planned) | Built (schema) |
 
 ## Integrations
 | Service | Use | Auth | Status |

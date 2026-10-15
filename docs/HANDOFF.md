@@ -20,7 +20,8 @@ Conversation with the owner in Slovenian; code and docs in English.
 - 2026-10-15: repo created by the owner; docs foundation (manifest, product spec, architecture, ADR-001…010,
   task list) from the business plan `inzenirji.si/docs/nacrt-rasti.md`.
 
-- 2026-10-15: TASK-002 deploy skeleton built (PR open). First deploy = owner step below.
+- 2026-10-15: TASK-003 data model built (PR open): 8 tables, startup migrations, DB health, do-not-contact.
+- 2026-10-15: TASK-002 deploy skeleton merged (PR #4). First deploy = owner step below.
 - 2026-10-15: TASK-001 scaffold merged (PR #3, CI green).
 - 2026-10-15: owner merged PR #1 (docs ADR-011..013).
 - 2026-10-15: owner decisions → ADR-011 shared Hetzner VM (Kamal, host nginx edge, own Postgres accessory),
@@ -46,6 +47,11 @@ DKIM signs mail from `david@inzenirji.si`** (ADR-013); re-test must show "Your m
 2. GitHub → Actions → "Deploy prod" → Run workflow → branch `main` → tick **setup** → Run workflow.
 3. Green run ends with `{"status":"ok","sha":"…"}` in "Smoke check". If it fails, send the log; never change the
    kamal-proxy settings on the host.
+
+## Local Postgres for integration tests
+`TEST_DATABASE_URL` must point to a real Postgres 16; tests drop and recreate the `public` schema, so use a
+throwaway database. In the cloud sandbox: `initdb` as user postgres in `/var/tmp/crm-pg`, port 55432, then
+`TEST_DATABASE_URL=postgres://crm@127.0.0.1:55432/crm_test pnpm test:int`.
 
 ## Next
 TASK-001 scaffold (Next.js + Tailwind + Drizzle + Postgres in Docker locally, CI), TASK-002 Kamal deploy skeleton, then the C1 phase (prospecting, research, scoring) — target 2026-11-07.
