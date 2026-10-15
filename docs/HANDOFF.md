@@ -20,7 +20,7 @@ Conversation with the owner in Slovenian; code and docs in English.
 - 2026-10-15: repo created by the owner; docs foundation (manifest, product spec, architecture, ADR-001…010,
   task list) from the business plan `inzenirji.si/docs/nacrt-rasti.md`.
 
-- 2026-10-15: TASK-020 owner-only login built (PR open). Needs the `SMTP_PASSWORD` secret before it reaches `main`.
+- 2026-10-15 16:27: **TASK-020 login Live on prod, owner-tested** — owner set `SMTP_PASSWORD`, promoted, requested a link, received it from hello@inzenirji.si and is signed in.
 - 2026-10-15 16:07: owner ran `setup` (DB booted) and promoted TASK-003; prod health `{"status":"ok","sha":"e650f24…","db":"ok"}`. **Live.**
 - 2026-10-15: TASK-003 data model merged (PR #7, CI green incl. container + migrations): 8 tables, startup migrations, DB health, do-not-contact.
 - 2026-10-15: TASK-002 deploy skeleton merged (PR #4). First deploy = owner step below.

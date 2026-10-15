@@ -23,4 +23,4 @@ Phases follow the business plan (`inzenirji.si` → `docs/nacrt-rasti.md` §7.5)
 | TASK-017 | Postaja feed for the Inženirji.si brand from finished projects | 014, ADR-006 | C5 · 2027-01 | Planned |
 | TASK-018 | After-launch flow: review/NPS/referral requests, editor-usage upsells (incl. Postaja for clients) | 014 | C5 | Planned |
 | TASK-019 | Win/loss analysis | 016 | C5 | Planned |
-| TASK-020 | Owner-only login: Better Auth magic link, login page, logout, protected pages | 003, ADR-015 | C1 | Built — PR open |
+| TASK-020 | Owner-only login: Better Auth magic link, login page, logout, protected pages | 003, ADR-015 | C1 | Done — Live on prod, owner-tested (PR #10) |
