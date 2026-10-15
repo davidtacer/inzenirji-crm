@@ -23,6 +23,7 @@ describe("migrations", () => {
     expect(t.map((r) => r.table_name)).toEqual([
       "account",
       "activities",
+      "ai_usage",
       "api_calls",
       "audits",
       "companies",
