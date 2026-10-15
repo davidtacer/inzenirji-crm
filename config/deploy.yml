@@ -1,0 +1,66 @@
+# Kamal 2 — CRM on the shared Hetzner VM (ADR-011). Same pattern as Postaja prod (Postaja ADR-027/084):
+# host nginx terminates TLS for crm.inzenirji.si and proxies to the shared kamal-proxy on 127.0.0.1:8080;
+# kamal-proxy routes crm.inzenirji.si to this service. Only our own service, accessory and volume are created.
+# Secrets come only from .kamal/secrets, which reads the environment (GitHub environment "prod").
+service: inzenirji-crm
+image: davidtacer/inzenirji-crm
+
+servers:
+  web:
+    hosts:
+      - <%= ENV.fetch("PROD_HOST") %>
+    options:
+      memory: 768m
+
+registry:
+  server: ghcr.io
+  username:
+    - KAMAL_REGISTRY_USERNAME
+  password:
+    - KAMAL_REGISTRY_PASSWORD
+
+builder:
+  arch: amd64
+  args:
+    GIT_SHA: <%= ENV.fetch("GITHUB_SHA") { `git rev-parse HEAD`.strip } %>
+
+ssh:
+  user: deploy
+
+proxy:
+  host: crm.inzenirji.si
+  ssl: false            # TLS is done by host nginx (ops/nginx/crm.inzenirji.si.conf)
+  forward_headers: true # trust X-Forwarded-* from nginx
+  app_port: 3000
+  healthcheck:
+    path: /api/health
+    interval: 3
+    timeout: 5
+
+env:
+  clear:
+    NODE_ENV: production
+    APP_URL: https://crm.inzenirji.si
+    OWNER_EMAILS: "<%= ENV.fetch("OWNER_EMAILS") %>"
+  secret:
+    - DATABASE_URL
+    - BETTER_AUTH_SECRET
+
+accessories:
+  db:
+    # Container name: inzenirji-crm-db. No `port:` → reachable only on the internal `kamal` Docker network.
+    image: postgres:16
+    host: <%= ENV.fetch("PROD_HOST") %>
+    env:
+      clear:
+        POSTGRES_USER: crm
+        POSTGRES_DB: crm_prod
+      secret:
+        - POSTGRES_PASSWORD
+    volumes:
+      - inzenirji-crm-db-data:/var/lib/postgresql/data
+    options:
+      memory: 512m
+
+# Keep a few old images for rollback, prune the rest (shared host).
+retain_containers: 3

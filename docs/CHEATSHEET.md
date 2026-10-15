@@ -14,7 +14,7 @@ Never values here — only names and where they live.
 ## Host
 | Env | Host | SSH user | Notes |
 |---|---|---|---|
-| prod | Hetzner VM `91.99.191.8` (shared with asisto, Postaja dev/prod) | `deploy` | host nginx → kamal-proxy 127.0.0.1:8080; our service `inzenirji-crm`, DB accessory `crm-db` |
+| prod | Hetzner VM `91.99.191.8` (shared with asisto, Postaja dev/prod) | `deploy` | host nginx → kamal-proxy 127.0.0.1:8080; our service `inzenirji-crm`, DB container `inzenirji-crm-db` |
 
 ## Secrets (names only)
 | Name | Used by | Lives in | Status |
