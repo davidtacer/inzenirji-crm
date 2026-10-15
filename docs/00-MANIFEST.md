@@ -24,14 +24,21 @@ Related repos:
   proposals, posts). Everything outbound is a draft until the owner approves it (ADR-004). Auto-send may be enabled
   later per category by an ADR, never by default.
 - Never contact anyone on the do-not-contact list, in any channel. Opt-outs are permanent.
+- Never exceed the sending limits of ADR-013 (warm-up, daily cap, bounce stop); outreach runs from the main domain.
 - Never store personal e-mail addresses that were not published by the business itself or given to us by the person.
 - Never generate a mockup automatically; mockups run only when the owner starts them for a chosen lead (ADR-005).
 - Never post to social networks for clients. Postaja is fed only for the Inženirji.si brand (ADR-006).
 - Never use floats for money: integer euro cents; AI cost in integer micro-euros (as in inzenirji-widget ADR-005).
 
-## Stack
-Next.js (App Router) + TypeScript strict + Tailwind CSS, visual design from the Inženirji.si brand (ADR-002).
-Data store and hosting: see ADR-003 (Proposed). New dependencies need a justification in the PR, an ADR if non-trivial.
+## Stack (fixed — new dependencies need a justification in the PR and an ADR if non-trivial)
+Next.js (App Router) + TypeScript strict + Tailwind CSS, Inženirji.si design (ADR-002) · PostgreSQL 16 + Drizzle ·
+pg-boss jobs · Better Auth magic link · Kamal 2 on the shared Hetzner VM (ADR-011).
+
+## Shared server — hard rules (ADR-011)
+The VM `91.99.191.8` also runs asisto, Postaja dev + prod and later volil.si. Only ever add or change **our own**
+things: the `inzenirji-crm` Kamal service, the `db` accessory (container `inzenirji-crm-db`), the `inzenirji-crm-db-data` volume and
+`ops/nginx/crm.inzenirji.si.conf`. Never edit other nginx server blocks, the kamal-proxy boot config, other
+containers/volumes, the firewall or system packages. Every resource we run has a memory limit.
 
 ## UI rules (Inženirji.si CGP)
 Black background `#000000`, surfaces `#0A0A0A` / `#111111`, borders 1px `#222222`, text `#EAEAEA` / `#888888`,

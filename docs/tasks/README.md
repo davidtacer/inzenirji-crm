@@ -4,8 +4,8 @@ Phases follow the business plan (`inzenirji.si` → `docs/nacrt-rasti.md` §7.5)
 
 | Task | Title | Depends on | Phase / target | Status |
 |---|---|---|---|---|
-| TASK-001 | Scaffold: Next.js + Tailwind (Inženirji.si tokens), lint/typecheck/test/build, CI | ADR-002, ADR-003 | C1 · 2026-10-24 | Planned |
-| TASK-002 | Owner-only auth + deploy skeleton | 001, ADR-003 | C1 | Planned |
+| TASK-001 | Scaffold: Next.js + Tailwind (Inženirji.si tokens), lint/typecheck/test/build, CI | ADR-002 | C1 · 2026-10-24 | Done (PR #3) |
+| TASK-002 | Deploy skeleton: Dockerfile, Kamal (`prod`), GitHub Actions deploy, health on crm.inzenirji.si | 001, ADR-011, ADR-014 | C1 | Built — PR open; waits for the owner's first deploy |
 | TASK-003 | Data model + migrations (company, contact, audit, deal, activity, draft, do_not_contact) | 001 | C1 | Planned |
 | TASK-004 | Import existing leads (Google Sheets + `processed.txt` history) | 003 | C1 | Planned |
 | TASK-005 | Prospecting: Google Places search by region × category, dedupe, daily cap | 003 | C1 · 2026-11-07 | Planned |
