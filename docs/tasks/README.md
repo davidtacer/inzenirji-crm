@@ -10,7 +10,7 @@ Phases follow the business plan (`inzenirji.si` → `docs/nacrt-rasti.md` §7.5)
 | TASK-004 | Import existing leads (Google Sheets + `processed.txt` history) | 003 | C1 | Planned |
 | TASK-005 | Prospecting: Google Places search by region × category, dedupe, daily cap | 003 | C1 · 2026-11-07 | Done — Live on prod, owner-tested (PR #13) |
 | TASK-006 | Due diligence: site audit, freshness vs. Google profile, competitors, summary, group A/B | 005 | C1 | Done — Live (v1: no AI, no browser; PR #23) |
-| TASK-007 | Lead scoring + "today's top 10" home screen | 006 | C1 | Planned |
+| TASK-007 | Lead scoring + "today's top 10" home screen | 006, ADR-018 | C1 | Built — PR open |
 | TASK-008 | Drafts + approval queue; outreach sequence (day 0/3/8); do-not-contact; send cap | 007, ADR-004, ADR-007 | C2 · 2026-11-21 | Planned |
 | TASK-009 | Mailbox sync, reply matching and classification, reply drafts | 008 | C2 | Planned |
 | TASK-010 | Mockup module (on demand, owner-started) | 006, ADR-005 | C2 | Planned |
@@ -25,4 +25,4 @@ Phases follow the business plan (`inzenirji.si` → `docs/nacrt-rasti.md` §7.5)
 | TASK-019 | Win/loss analysis | 016 | C5 | Planned |
 | TASK-020 | Owner-only login: Better Auth magic link, login page, logout, protected pages | 003, ADR-015 | C1 | Done — Live on prod, owner-tested (PR #10) |
 | TASK-021 | App shell: sidebar menu, full width (owner's reference); own site vs. social/link pages | 005 | C1 | Done — Live on prod (PR #15) |
-| TASK-022 | Nearby competitors from Google for good businesses; location/type stored; A/B legend | 006, ADR-017 | C1 | Built — PR open |
+| TASK-022 | Nearby competitors from Google for good businesses; location/type stored; A/B legend | 006, ADR-017 | C1 | Done — Live on prod (owner-tested) |

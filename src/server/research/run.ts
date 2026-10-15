@@ -7,6 +7,7 @@ import { analyzeHtml, findIssues, proposeGroup, summarize, type SiteFacts } from
 import { safeFetch, type FetchedPage, type Resolver } from "./safe-fetch";
 import { findNearbyCompetitors, type Competitor, type PlacesDeps } from "./competitors";
 import { isGoodBusiness } from "../places/import";
+import { rescoreCompany } from "../scoring/apply";
 
 /** `places`: when set, good businesses get real nearby competitors from Google (TASK-022). */
 export type AuditDeps = { fetchImpl?: typeof fetch; resolve?: Resolver; now?: Date; places?: PlacesDeps };
@@ -86,7 +87,8 @@ export async function runAudit(db: Db, companyId: string, deps: AuditDeps = {}) 
     }
     await tx.update(deals).set({ stage: "researched", updatedAt: new Date() }).where(and(eq(deals.companyId, c.id), eq(deals.stage, "found")));
   });
-  return { group, issues: issues.length, emails: facts?.emails.length ?? 0, competitors: competitors!.length, competitorSource, siteDomain };
+  const score = await rescoreCompany(db, c.id);
+  return { group, issues: issues.length, emails: facts?.emails.length ?? 0, competitors: competitors!.length, competitorSource, siteDomain, score: score?.total ?? null };
 }
 
 /** Researches up to `limit` not-yet-researched companies, best businesses first, `concurrency` at a time. */
@@ -166,12 +168,13 @@ export async function listCompanies(db: Db, filter: CompanyFilter, limit = 200) 
       websiteDomain: companies.websiteDomain,
       phone: companies.phone,
       group: companies.group,
+      score: companies.score,
       stage: deals.stage,
     })
     .from(companies)
     .leftJoin(deals, eq(deals.companyId, companies.id))
     .where(where)
-    .orderBy(desc(companies.updatedAt))
+    .orderBy(sql`${companies.score} desc nulls last`, desc(companies.updatedAt))
     .limit(limit);
 }
 
