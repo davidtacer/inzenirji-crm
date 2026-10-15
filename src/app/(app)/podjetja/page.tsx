@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CompanyTable } from "@/components/CompanyTable";
+import { GroupLegend } from "@/components/GroupLegend";
 import { PageHeader } from "@/components/PageHeader";
 import { getDb } from "@/server/db/client";
 import { listCompanies, unresearchedCount, type CompanyFilter } from "@/server/research/run";
@@ -12,8 +13,8 @@ const FILTERS: [CompanyFilter, string][] = [
   ["good", "Dober posel"],
   ["found", "Neraziskana"],
   ["researched", "Raziskana"],
-  ["A", "Skupina A"],
-  ["B", "Skupina B"],
+  ["A", "A · prenos"],
+  ["B", "B · nova stran"],
 ];
 
 export default async function CompaniesPage({ searchParams }: { searchParams: Promise<{ f?: string }> }) {
@@ -24,6 +25,7 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
   return (
     <>
       <PageHeader title="Podjetja" description="Vsa najdena podjetja. Raziskava odpre njihovo stran in predlaga skupino A ali B." right={<ResearchBatchButton pending={pending} />} />
+      <GroupLegend />
       <div className="mb-4 flex flex-wrap gap-px border border-border bg-border">
         {FILTERS.map(([k, label]) => (
           <Link

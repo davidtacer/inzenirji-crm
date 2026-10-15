@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function SearchPage() {
   const db = getDb();
   const [rows, used] = await Promise.all([latestCompanies(db), callsToday(db, PLACES_PROVIDER)]);
-  const cap = Number(process.env.PLACES_DAILY_CALL_CAP ?? 50);
+  const cap = Number(process.env.PLACES_DAILY_CALL_CAP ?? 100);
   return (
     <>
       <PageHeader

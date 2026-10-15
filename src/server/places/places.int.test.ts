@@ -35,13 +35,16 @@ const place = (over: Partial<Place> = {}): Place => ({
   reviewCount: 120,
   category: "Restavracija",
   mapsUrl: null,
+  placeType: "hair_care",
+  lat: 46.23,
+  lng: 15.26,
   ...over,
 });
 
 describe("importPlaces", () => {
   it("creates a company with a found deal, and updates it on the next run", async () => {
-    expect(await importPlaces(db, [place()])).toEqual({ created: 1, updated: 0 });
-    expect(await importPlaces(db, [place({ reviewCount: 130 })])).toEqual({ created: 0, updated: 1 });
+    expect(await importPlaces(db, [place()])).toMatchObject({ created: 1, updated: 0 });
+    expect(await importPlaces(db, [place({ reviewCount: 130 })])).toMatchObject({ created: 0, updated: 1 });
     const rows = await admin`select c.website_domain, c.review_count, d.stage, d.source from companies c join deals d on d.company_id = c.id`;
     expect(rows).toEqual([{ website_domain: "gostilna-primer.si", review_count: 130, stage: "found", source: "places_search" }]);
   });
@@ -53,7 +56,7 @@ describe("importPlaces", () => {
       place(),
       place({ placeId: "p2", name: "Salon Primer", website: null, phone: "041222333" }),
     ]);
-    expect(r).toEqual({ created: 0, updated: 2 });
+    expect(r).toMatchObject({ created: 0, updated: 2 });
     expect((await admin`select count(*)::int as n from companies`)[0].n).toBe(2);
     expect((await admin`select count(*)::int as n from deals`)[0].n).toBe(2);
   });

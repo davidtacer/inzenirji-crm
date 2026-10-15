@@ -5,8 +5,11 @@ import type { Db } from "../db/client";
 import { audits, companies, competitorLinks, contacts, deals } from "../db/schema";
 import { analyzeHtml, findIssues, proposeGroup, summarize, type SiteFacts } from "./analyze";
 import { safeFetch, type FetchedPage, type Resolver } from "./safe-fetch";
+import { findNearbyCompetitors, type Competitor, type PlacesDeps } from "./competitors";
+import { isGoodBusiness } from "../places/import";
 
-export type AuditDeps = { fetchImpl?: typeof fetch; resolve?: Resolver; now?: Date };
+/** `places`: when set, good businesses get real nearby competitors from Google (TASK-022). */
+export type AuditDeps = { fetchImpl?: typeof fetch; resolve?: Resolver; now?: Date; places?: PlacesDeps };
 
 /**
  * Researches one company (TASK-006): website checks, issues, published e-mails (with source), group A/B,
@@ -40,21 +43,30 @@ export async function runAudit(db: Db, companyId: string, deps: AuditDeps = {}) 
   const group = proposeGroup(kind, reachable);
   const summary = summarize(issues, group);
 
-  const competitors =
-    c.city && c.category
-      ? await db
-          .select({ id: companies.id })
-          .from(companies)
-          .where(and(eq(companies.city, c.city), eq(companies.category, c.category), ne(companies.id, c.id)))
-          .orderBy(desc(sql`coalesce(${companies.ratingX10}, 0) * least(coalesce(${companies.reviewCount}, 0), 200)`))
-          .limit(5)
-      : [];
+  let competitors: Competitor[] | null = null;
+  let competitorSource: "nearby" | "database" = "database";
+  if (deps.places && isGoodBusiness(c)) {
+    competitors = await findNearbyCompetitors(db, c, deps.places);
+    if (competitors) competitorSource = "nearby";
+  }
+  if (!competitors) {
+    const rows =
+      c.city && c.category
+        ? await db
+            .select({ id: companies.id })
+            .from(companies)
+            .where(and(eq(companies.city, c.city), eq(companies.category, c.category), ne(companies.id, c.id)))
+            .orderBy(desc(sql`coalesce(${companies.ratingX10}, 0) * least(coalesce(${companies.reviewCount}, 0), 200)`))
+            .limit(5)
+        : [];
+    competitors = rows.map((r) => ({ id: r.id, distanceM: -1 }));
+  }
 
   const siteDomain = domainOf(page?.finalUrl ?? c.website);
   await db.transaction(async (tx) => {
     await tx.insert(audits).values({
       companyId: c.id,
-      data: { kind, page: page ? { finalUrl: page.finalUrl, status: page.status, ms: page.ms, https: page.https, redirects: page.redirects } : null, facts, fetchError },
+      data: { competitorSource, kind, page: page ? { finalUrl: page.finalUrl, status: page.status, ms: page.ms, https: page.https, redirects: page.redirects } : null, facts, fetchError },
       issues,
       summary,
     });
@@ -65,12 +77,16 @@ export async function runAudit(db: Db, companyId: string, deps: AuditDeps = {}) 
       // Published by the business on its own site (ADR-007); the page is the source.
       await tx.insert(contacts).values({ companyId: c.id, email, emailSource: page!.finalUrl }).onConflictDoNothing();
     }
-    for (const comp of competitors) {
-      await tx.insert(competitorLinks).values({ companyId: c.id, competitorId: comp.id }).onConflictDoNothing();
+    if (competitorSource === "nearby") await tx.delete(competitorLinks).where(eq(competitorLinks.companyId, c.id));
+    for (const comp of competitors!) {
+      await tx
+        .insert(competitorLinks)
+        .values({ companyId: c.id, competitorId: comp.id, distanceM: comp.distanceM >= 0 ? comp.distanceM : null })
+        .onConflictDoNothing();
     }
     await tx.update(deals).set({ stage: "researched", updatedAt: new Date() }).where(and(eq(deals.companyId, c.id), eq(deals.stage, "found")));
   });
-  return { group, issues: issues.length, emails: facts?.emails.length ?? 0, competitors: competitors.length, siteDomain };
+  return { group, issues: issues.length, emails: facts?.emails.length ?? 0, competitors: competitors!.length, competitorSource, siteDomain };
 }
 
 /** Researches up to `limit` not-yet-researched companies, best businesses first, `concurrency` at a time. */
@@ -110,14 +126,21 @@ export async function companyDetail(db: Db, id: string) {
   if (!c) return null;
   const [audit] = await db.select().from(audits).where(eq(audits.companyId, id)).orderBy(desc(audits.createdAt)).limit(1);
   const people = await db.select().from(contacts).where(eq(contacts.companyId, id));
-  const links = await db.select({ id: competitorLinks.competitorId }).from(competitorLinks).where(eq(competitorLinks.companyId, id));
+  const links = await db
+    .select({ id: competitorLinks.competitorId, distanceM: competitorLinks.distanceM })
+    .from(competitorLinks)
+    .where(eq(competitorLinks.companyId, id));
   const rivals = links.length
     ? await db
         .select({ id: companies.id, name: companies.name, website: companies.website, websiteDomain: companies.websiteDomain, ratingX10: companies.ratingX10, reviewCount: companies.reviewCount })
         .from(companies)
         .where(inArray(companies.id, links.map((l) => l.id)))
     : [];
-  return { ...c, audit: audit ?? null, contacts: people, competitors: rivals };
+  const dist = new Map(links.map((l) => [l.id, l.distanceM]));
+  const withDistance = rivals
+    .map((r) => ({ ...r, distanceM: dist.get(r.id) ?? null }))
+    .sort((a, b) => (a.distanceM ?? 1e9) - (b.distanceM ?? 1e9) || (b.ratingX10 ?? 0) - (a.ratingX10 ?? 0));
+  return { ...c, audit: audit ?? null, contacts: people, competitors: withDistance };
 }
 
 export type CompanyFilter = "all" | "good" | "A" | "B" | "found" | "researched";

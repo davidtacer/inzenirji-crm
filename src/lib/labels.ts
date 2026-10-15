@@ -23,3 +23,9 @@ export const SOURCE_LABEL: Record<string, string> = {
   partner: "partner",
   manual: "ročno",
 };
+
+export const GROUP_LABEL: Record<"A" | "B", string> = { A: "A · prenos", B: "B · nova stran" };
+export const GROUP_HELP: Record<"A" | "B", string> = {
+  A: "Že ima svojo spletno stran — prenesemo jo na naš sistem z urejevalnikom (cena po pregledu).",
+  B: "Nima prave strani (nič, samo Facebook ali link, ali se ne odpre) — ponudimo novo stran.",
+};

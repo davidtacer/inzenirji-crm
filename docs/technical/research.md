@@ -11,8 +11,12 @@ How a company is researched today (`src/server/research/`).
    JSON-LD and LocalBusiness, e-mails (mailto + text, junk filtered), social links (share links ignored), tel: numbers.
 4. `findIssues()` → Slovenian issues with severity; `proposeGroup()` (A = reachable own site, else B); `summarize()`.
 5. `runAudit()` stores an `audits` row, sets `companies.offer_group`, inserts e-mails as contacts with the fetched page
-   as `email_source` (ADR-007), links up to 5 competitors (same city + category in our DB, by rating × reviews),
+   as `email_source` (ADR-007), links up to 5 competitors — **good businesses: real neighbours from Google Nearby
+   Search with distance (ADR-017, `competitors.ts`)**; others or on any Places problem: same city + category in our DB,
    moves the deal `found → researched` (never touches later stages).
 6. `researchBatch()`: up to 20 `found` companies, 3 at a time, from the owner's button on /podjetja.
 
-Not yet: AI summary, screenshots/real mobile test (headless browser in the worker), nearest competitors by distance.
+Not yet: AI summary, screenshots/real mobile test (headless browser in the worker).
+
+Groups (shown everywhere with meaning, owner request): **A · prenos** = has an own site we move to our framework;
+**B · nova stran** = no real site (none, social/link only, or unreachable) → new site.
