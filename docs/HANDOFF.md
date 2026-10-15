@@ -21,6 +21,7 @@ Conversation with the owner in Slovenian; code and docs in English.
 - 2026-10-15: repo created by the owner; docs foundation (manifest, product spec, architecture, ADR-001…010,
   task list) from the business plan `inzenirji.si/docs/nacrt-rasti.md`.
 
+- 2026-10-15: TASK-006 research v1 built (PR open). Favicons: CRM `>I` live; editor `I_` on widget dev (PR #21 there).
 - 2026-10-15: TASK-021 sidebar layout (owner request with TeleCRM reference) built (PR open).
 - 2026-10-15 16:54: TASK-005 Live on prod, owner-tested (search "frizerski salon Celje" filled the table). Built earlier: owner set `GOOGLE_PLACES_API_KEY` (restricted to the server IP) 16:34.
 - 2026-10-15 16:27: **TASK-020 login Live on prod, owner-tested** — owner set `SMTP_PASSWORD`, promoted, requested a link, received it from hello@inzenirji.si and is signed in.
