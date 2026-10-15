@@ -21,6 +21,8 @@ export type ComposeInput = {
   issues: Issue[];
   /** Nearest competitor that has its own site (name + distance in metres), if any. */
   rival?: { name: string; distanceM: number | null } | null;
+  /** AI-written remark (TASK-024); used instead of the rule-based one when present. */
+  aiRemark?: string | null;
 };
 
 export type Composed = { subject: string; body: string };
@@ -37,6 +39,7 @@ function rating(x10: number) {
 
 /** One sentence fragment that follows "opazil sem, da …". */
 export function remarkFor(input: ComposeInput): string {
+  if (input.aiRemark) return input.aiRemark;
   const top = input.issues[0];
   const goodReviews = (input.ratingX10 ?? 0) >= 45 && (input.reviewCount ?? 0) >= 30;
   const praise = goodReviews ? ` - škoda, ker imate na Googlu odlične ocene (${rating(input.ratingX10!)} iz ${input.reviewCount} mnenj)` : "";
