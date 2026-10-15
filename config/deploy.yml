@@ -57,12 +57,16 @@ env:
     OUTREACH_DAILY_CAP: "10"
     OUTREACH_SMTP_USER: david@inzenirji.si
     OUTREACH_FROM: "David Tacer <david@inzenirji.si>"
+    # AI personal remark (TASK-024, ADR-021): model and a hard daily spend limit (rolling 24 h).
+    AI_MODEL: claude-sonnet-5-5
+    AI_DAILY_BUDGET_USD: "2"
   secret:
     - DATABASE_URL
     - BETTER_AUTH_SECRET
     - SMTP_PASSWORD
     - GOOGLE_PLACES_API_KEY
     - OUTREACH_SMTP_PASSWORD
+    - ANTHROPIC_API_KEY
 
 accessories:
   db:

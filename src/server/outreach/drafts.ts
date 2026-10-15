@@ -6,6 +6,7 @@ import type { Db } from "../db/client";
 import { activities, audits, companies, competitorLinks, contacts, deals, drafts } from "../db/schema";
 import type { Issue } from "../research/analyze";
 import { rescoreCompany } from "../scoring/apply";
+import { ensureAiRemark, type AiConfig } from "../ai/remark";
 import { composeFirst, composeFollowUp1, composeFollowUp2, type ComposeInput } from "./compose";
 
 /*
@@ -60,14 +61,22 @@ async function composeInput(db: Db, companyId: string) {
 }
 
 /** Day-0 e-mail for a researched company with a published e-mail address. */
-export async function createFirstDraft(db: Db, companyId: string): Promise<DraftResult> {
+export async function createFirstDraft(db: Db, companyId: string, ai: AiConfig | null = null): Promise<DraftResult> {
   const ctx = await composeInput(db, companyId);
   if (!ctx) return { ok: false, reason: "NOT_FOUND" };
   if (!ctx.audit) return { ok: false, reason: "NOT_RESEARCHED" };
   if (ctx.stage !== "researched" && ctx.stage !== "found") return { ok: false, reason: "WRONG_STAGE" };
   if (!ctx.email) return { ok: false, reason: "NO_EMAIL" };
   if (await isBlocked(db, { email: ctx.email, companyId })) return { ok: false, reason: "BLOCKED" };
-  const m = composeFirst(ctx.input);
+  const existing = await db
+    .select({ id: drafts.id })
+    .from(drafts)
+    .where(and(eq(drafts.dealId, ctx.dealId), eq(drafts.kind, "first"), ne(drafts.status, "discarded")))
+    .limit(1);
+  if (existing.length) return { ok: false, reason: "EXISTS" };
+  // AI remark only now, for leads the owner actually writes to (cost); rules when AI is off or fails.
+  const ai_ = await ensureAiRemark(db, companyId, ai);
+  const m = composeFirst({ ...ctx.input, aiRemark: ai_?.remark ?? null });
   const [d] = await db
     .insert(drafts)
     .values({ dealId: ctx.dealId, kind: "first", toEmail: ctx.email, subject: m.subject, body: m.body })
@@ -77,11 +86,11 @@ export async function createFirstDraft(db: Db, companyId: string): Promise<Draft
 }
 
 /** Prepares day-0 drafts for the given companies; returns how many were created and why others were skipped. */
-export async function createFirstDrafts(db: Db, companyIds: string[]) {
+export async function createFirstDrafts(db: Db, companyIds: string[], ai: AiConfig | null = null) {
   let created = 0;
   const skipped: Record<string, number> = {};
   for (const id of companyIds) {
-    const r = await createFirstDraft(db, id);
+    const r = await createFirstDraft(db, id, ai);
     if (r.ok) created++;
     else skipped[r.reason] = (skipped[r.reason] ?? 0) + 1;
   }

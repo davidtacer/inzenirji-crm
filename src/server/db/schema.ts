@@ -311,3 +311,20 @@ export const apiCalls = pgTable(
   },
   (t) => [primaryKey({ columns: [t.provider, t.day] }), check("api_calls_count_non_negative", sql`${t.count} >= 0`)],
 );
+
+/** Every paid AI call (TASK-024): tokens and cost in integer micro-dollars (Anthropic bills in USD). */
+export const aiUsage = pgTable(
+  "ai_usage",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    job: text("job").notNull(),
+    model: text("model").notNull(),
+    companyId: uuid("company_id").references(() => companies.id, { onDelete: "set null" }),
+    inputTokens: integer("input_tokens").notNull(),
+    outputTokens: integer("output_tokens").notNull(),
+    costMicroUsd: integer("cost_micro_usd").notNull(),
+    ok: boolean("ok").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("ai_usage_created_idx").on(t.createdAt), check("ai_usage_cost_non_negative", sql`${t.costMicroUsd} >= 0`)],
+);

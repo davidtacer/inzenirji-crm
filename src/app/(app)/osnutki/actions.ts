@@ -16,6 +16,7 @@ import {
 } from "@/server/outreach/drafts";
 import { outreachConfigFromEnv, SEND_REASON, sendApprovedDraft } from "@/server/outreach/send";
 import { topLeads } from "@/server/scoring/apply";
+import { aiConfigFromEnv } from "@/server/ai/remark";
 
 export type ActionState = { ok: boolean; message: string } | null;
 
@@ -75,7 +76,7 @@ export async function draftOneAction(_prev: ActionState, form: FormData): Promis
   if (!(await getCurrentUser())) return EXPIRED;
   const id = form.get("companyId");
   if (!isId(id)) return { ok: false, message: "Neveljavno podjetje." };
-  const r = await createFirstDraft(getDb(), id);
+  const r = await createFirstDraft(getDb(), id, aiConfigFromEnv());
   refresh(id);
   return r.ok ? { ok: true, message: "Osnutek je pripravljen — najdeš ga v »Osnutki«." } : { ok: false, message: DRAFT_REASON[r.reason] };
 }
@@ -85,7 +86,7 @@ export async function draftTopAction(_prev: ActionState): Promise<ActionState> {
   if (!(await getCurrentUser())) return EXPIRED;
   const db = getDb();
   const top = await topLeads(db, 10);
-  const r = await createFirstDrafts(db, top.map((t) => t.id));
+  const r = await createFirstDrafts(db, top.map((t) => t.id), aiConfigFromEnv());
   refresh();
   const why = Object.entries(r.skipped)
     .map(([k, n]) => `${n}× ${DRAFT_REASON[k as keyof typeof DRAFT_REASON].replace(/\.$/, "").toLowerCase()}`)
