@@ -36,3 +36,13 @@ export async function researchBatchAction(_prev: ActionState): Promise<ActionSta
   if (r.done === 0 && r.failed === 0) return { ok: true, message: "Vsa podjetja so že raziskana." };
   return { ok: r.failed === 0, message: `Raziskanih ${r.done}${r.failed ? `, neuspešnih ${r.failed}` : ""}.` };
 }
+
+export async function deepenAction(_prev: ActionState): Promise<ActionState> {
+  void _prev;
+  if (!(await getCurrentUser())) return { ok: false, message: "Prijava je potekla. Osveži stran." };
+  const r = await researchBatch(getDb(), { limit: 20, concurrency: 3, deepen: true, places: placesDeps() });
+  revalidatePath("/podjetja");
+  revalidatePath("/");
+  if (r.done === 0 && r.failed === 0) return { ok: true, message: "Vsa raziskana podjetja so že poglobljeno raziskana." };
+  return { ok: r.failed === 0, message: `Poglobljeno raziskanih ${r.done}${r.failed ? `, neuspešnih ${r.failed}` : ""}. Zdaj lahko znova pripraviš osnutke.` };
+}

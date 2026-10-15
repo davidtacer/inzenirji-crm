@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { analyzeHtml, findIssues, proposeGroup, summarize } from "./analyze";
+import { analyzeHtml, contactLinks, decodeCfEmail, extractEmails, findIssues, proposeGroup, rankEmails, summarize } from "./analyze";
 
 const WP = `<!doctype html><html><head><title>Salon Ana &amp; Co</title>
 <meta name="generator" content="WordPress 5.2.4">
@@ -60,5 +60,25 @@ describe("group + summary", () => {
     expect(summarize([{ code: "no_website", severity: "high", text: "Podjetje nima spletne strani." }], "B")).toBe(
       "Skupina B (nova stran) — rabi novo spletno stran. Podjetje nima spletne strani.",
     );
+  });
+});
+
+describe("e-mails and contact pages (TASK-023)", () => {
+  it("finds mailto, plain, entity, Cloudflare, JSON-LD and [at]/(dot) spellings; skips junk", () => {
+    const html = `<a href="mailto:Info@A.si?subject=x">x</a> b&#64;a.si <span data-cfemail="2b484d6b4a055842"></span>
+<script type="application/ld+json">{"email":"ld@a.si"}</script> pisarna (at) a (dot) si  logo@2x.png name@domain.com`;
+    expect(extractEmails(html)).toEqual(["b@a.si", "cf@a.si", "info@a.si", "ld@a.si", "pisarna@a.si"]);
+  });
+  it("decodes Cloudflare protection", () => {
+    expect(decodeCfEmail("2b584a4744456b584a474445064a454a055842")).toBe("salon@salon-ana.si");
+    expect(decodeCfEmail("zz")).toBeNull();
+  });
+  it("contact links: same host only, no files, no duplicates, max 4", () => {
+    const html = `<a href="/kontakt">a</a><a href="/kontakt/">b</a><a href="https://www.x.si/o-nas">c</a><a href="https://y.si/kontakt">d</a>
+<a href="/files/kontakt.pdf">e</a><a href="/storitve">Kontaktirajte nas</a><a href="/impressum">f</a><a href="/about">g</a>`;
+    expect(contactLinks(html, "https://x.si/")).toEqual(["https://x.si/kontakt", "https://www.x.si/o-nas", "https://x.si/storitve", "https://x.si/impressum"]);
+  });
+  it("ranks the site's own shop mailbox first", () => {
+    expect(rankEmails(["janez.novak@gmail.com", "racunovodstvo@x.si", "info@x.si", "info@agencija.si"], "x.si")).toEqual(["info@x.si", "racunovodstvo@x.si", "info@agencija.si", "janez.novak@gmail.com"]);
   });
 });

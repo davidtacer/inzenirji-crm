@@ -3,7 +3,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createDb } from "../db/client";
 import { runMigrations } from "../db/migrate";
 import { companies, deals } from "../db/schema";
-import { companyDetail, researchBatch, runAudit } from "./run";
+import { companyDetail, researchBatch, runAudit, shallowCount } from "./run";
+import { audits } from "../db/schema";
 
 const url = process.env.TEST_DATABASE_URL!;
 const admin = postgres(url, { max: 1, onnotice: () => {} });
@@ -121,10 +122,10 @@ describe("nearby competitors (TASK-022)", () => {
     ]);
     expect(d.company.lat).toBe(46.23);
     expect((await admin`select count(*)::int as n from companies`)[0].n).toBe(3);
-    // Second research: location is known now, only the nearby call is made.
+    // Second research: one profile call (TASK-023) + nearby; location is not looked up separately.
     const again: string[] = [];
     await runAudit(db, ana.id, { resolve, places: { apiKey: "K", dailyCap: 10, fetchImpl: places(again) } });
-    expect(again.every((c) => c.includes("searchNearby"))).toBe(true);
+    expect(again.map((c) => (c.includes("searchNearby") ? "nearby" : "details"))).toEqual(["details", "nearby"]);
   });
 
   it("not a good business or no quota left: falls back to the database, no Google call", async () => {
@@ -137,5 +138,84 @@ describe("nearby competitors (TASK-022)", () => {
     const r2 = await runAudit(db, good.id, { resolve, places: { apiKey: "K", dailyCap: 10, fetchImpl: places(calls) } });
     expect(r2.competitorSource).toBe("database");
     expect(calls).toEqual([]);
+  });
+});
+
+describe("deep research (TASK-023)", () => {
+  const HOME = `<html><head><meta name="viewport" content="width=device-width"><title>Salon Ana</title></head><body>
+<h1>Salon Ana</h1><a href="/kontakt/">Kontakt</a> <a href="https://salon-ana.si/o-nas">O nas</a> <a href="https://drug.si/kontakt">tuj</a>
+<a href="/cenik.pdf">Cenik (kontakt)</a></body></html>`;
+  const CONTACT = `<html><body><p>Pišite na info [at] salon-ana [dot] si ali
+<a href="/cdn-cgi/l/email-protection#2b584a4744456b584a474445064a454a055842">[email&#160;protected]</a></p>
+<p>Delovni čas:<br>Pon - Pet: 8:00 - 16:00<br>Sobota 8.00–12.00<br>Ned: zaprto</p><a href="tel:+386 41 222 333">tel</a></body></html>`;
+  const ABOUT = `<html><body><p>Smo družinski salon od leta 1998.</p></body></html>`;
+  const site = (urls: string[]) =>
+    (async (u: string) => {
+      urls.push(String(u));
+      const path = new URL(String(u)).pathname;
+      if (path.startsWith("/kontakt")) return new Response(CONTACT, { status: 200 });
+      if (path.startsWith("/o-nas")) return new Response(ABOUT, { status: 200 });
+      return new Response(HOME, { status: 200 });
+    }) as unknown as typeof fetch;
+  const profile = (status = "OPERATIONAL") =>
+    (async (u: string) => {
+      if (String(u).includes("searchNearby")) return new Response(JSON.stringify({ places: [] }), { status: 200 });
+      const day = (d: number, o: number, c: number) => ({ open: { day: d, hour: o, minute: 0 }, close: { day: d, hour: c, minute: 0 } });
+      return new Response(
+        JSON.stringify({
+          location: { latitude: 46.23, longitude: 15.26 },
+          primaryType: "hair_care",
+          businessStatus: status,
+          editorialSummary: { text: "Prijazen frizerski salon." },
+          regularOpeningHours: { periods: [1, 2, 3, 4, 5].map((d) => day(d, 8, 16)).concat([day(6, 8, 13)]), weekdayDescriptions: ["ponedeljek: 08:00–16:00"] },
+          reviews: [{ rating: 5, originalText: { text: "Odlična frizerka Ana!" }, relativePublishTimeDescription: "pred mesecem" }, { rating: 4, text: { text: "" } }],
+        }),
+        { status: 200 },
+      );
+    }) as unknown as typeof fetch;
+
+  it("reads contact/about pages on the same site, finds hidden e-mails with their page, compares hours with Google", async () => {
+    const ana = await company({ name: "Salon Ana", website: "https://salon-ana.si", websiteDomain: "salon-ana.si", placeId: "p1", phone: "041 222 333", ratingX10: 48, reviewCount: 90 });
+    const urls: string[] = [];
+    const r = await runAudit(db, ana.id, { fetchImpl: site(urls), resolve, places: { apiKey: "K", dailyCap: 10, fetchImpl: profile() } });
+    expect(urls).toEqual(["https://salon-ana.si/", "https://salon-ana.si/kontakt", "https://salon-ana.si/o-nas"]);
+    expect(r.emails).toBe(2);
+    const d = (await companyDetail(db, ana.id))!;
+    expect(d.contacts.map((c) => [c.email, c.emailSource]).sort()).toEqual([
+      ["info@salon-ana.si", "https://salon-ana.si/kontakt"],
+      ["salon@salon-ana.si", "https://salon-ana.si/kontakt"],
+    ]);
+    const issues = d.audit!.issues as { code: string; text: string }[];
+    expect(issues[0]).toEqual({ code: "hours_mismatch", severity: "high", text: "Na strani piše, da ste ob sobotah odprti do 12h, na Googlu pa do 13h." });
+    expect(issues.map((i) => i.code)).not.toContain("phone_mismatch");
+    const data = d.audit!.data as { google: { summary: string; reviews: unknown[] }; scanned: unknown[]; siteText: string };
+    expect(data.google.summary).toBe("Prijazen frizerski salon.");
+    expect(data.google.reviews).toEqual([{ rating: 5, text: "Odlična frizerka Ana!", when: "pred mesecem" }]);
+    expect(data.scanned).toHaveLength(3);
+    expect(data.siteText).toContain("družinski salon");
+    expect(d.company.lat).toBe(46.23);
+  });
+
+  it("permanently closed on Google → closed issue and score 0", async () => {
+    const c = await company({ name: "Zaprt", placeId: "p2", ratingX10: 47, reviewCount: 70 });
+    await runAudit(db, c.id, { resolve, places: { apiKey: "K", dailyCap: 10, fetchImpl: profile("CLOSED_PERMANENTLY") } });
+    const d = (await companyDetail(db, c.id))!;
+    expect((d.audit!.issues as { code: string }[])[0].code).toBe("closed");
+    expect(d.company.score).toBe(0);
+  });
+});
+
+describe("deepen (TASK-023)", () => {
+  it("re-researches only researched companies with the old homepage-only audit", async () => {
+    const old = await company({ name: "Star" });
+    await admin`update deals set stage = 'researched' where company_id = ${old.id}`;
+    await db.insert(audits).values({ companyId: old.id, data: {}, issues: [] });
+    const fresh = await company({ name: "Nov" });
+    await runAudit(db, fresh.id, { resolve });
+    await company({ name: "Neraziskan" });
+    expect(await shallowCount(db)).toBe(1);
+    expect(await researchBatch(db, { deepen: true, resolve })).toEqual({ done: 1, failed: 0 });
+    expect(await shallowCount(db)).toBe(0);
+    expect((await admin`select stage from deals d join companies c on c.id = d.company_id where c.name = 'Neraziskan'`)[0].stage).toBe("found");
   });
 });

@@ -3,36 +3,94 @@ import { domainOf, normalizeEmail } from "../contact/normalize";
 import { websiteKind } from "../contact/website";
 import type { Db } from "../db/client";
 import { audits, companies, competitorLinks, contacts, deals } from "../db/schema";
-import { analyzeHtml, findIssues, proposeGroup, summarize, type SiteFacts } from "./analyze";
+import { analyzeHtml, contactLinks, findIssues, pageText, proposeGroup, rankEmails, summarize, type SiteFacts } from "./analyze";
+import { googleHours, hoursMismatch, parseSiteHours } from "./hours";
+import { PlacesError, placeProfile, type PlaceProfile, type PlaceReview } from "../places/client";
+import { QuotaError, reserveCall } from "../places/quota";
+import { PLACES_PROVIDER } from "../places/search";
 import { safeFetch, type FetchedPage, type Resolver } from "./safe-fetch";
 import { findNearbyCompetitors, type Competitor, type PlacesDeps } from "./competitors";
 import { isGoodBusiness } from "../places/import";
 import { rescoreCompany } from "../scoring/apply";
 
-/** `places`: when set, good businesses get real nearby competitors from Google (TASK-022). */
+/** `places`: when set, good businesses get their Google profile and real nearby competitors (TASK-022/023). */
 export type AuditDeps = { fetchImpl?: typeof fetch; resolve?: Resolver; now?: Date; places?: PlacesDeps };
 
+export type GoogleProfileData = {
+  businessStatus: string | null;
+  summary: string | null;
+  mapsUrl: string | null;
+  hoursText: string[];
+  reviews: PlaceReview[];
+};
+
 /**
- * Researches one company (TASK-006): website checks, issues, published e-mails (with source), group A/B,
- * up to 5 competitors from our own database (same city + category), stage found → researched.
+ * Researches one company (TASK-006, deepened in TASK-023): homepage + up to 4 contact/about/imprint pages,
+ * every published e-mail with the page it was found on, opening hours on the site vs. Google, Google profile
+ * (status, description, reviews) for good businesses, issues, group A/B, competitors, stage found → researched.
  */
 export async function runAudit(db: Db, companyId: string, deps: AuditDeps = {}) {
-  const [c] = await db.select().from(companies).where(eq(companies.id, companyId)).limit(1);
+  let [c] = await db.select().from(companies).where(eq(companies.id, companyId)).limit(1);
   if (!c) throw new Error("COMPANY_NOT_FOUND");
   const kind = websiteKind(c.websiteDomain);
   let page: FetchedPage | null = null;
   let facts: SiteFacts | null = null;
   let fetchError: string | null = null;
+  const emailSource = new Map<string, string>();
+  const scanned: { url: string; status: number }[] = [];
+  let siteText = "";
   if (kind === "own" && c.website) {
     try {
       page = await safeFetch(/^https?:\/\//i.test(c.website) ? c.website : `https://${c.website}`, deps);
-      if (page.status < 400) facts = analyzeHtml(page.html);
+      scanned.push({ url: page.finalUrl, status: page.status });
+      if (page.status < 400) {
+        facts = analyzeHtml(page.html);
+        for (const e of facts.emails) emailSource.set(e, page.finalUrl);
+        siteText = pageText(page.html);
+        const phones = new Set(facts.phones);
+        for (const link of contactLinks(page.html, page.finalUrl, 4)) {
+          try {
+            const sub = await safeFetch(link, { ...deps, timeoutMs: 8_000 });
+            scanned.push({ url: sub.finalUrl, status: sub.status });
+            if (sub.status >= 400) continue;
+            const f = analyzeHtml(sub.html);
+            for (const e of f.emails) if (!emailSource.has(e)) emailSource.set(e, sub.finalUrl);
+            for (const p of f.phones) phones.add(p);
+            for (const [k, v] of Object.entries(f.socials)) facts.socials[k] ??= v;
+            siteText += `\n${pageText(sub.html)}`;
+          } catch {
+            scanned.push({ url: link, status: 0 });
+          }
+        }
+        facts.phones = [...phones];
+        facts.emails = rankEmails([...emailSource.keys()], domainOf(page.finalUrl));
+      }
     } catch (e) {
       fetchError = e instanceof Error ? e.message : "FETCH_FAILED";
     }
   }
+
+  // Google profile for good businesses (one Place Details call within the daily cap).
+  let google: PlaceProfile | null = null;
+  if (deps.places?.apiKey && c.placeId && isGoodBusiness(c)) {
+    try {
+      await reserveCall(db, PLACES_PROVIDER, deps.places.dailyCap);
+      google = await placeProfile(c.placeId, deps.places.apiKey, deps.places.fetchImpl);
+      if ((c.lat === null || c.lng === null || !c.placeType) && google.lat !== null && google.lng !== null) {
+        [c] = await db
+          .update(companies)
+          .set({ lat: google.lat, lng: google.lng, placeType: c.placeType ?? google.type })
+          .where(eq(companies.id, c.id))
+          .returning();
+      }
+    } catch (e) {
+      if (!(e instanceof QuotaError || e instanceof PlacesError)) throw e;
+    }
+  }
+
   const reachable = !!facts;
   const nowYear = (deps.now ?? new Date()).getFullYear();
+  const siteHours = siteText ? parseSiteHours(siteText) : null;
   const issues = findIssues(facts, {
     kind,
     https: page?.https,
@@ -40,9 +98,14 @@ export async function runAudit(db: Db, companyId: string, deps: AuditDeps = {}) 
     status: page ? page.status : kind === "own" ? 599 : undefined,
     googlePhoneDigits: c.phone?.replace(/\D/g, ""),
     nowYear,
+    hoursMismatch: hoursMismatch(siteHours, googleHours(google?.periods)),
+    closedPermanently: google?.businessStatus === "CLOSED_PERMANENTLY",
   });
   const group = proposeGroup(kind, reachable);
   const summary = summarize(issues, group);
+  const googleData: GoogleProfileData | null = google
+    ? { businessStatus: google.businessStatus, summary: google.summary, mapsUrl: google.mapsUrl, hoursText: google.hoursText, reviews: google.reviews }
+    : null;
 
   let competitors: Competitor[] | null = null;
   let competitorSource: "nearby" | "database" = "database";
@@ -67,7 +130,20 @@ export async function runAudit(db: Db, companyId: string, deps: AuditDeps = {}) 
   await db.transaction(async (tx) => {
     await tx.insert(audits).values({
       companyId: c.id,
-      data: { competitorSource, kind, page: page ? { finalUrl: page.finalUrl, status: page.status, ms: page.ms, https: page.https, redirects: page.redirects } : null, facts, fetchError },
+      data: {
+        /** 2 = deep research (TASK-023). */
+        v: 2,
+        competitorSource,
+        kind,
+        page: page ? { finalUrl: page.finalUrl, status: page.status, ms: page.ms, https: page.https, redirects: page.redirects } : null,
+        facts,
+        fetchError,
+        scanned,
+        siteHours,
+        google: googleData,
+        // Visible text of the scanned pages, for the AI remark (TASK-024); capped.
+        siteText: siteText.slice(0, 8000) || null,
+      },
       issues,
       summary,
     });
@@ -76,7 +152,7 @@ export async function runAudit(db: Db, companyId: string, deps: AuditDeps = {}) 
       const email = normalizeEmail(raw);
       if (!email) continue;
       // Published by the business on its own site (ADR-007); the page is the source.
-      await tx.insert(contacts).values({ companyId: c.id, email, emailSource: page!.finalUrl }).onConflictDoNothing();
+      await tx.insert(contacts).values({ companyId: c.id, email, emailSource: emailSource.get(raw) ?? page!.finalUrl }).onConflictDoNothing();
     }
     if (competitorSource === "nearby") await tx.delete(competitorLinks).where(eq(competitorLinks.companyId, c.id));
     for (const comp of competitors!) {
@@ -91,16 +167,40 @@ export async function runAudit(db: Db, companyId: string, deps: AuditDeps = {}) 
   return { group, issues: issues.length, emails: facts?.emails.length ?? 0, competitors: competitors!.length, competitorSource, siteDomain, score: score?.total ?? null };
 }
 
-/** Researches up to `limit` not-yet-researched companies, best businesses first, `concurrency` at a time. */
-export async function researchBatch(db: Db, opts: { limit?: number; concurrency?: number } & AuditDeps = {}) {
-  const limit = Math.min(Math.max(opts.limit ?? 20, 1), 50);
-  const rows = await db
-    .select({ id: companies.id })
+/** Researched companies whose latest audit is from before deep research (TASK-023). */
+const shallow = sql`not exists (select 1 from ${audits} a where a.company_id = ${companies.id} and (a.data->>'v')::int >= 2)`;
+
+export async function shallowCount(db: Db): Promise<number> {
+  const [r] = await db
+    .select({ n: sql<number>`count(*)::int` })
     .from(companies)
     .innerJoin(deals, eq(deals.companyId, companies.id))
-    .where(eq(deals.stage, "found"))
-    .orderBy(desc(sql`coalesce(${companies.ratingX10}, 0) * least(coalesce(${companies.reviewCount}, 0), 200)`))
-    .limit(limit);
+    .where(and(eq(deals.stage, "researched"), shallow));
+  return r?.n ?? 0;
+}
+
+/**
+ * Researches up to `limit` not-yet-researched companies, best businesses first, `concurrency` at a time.
+ * `deepen`: instead, re-researches already researched companies that only had the old homepage-only research,
+ * highest score first (TASK-023).
+ */
+export async function researchBatch(db: Db, opts: { limit?: number; concurrency?: number; deepen?: boolean } & AuditDeps = {}) {
+  const limit = Math.min(Math.max(opts.limit ?? 20, 1), 50);
+  const rows = opts.deepen
+    ? await db
+        .select({ id: companies.id })
+        .from(companies)
+        .innerJoin(deals, eq(deals.companyId, companies.id))
+        .where(and(eq(deals.stage, "researched"), shallow))
+        .orderBy(sql`${companies.score} desc nulls last`)
+        .limit(limit)
+    : await db
+        .select({ id: companies.id })
+        .from(companies)
+        .innerJoin(deals, eq(deals.companyId, companies.id))
+        .where(eq(deals.stage, "found"))
+        .orderBy(desc(sql`coalesce(${companies.ratingX10}, 0) * least(coalesce(${companies.reviewCount}, 0), 200)`))
+        .limit(limit);
   const queue = rows.map((r) => r.id);
   let done = 0;
   let failed = 0;

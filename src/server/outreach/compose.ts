@@ -64,6 +64,8 @@ export function remarkFor(input: ComposeInput): string {
       const s = top.text.match(/(\d+,\d) s/)?.[1];
       return `se vaša spletna stran nalaga ${s} s - marsikdo na telefonu prej zapre stran${all.includes("not_mobile") ? "" : praise}`;
     }
+    case "hours_mismatch":
+      return `${top.text.replace(/^Na strani/, "na vaši spletni strani").replace(/\.$/, "")} - stranke ne vedo, kaj velja`;
     case "phone_mismatch":
       return "je telefonska številka na vaši spletni strani drugačna kot na Google profilu - stranke ne vedo, katera velja";
     case "no_https":
