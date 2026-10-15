@@ -7,6 +7,7 @@ Ask the owner only for: secrets, accounts, server and DNS steps, product decisio
 **Owner's standing rule (2026-10-15):** every time the owner has to do something himself (server, DNS, GitHub
 settings, secrets, accounts), write out **every step**: exact commands to copy, where to click, what he should see,
 and what to do if it fails — even if it was explained before. He does not do these things often.
+**Production:** since 2026-10-15 the agent also promotes `dev` → `main` and verifies the deploy (ADR-016).
 **Merging:** the owner gave permission to merge own PRs on green CI (2026-10-15: "maš dovoljenje od moje strani,
 da lahko mergaš sam"). If the session's permission layer still denies a merge, tell him and he merges.
 Conversation with the owner in Slovenian; code and docs in English.
@@ -64,4 +65,4 @@ throwaway database. In the cloud sandbox: `initdb` as user postgres in `/var/tmp
 ## Next
 TASK-001 scaffold (Next.js + Tailwind + Drizzle + Postgres in Docker locally, CI), TASK-002 Kamal deploy skeleton, then the C1 phase (prospecting, research, scoring) — target 2026-11-07.
 
-Latest TASK: 021 · latest ADR: 015. Local Postgres for int tests may stop when the sandbox restarts — restart with `pg_ctl` (see above).
+Latest TASK: 021 · latest ADR: 016. Local Postgres for int tests may stop when the sandbox restarts — restart with `pg_ctl` (see above).
