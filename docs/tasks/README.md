@@ -12,7 +12,7 @@ Phases follow the business plan (`inzenirji.si` → `docs/nacrt-rasti.md` §7.5)
 | TASK-006 | Due diligence: site audit, freshness vs. Google profile, competitors, summary, group A/B | 005 | C1 | Done — Live (v1: no AI, no browser; PR #23) |
 | TASK-007 | Lead scoring + "today's top 10" home screen | 006, ADR-018 | C1 | Done — Live on prod (PR #27/#28) |
 | TASK-008 | Drafts + approval queue; outreach sequence (day 0/3/8); do-not-contact; send cap | 007, ADR-004, ADR-007, ADR-019 | C2 · 2026-11-21 | Done — Live on prod (PR #29/#30), sending locked until DKIM |
-| TASK-009 | Mailbox sync, reply matching and classification, reply drafts | 008 | C2 | Planned |
+| TASK-009 | Mailbox sync, reply matching and classification, reply drafts | 008, ADR-023 | C2 | Built — PR open |
 | TASK-010 | Mockup module (on demand, owner-started) | 006, ADR-005 | C2 | Planned |
 | TASK-011 | Inbound leads: website form, Meta lead forms, demo sign-ups, site-audit requests | 003 | C2 | Planned |
 | TASK-012 | Google Calendar bookings + pre-call brief + call notes → proposal draft | 009, ADR-008 | C3 · 2026-12-05 | Planned |
@@ -28,4 +28,4 @@ Phases follow the business plan (`inzenirji.si` → `docs/nacrt-rasti.md` §7.5)
 | TASK-022 | Nearby competitors from Google for good businesses; location/type stored; A/B legend | 006, ADR-017 | C1 | Done — Live on prod (owner-tested) |
 | TASK-023 | Deep research: contact/about pages, hidden e-mails with source, Google profile (hours, summary, reviews), hours mismatch, re-research old audits | 006, ADR-020 | C1 | Done — Live on prod (PR #31) |
 | TASK-024 | AI personal remark (Claude API) from site text + Google reviews, cost logged, daily budget | 023, ADR-021 | C2 | Done — Live on prod (PR #33) |
-| TASK-025 | E-mails from the public directory bizi.si by address, with source (AJPES, CompanyWall, social pages: not now) | 023, ADR-007, ADR-022 | C2 | Built — PR open |
+| TASK-025 | E-mails from the public directory bizi.si by address, with source (AJPES, CompanyWall, social pages: not now) | 023, ADR-007, ADR-022 | C2 | Done — Live on prod (PR #35) |

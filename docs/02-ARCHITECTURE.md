@@ -16,7 +16,7 @@ Status labels: **Live** · **Built** · **Planned**. Everything below is **Plann
 | Service | Use | Auth | Status |
 |---|---|---|---|
 | Google Places API (New) Text Search, Nearby Search, Place Details | prospecting, competitors, daily cap `PLACES_DAILY_CALL_CAP` | API key | Live (TASK-005, TASK-022) |
-| Mailbox `david@inzenirji.si` (SMTP send; IMAP sync later) | send approved drafts through `sendApprovedDraft()` | `OUTREACH_SMTP_PASSWORD` | Built, locked until DKIM (TASK-008, ADR-019); sync Planned (TASK-009) |
+| Mailbox `david@inzenirji.si` (SMTP send, IMAP read) | send approved drafts through `sendApprovedDraft()`; read replies matched to companies | `OUTREACH_SMTP_PASSWORD` | Send built, locked until DKIM (ADR-019); IMAP sync built (TASK-009, ADR-023) |
 | Google Calendar API | read bookings from appointment schedules | OAuth | Planned |
 | Stripe | prepayment links, payment status | secret key + webhook | Planned |
 | Meta Marketing API + Lead Ads | ad metrics, lead forms | system user token | Planned |

@@ -60,6 +60,8 @@ env:
     # AI personal remark (TASK-024, ADR-021): model and a hard daily spend limit (rolling 24 h).
     AI_MODEL: claude-sonnet-5-5
     AI_DAILY_BUDGET_USD: "2"
+    # Google Calendar appointment schedule link for reply drafts (ADR-008); empty until the owner creates it.
+    BOOKING_URL: "<%= ENV.fetch("BOOKING_URL", "") %>"
   secret:
     - DATABASE_URL
     - BETTER_AUTH_SECRET

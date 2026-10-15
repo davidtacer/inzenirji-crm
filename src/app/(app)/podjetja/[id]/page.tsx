@@ -7,6 +7,8 @@ import { websiteKind } from "@/server/contact/website";
 import { getDb } from "@/server/db/client";
 import type { Issue, SiteFacts } from "@/server/research/analyze";
 import { companyDetail, type GoogleProfileData } from "@/server/research/run";
+import { conversation } from "@/server/mailbox/process";
+import { REPLY_LABEL } from "@/lib/replyLabels";
 import type { DirectoryResult } from "@/server/directories/bizi";
 import type { ScorePart } from "@/server/scoring/score";
 import { CompanyOutreach } from "../../osnutki/forms";
@@ -57,6 +59,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ id: st
     directory?: DirectoryResult | null;
   };
   const google = data.google ?? null;
+  const talk = await conversation(getDb(), c.id);
   const facts = data.facts ?? null;
   const kind = websiteKind(c.websiteDomain);
 
@@ -101,6 +104,21 @@ export default async function CompanyPage({ params }: { params: Promise<{ id: st
                 />
               ))}
             </dl>
+          </Box>
+        ) : null}
+        {talk.length ? (
+          <Box title="Pogovor">
+            <ol className="flex flex-col gap-4">
+              {talk.map((t, i) => (
+                <li key={i} className={`border-l-2 pl-3 ${t.dir === "in" ? "border-accent" : "border-border"}`}>
+                  <p className="font-mono text-[10px] uppercase tracking-widest text-text-secondary">
+                    {t.dir === "in" ? `← prejeto · ${REPLY_LABEL[t.label] ?? t.label}` : "→ poslano"} · {t.at.toLocaleString("sl-SI", { timeZone: "Europe/Ljubljana", dateStyle: "short", timeStyle: "short" })}
+                  </p>
+                  <p className="font-sans text-sm text-text-primary">{t.subject}</p>
+                  <p className="line-clamp-4 whitespace-pre-wrap font-sans text-xs text-text-secondary">{t.text}</p>
+                </li>
+              ))}
+            </ol>
           </Box>
         ) : null}
         <Box title="Stik in e-mail">

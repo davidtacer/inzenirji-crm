@@ -1,6 +1,16 @@
 import nodemailer from "nodemailer";
 
-export type Mail = { to: string; subject: string; text: string; html: string; headers?: Record<string, string> };
+export type Mail = {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+  headers?: Record<string, string>;
+  /** Our own Message-ID, so replies can be matched (TASK-009). */
+  messageId?: string;
+  inReplyTo?: string;
+  references?: string[];
+};
 export interface Mailer {
   send(mail: Mail): Promise<void>;
 }
