@@ -69,7 +69,7 @@ module the owner **starts manually** for a chosen lead. The owner always reviews
 - Sequence: day 0 first e-mail → day 3 short follow-up with a new fact → day 8 last follow-up → optional call task.
 - Personalisation: one concrete remark from the audit, a competitor comparison, for group A a link to the public
   editor demo; mockup attached only when one was made.
-- Every e-mail has a one-sentence opt-out. An opt-out or "no" adds the address and company to **do-not-contact**.
+- Every e-mail has a one-sentence opt-out **and** `List-Unsubscribe` (mailto) + `List-Unsubscribe-Post: List-Unsubscribe=One-Click` headers (mail-tester finding 2026-10-15; Gmail/Yahoo bulk-sender rules). An opt-out or "no" adds the address and company to **do-not-contact**.
 - Mailbox sync: incoming replies are matched to the company, classified (`interested`, `not_now`, `no`,
   `question`, `out_of_office`, `bounce`) and a reply draft is prepared.
 - Volume guard: daily send cap (start ~12/day), warm-up, bounce-rate stop.
