@@ -25,7 +25,7 @@ export async function rescoreCompany(db: Db, companyId: string): Promise<Score |
   if (!c) return null;
   const [audit] = await db.select().from(audits).where(eq(audits.companyId, companyId)).orderBy(desc(audits.createdAt)).limit(1);
   if (!audit) return null;
-  const data = (audit.data ?? {}) as { facts?: unknown };
+  const data = (audit.data ?? {}) as { facts?: unknown; google?: { businessStatus?: string | null } | null };
   const rivals = await db
     .select({ domain: companies.websiteDomain })
     .from(competitorLinks)
@@ -46,6 +46,7 @@ export async function rescoreCompany(db: Db, companyId: string): Promise<Score |
     hasEmail: !!email,
     hasPhone: !!c.phone,
     doNotContact: await companyBlocked(db, c.id, c.website),
+    closed: data.google?.businessStatus === "CLOSED_PERMANENTLY",
   });
   await db.update(companies).set({ score: score.total, scoreParts: score.parts }).where(eq(companies.id, c.id));
   return score;

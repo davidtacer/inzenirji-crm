@@ -11,7 +11,7 @@ Phases follow the business plan (`inzenirji.si` → `docs/nacrt-rasti.md` §7.5)
 | TASK-005 | Prospecting: Google Places search by region × category, dedupe, daily cap | 003 | C1 · 2026-11-07 | Done — Live on prod, owner-tested (PR #13) |
 | TASK-006 | Due diligence: site audit, freshness vs. Google profile, competitors, summary, group A/B | 005 | C1 | Done — Live (v1: no AI, no browser; PR #23) |
 | TASK-007 | Lead scoring + "today's top 10" home screen | 006, ADR-018 | C1 | Done — Live on prod (PR #27/#28) |
-| TASK-008 | Drafts + approval queue; outreach sequence (day 0/3/8); do-not-contact; send cap | 007, ADR-004, ADR-007, ADR-019 | C2 · 2026-11-21 | Built — PR open (sending locked until DKIM) |
+| TASK-008 | Drafts + approval queue; outreach sequence (day 0/3/8); do-not-contact; send cap | 007, ADR-004, ADR-007, ADR-019 | C2 · 2026-11-21 | Done — Live on prod (PR #29/#30), sending locked until DKIM |
 | TASK-009 | Mailbox sync, reply matching and classification, reply drafts | 008 | C2 | Planned |
 | TASK-010 | Mockup module (on demand, owner-started) | 006, ADR-005 | C2 | Planned |
 | TASK-011 | Inbound leads: website form, Meta lead forms, demo sign-ups, site-audit requests | 003 | C2 | Planned |
@@ -26,3 +26,6 @@ Phases follow the business plan (`inzenirji.si` → `docs/nacrt-rasti.md` §7.5)
 | TASK-020 | Owner-only login: Better Auth magic link, login page, logout, protected pages | 003, ADR-015 | C1 | Done — Live on prod, owner-tested (PR #10) |
 | TASK-021 | App shell: sidebar menu, full width (owner's reference); own site vs. social/link pages | 005 | C1 | Done — Live on prod (PR #15) |
 | TASK-022 | Nearby competitors from Google for good businesses; location/type stored; A/B legend | 006, ADR-017 | C1 | Done — Live on prod (owner-tested) |
+| TASK-023 | Deep research: contact/about pages, hidden e-mails with source, Google profile (hours, summary, reviews), hours mismatch, re-research old audits | 006, ADR-020 | C1 | Built — PR open |
+| TASK-024 | AI personal remark (Claude API) from site text + Google reviews, cost in micro-euros | 023 | C2 | Planned — owner approved 2026-10-15, needs `ANTHROPIC_API_KEY` |
+| TASK-025 | E-mails from public directories (bizi.si, AJPES …) and public social pages without login, with source | 023, ADR-007 | C2 | Planned — owner approved 2026-10-15; directory page structure to be checked |

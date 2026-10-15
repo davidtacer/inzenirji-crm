@@ -17,7 +17,10 @@ export type SiteFacts = {
 };
 
 const decode = (s: string) =>
-  s.replace(/&amp;/g, "&").replace(/&#0?39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/&nbsp;/g, " ").replace(/&copy;/gi, "©").trim();
+  s
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCharCode(parseInt(n, 16)))
+    .replace(/&amp;/g, "&").replace(/&#0?39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/&nbsp;/g, " ").replace(/&copy;/gi, "©").trim();
 
 function meta(html: string, name: string): string | null {
   const re = new RegExp(`<meta[^>]+(?:name|property)=["']${name}["'][^>]*>`, "i");
@@ -48,6 +51,91 @@ const SOCIAL_HOSTS: Record<string, RegExp> = {
 
 const BAD_EMAIL = /\.(png|jpe?g|gif|webp|svg|css|js)$|@(example|domain|sentry|wixpress|sentry-next)\.|^(name|email|your|vas|vaš)@/i;
 
+/** Cloudflare "email protection": first byte is the XOR key for the rest. */
+export function decodeCfEmail(hex: string): string | null {
+  if (!/^[0-9a-f]{4,}$/i.test(hex) || hex.length % 2) return null;
+  const key = parseInt(hex.slice(0, 2), 16);
+  let out = "";
+  for (let i = 2; i < hex.length; i += 2) out += String.fromCharCode(parseInt(hex.slice(i, i + 2), 16) ^ key);
+  return out;
+}
+
+const EMAIL_RE = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi;
+
+/**
+ * Every address the page publishes: mailto links, plain text, HTML entities, Cloudflare-protected addresses,
+ * JSON-LD "email", and the common "info [at] salon [dot] si" / "info(at)salon.si" spellings.
+ */
+export function extractEmails(html: string, text?: string): string[] {
+  const found = new Set<string>();
+  const add = (e: string) => found.add(e.trim().toLowerCase().replace(/^mailto:/, ""));
+  const body = text ?? decode(html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " "));
+  for (const m of decode(html).matchAll(/mailto:([^"'?\s>]+)/gi)) {
+    try {
+      add(decodeURIComponent(m[1]));
+    } catch {
+      add(m[1]);
+    }
+  }
+  for (const m of body.matchAll(EMAIL_RE)) add(m[0]);
+  for (const m of html.matchAll(/data-cfemail=["']([0-9a-f]+)["']|email-protection#([0-9a-f]+)/gi)) {
+    const e = decodeCfEmail(m[1] ?? m[2]);
+    if (e) add(e);
+  }
+  for (const m of html.matchAll(/"email"\s*:\s*"([^"]+)"/gi)) add(m[1]);
+  const deobf = body
+    .replace(/\s*[[({]\s*(?:at|afna)\s*[\])}]\s*/gi, "@")
+    .replace(/\s*[[({]\s*(?:dot|pika)\s*[\])}]\s*/gi, ".");
+  if (deobf !== body) for (const m of deobf.matchAll(EMAIL_RE)) add(m[0]);
+  return [...found].filter((e) => /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/.test(e) && !BAD_EMAIL.test(e)).sort();
+}
+
+const CONTACT_LINK = /kontakt|contact|o-nas|o_nas|onas|about|o-podjetju|podjetje|impressum|pravn|kje-smo|lokacij|informacij/i;
+
+/** Internal links to pages where businesses usually publish the address (contact, about, imprint). */
+export function contactLinks(html: string, baseUrl: string, max = 4): string[] {
+  let base: URL;
+  try {
+    base = new URL(baseUrl);
+  } catch {
+    return [];
+  }
+  const host = base.hostname.replace(/^www\./, "");
+  const out: string[] = [];
+  for (const m of html.matchAll(/<a\b[^>]*href=["']([^"'#]+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
+    if (out.length >= max) break;
+    const href = decode(m[1]);
+    const label = m[2].replace(/<[^>]+>/g, " ");
+    if (!CONTACT_LINK.test(href) && !CONTACT_LINK.test(label)) continue;
+    let u: URL;
+    try {
+      u = new URL(href, base);
+    } catch {
+      continue;
+    }
+    if (!/^https?:$/.test(u.protocol) || u.hostname.replace(/^www\./, "") !== host) continue;
+    if (/\.(pdf|jpe?g|png|gif|webp|zip|docx?)$/i.test(u.pathname)) continue;
+    u.hash = "";
+    const key = u.toString().replace(/\/$/, "");
+    if (key === base.toString().replace(/\/$/, "") || out.includes(key)) continue;
+    out.push(key);
+  }
+  return out;
+}
+
+/** Visible text of a page (for hours and, later, the AI remark). */
+export function pageText(html: string): string {
+  return decode(
+    html
+      .replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<noscript[\s\S]*?<\/noscript>/gi, " ")
+      .replace(/<(br|\/p|\/div|\/li|\/h\d|\/tr)[^>]*>/gi, "\n")
+      .replace(/<[^>]+>/g, " "),
+  )
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n\s*/g, "\n")
+    .trim();
+}
+
 export function analyzeHtml(html: string): SiteFacts {
   const generator = meta(html, "generator");
   let cms: string | null = null;
@@ -69,10 +157,7 @@ export function analyzeHtml(html: string): SiteFacts {
   const allYears = [...years, ...ranges];
   const copyrightYear = allYears.length ? Math.max(...allYears) : null;
 
-  const emails = new Set<string>();
-  for (const m of html.matchAll(/mailto:([^"'?\s>]+)/gi)) emails.add(decodeURIComponent(m[1]).toLowerCase());
-  for (const m of text.matchAll(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi)) emails.add(m[0].toLowerCase());
-  const cleanEmails = [...emails].filter((e) => /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/.test(e) && !BAD_EMAIL.test(e)).sort();
+  const cleanEmails = extractEmails(html, text);
 
   const socials: Record<string, string> = {};
   for (const [k, re] of Object.entries(SOCIAL_HOSTS)) {
@@ -106,13 +191,25 @@ export type Issue = { code: string; severity: "high" | "medium" | "low"; text: s
 /** Problems worth mentioning in outreach, in Slovenian, most important first. */
 export function findIssues(
   f: SiteFacts | null,
-  ctx: { kind: "own" | "social" | "link" | "none"; https?: boolean; ms?: number; status?: number; googlePhoneDigits?: string; nowYear: number },
+  ctx: {
+    kind: "own" | "social" | "link" | "none";
+    https?: boolean;
+    ms?: number;
+    status?: number;
+    googlePhoneDigits?: string;
+    nowYear: number;
+    /** Sentence from hoursMismatch() (TASK-023). */
+    hoursMismatch?: string | null;
+    closedPermanently?: boolean;
+  },
 ): Issue[] {
   const out: Issue[] = [];
+  if (ctx.closedPermanently) return [{ code: "closed", severity: "high", text: "Na Googlu je podjetje označeno kot trajno zaprto." }];
   if (ctx.kind === "none") return [{ code: "no_website", severity: "high", text: "Podjetje nima spletne strani." }];
   if (ctx.kind === "social") return [{ code: "social_only", severity: "high", text: "Namesto spletne strani ima samo profil na družbenem omrežju." }];
   if (ctx.kind === "link") return [{ code: "link_only", severity: "high", text: "Namesto spletne strani ima samo stran s povezavami (link-in-bio)." }];
   if (!f || (ctx.status ?? 0) >= 400) return [{ code: "unreachable", severity: "high", text: "Spletna stran se ne odpre ali vrača napako." }];
+  if (ctx.hoursMismatch) out.push({ code: "hours_mismatch", severity: "high", text: ctx.hoursMismatch });
   if (!f.hasViewport) out.push({ code: "not_mobile", severity: "high", text: "Stran ni prilagojena za telefone." });
   if (f.copyrightYear && f.copyrightYear <= ctx.nowYear - 3)
     out.push({ code: "old_year", severity: "medium", text: `V nogi strani piše letnica ${f.copyrightYear}.` });
@@ -129,6 +226,18 @@ export function findIssues(
 }
 
 /** Group A = has an own site that we can move to our framework; B = needs a (new) site. */
+const GOOD_LOCAL = /^(info|kontakt|contact|hello|pozdrav|pisarna|office|salon|rezervacij[ae]|narocila|naročila|booking|studio|recepcija|prodaja|mail)$/;
+
+/** Best address first: the site's own domain, then a typical shop mailbox, then the rest. */
+export function rankEmails(emails: string[], siteDomain: string | null): string[] {
+  const rank = (e: string) => {
+    const [local, domain] = e.split("@");
+    const own = siteDomain && (domain === siteDomain || domain.endsWith(`.${siteDomain}`)) ? 0 : 2;
+    return own + (GOOD_LOCAL.test(local) ? 0 : 1);
+  };
+  return [...new Set(emails)].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+}
+
 export function proposeGroup(kind: "own" | "social" | "link" | "none", reachable: boolean): "A" | "B" {
   return kind === "own" && reachable ? "A" : "B";
 }

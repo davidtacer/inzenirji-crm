@@ -7,6 +7,8 @@ import type { Issue } from "../research/analyze";
 export type WebsiteKind = "own" | "social" | "link" | "none";
 
 export type ScoreInput = {
+  /** Google says CLOSED_PERMANENTLY (TASK-023). */
+  closed?: boolean;
   ratingX10: number | null;
   reviewCount: number | null;
   kind: WebsiteKind;
@@ -25,6 +27,9 @@ export type Score = { total: number; parts: ScorePart[] };
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 
 export function scoreLead(i: ScoreInput): Score {
+  if (i.closed) {
+    return { total: 0, parts: [{ key: "business", label: "Kakovost posla", points: 0, max: 35, reason: "Na Googlu označeno kot trajno zaprto." }] };
+  }
   if (i.doNotContact) {
     return { total: 0, parts: [{ key: "reach", label: "Dosegljivost", points: 0, max: 15, reason: "Na seznamu »ne kontaktiraj«." }] };
   }

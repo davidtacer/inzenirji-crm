@@ -6,7 +6,7 @@ import { GROUP_HELP, GROUP_LABEL, SOURCE_LABEL, STAGE_LABEL } from "@/lib/labels
 import { websiteKind } from "@/server/contact/website";
 import { getDb } from "@/server/db/client";
 import type { Issue, SiteFacts } from "@/server/research/analyze";
-import { companyDetail } from "@/server/research/run";
+import { companyDetail, type GoogleProfileData } from "@/server/research/run";
 import type { ScorePart } from "@/server/scoring/score";
 import { CompanyOutreach } from "../../osnutki/forms";
 import { ResearchOneButton } from "../buttons";
@@ -47,7 +47,14 @@ export default async function CompanyPage({ params }: { params: Promise<{ id: st
   const c = d.company;
   const audit = d.audit;
   const issues = (audit?.issues ?? []) as Issue[];
-  const data = (audit?.data ?? {}) as { facts?: SiteFacts | null; page?: { ms: number; https: boolean; finalUrl: string } | null; fetchError?: string | null };
+  const data = (audit?.data ?? {}) as {
+    facts?: SiteFacts | null;
+    page?: { ms: number; https: boolean; finalUrl: string } | null;
+    fetchError?: string | null;
+    scanned?: { url: string; status: number }[];
+    google?: GoogleProfileData | null;
+  };
+  const google = data.google ?? null;
   const facts = data.facts ?? null;
   const kind = websiteKind(c.websiteDomain);
 
@@ -97,6 +104,34 @@ export default async function CompanyPage({ params }: { params: Promise<{ id: st
         <Box title="Stik in e-mail">
           <CompanyOutreach companyId={c.id} stage={d.stage} hasEmail={d.contacts.some((p) => !!p.email)} />
         </Box>
+        {google ? (
+          <Box title="Google profil">
+            {google.summary ? <p className="mb-4 font-sans text-sm text-text-primary">{google.summary}</p> : null}
+            {google.hoursText.length ? (
+              <div className="mb-4">
+                <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-text-secondary">Delovni čas na Googlu</p>
+                <ul className="font-mono text-xs text-text-secondary">
+                  {google.hoursText.map((h) => (
+                    <li key={h}>{h}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {google.reviews.length ? (
+              <div className="flex flex-col gap-3">
+                <p className="font-mono text-[10px] uppercase tracking-widest text-text-secondary">Zadnja mnenja</p>
+                {google.reviews.map((r, i) => (
+                  <blockquote key={i} className="border-l-2 border-accent/50 pl-3 font-sans text-xs text-text-secondary">
+                    <span className="font-mono text-accent">{r.rating ? "★".repeat(Math.round(r.rating)) : ""}</span>{" "}
+                    {r.text}
+                    {r.when ? <span className="font-mono text-[10px]"> · {r.when}</span> : null}
+                  </blockquote>
+                ))}
+              </div>
+            ) : null}
+            {google.mapsUrl ? <p className="mt-4 font-mono text-xs">{ext(google.mapsUrl, "Odpri na Google Maps")}</p> : null}
+          </Box>
+        ) : null}
         <Box title="Podatki">
           <dl>
             <Row k="Ocena" v={c.ratingX10 !== null ? `${(c.ratingX10 / 10).toFixed(1).replace(".", ",")} (${c.reviewCount ?? 0} ocen)` : null} />
@@ -116,6 +151,21 @@ export default async function CompanyPage({ params }: { params: Promise<{ id: st
             {Object.entries(facts?.socials ?? {}).map(([k, href]) => (
               <Row key={k} k={k} v={ext(href, href.replace(/^https?:\/\/(www\.)?/, ""))} />
             ))}
+            {data.scanned?.length ? (
+              <Row
+                k="Pregledane strani"
+                v={
+                  <span className="flex flex-col gap-1 font-mono text-xs">
+                    {data.scanned.map((p) => (
+                      <span key={p.url} className={p.status && p.status < 400 ? "" : "text-danger-text"}>
+                        {p.url.replace(/^https?:\/\/(www\.)?/, "")}
+                        {p.status && p.status < 400 ? "" : " (ni odprlo)"}
+                      </span>
+                    ))}
+                  </span>
+                }
+              />
+            ) : null}
             {c.placeId ? <Row k="Google Maps" v={ext(`https://www.google.com/maps/place/?q=place_id:${c.placeId}`, "odpri")} /> : null}
           </dl>
         </Box>
