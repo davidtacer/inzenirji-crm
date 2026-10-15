@@ -1,0 +1,25 @@
+# Tasks
+
+Phases follow the business plan (`inzenirji.si` → `docs/nacrt-rasti.md` §7.5). Specs are written when a task starts.
+
+| Task | Title | Depends on | Phase / target | Status |
+|---|---|---|---|---|
+| TASK-001 | Scaffold: Next.js + Tailwind (Inženirji.si tokens), lint/typecheck/test/build, CI | ADR-002, ADR-003 | C1 · 2026-10-24 | Planned |
+| TASK-002 | Owner-only auth + deploy skeleton | 001, ADR-003 | C1 | Planned |
+| TASK-003 | Data model + migrations (company, contact, audit, deal, activity, draft, do_not_contact) | 001 | C1 | Planned |
+| TASK-004 | Import existing leads (Google Sheets + `processed.txt` history) | 003 | C1 | Planned |
+| TASK-005 | Prospecting: Google Places search by region × category, dedupe, daily cap | 003 | C1 · 2026-11-07 | Planned |
+| TASK-006 | Due diligence: site audit, freshness vs. Google profile, competitors, summary, group A/B | 005 | C1 | Planned |
+| TASK-007 | Lead scoring + "today's top 10" home screen | 006 | C1 | Planned |
+| TASK-008 | Drafts + approval queue; outreach sequence (day 0/3/8); do-not-contact; send cap | 007, ADR-004, ADR-007 | C2 · 2026-11-21 | Planned |
+| TASK-009 | Mailbox sync, reply matching and classification, reply drafts | 008 | C2 | Planned |
+| TASK-010 | Mockup module (on demand, owner-started) | 006, ADR-005 | C2 | Planned |
+| TASK-011 | Inbound leads: website form, Meta lead forms, demo sign-ups, site-audit requests | 003 | C2 | Planned |
+| TASK-012 | Google Calendar bookings + pre-call brief + call notes → proposal draft | 009, ADR-008 | C3 · 2026-12-05 | Planned |
+| TASK-013 | Proposals (PDF), Stripe prepayment, payment status, invoices | 012 | C3 | Planned |
+| TASK-014 | Projects: materials checklist, client uploads, reminders, guarantee clock | 013, ADR-010 | C3 | Planned |
+| TASK-015 | Meta Ads metrics + GA4 + Search Console daily snapshots | 003 | C4 · 2026-12-19 | Planned |
+| TASK-016 | Weekly report (Monday 08:00) + KPI dashboard | 015 | C4 | Planned |
+| TASK-017 | Postaja feed for the Inženirji.si brand from finished projects | 014, ADR-006 | C5 · 2027-01 | Planned |
+| TASK-018 | After-launch flow: review/NPS/referral requests, editor-usage upsells (incl. Postaja for clients) | 014 | C5 | Planned |
+| TASK-019 | Win/loss analysis | 016 | C5 | Planned |
