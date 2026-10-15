@@ -1,6 +1,7 @@
 import { desc, eq, sql } from "drizzle-orm";
 import type { Db } from "../db/client";
 import { companies, deals } from "../db/schema";
+import { NOT_OWN_WEBSITE_DOMAINS } from "../contact/website";
 
 export async function latestCompanies(db: Db, limit = 50) {
   return db
@@ -28,7 +29,10 @@ export async function companyCounts(db: Db) {
     .select({
       total: sql<number>`count(*)::int`,
       good: sql<number>`count(*) filter (where ${companies.ratingX10} >= 43 and ${companies.reviewCount} >= 30)::int`,
-      noWebsite: sql<number>`count(*) filter (where ${companies.website} is null)::int`,
+      noWebsite: sql<number>`count(*) filter (where ${companies.websiteDomain} is null or ${companies.websiteDomain} in (${sql.join(
+        NOT_OWN_WEBSITE_DOMAINS.map((d) => sql`${d}`),
+        sql`, `,
+      )}) or ${companies.websiteDomain} like '%.facebook.com')::int`,
     })
     .from(companies);
   return r;
