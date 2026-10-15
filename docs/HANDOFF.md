@@ -1,4 +1,4 @@
-# Handoff — state as of 2026-10-15 13:10 (Europe/Ljubljana)
+# Handoff — state as of 2026-10-15 13:50 (Europe/Ljubljana)
 
 ## Working mode
 Mode B (autonomous), standing permission 2026-10-15 — owner's words: "Način dela: B (avtonomno kot pri
@@ -20,6 +20,7 @@ Conversation with the owner in Slovenian; code and docs in English.
 - 2026-10-15: repo created by the owner; docs foundation (manifest, product spec, architecture, ADR-001…010,
   task list) from the business plan `inzenirji.si/docs/nacrt-rasti.md`.
 
+- 2026-10-15: TASK-001 scaffold built (PR open).
 - 2026-10-15: owner merged PR #1 (docs ADR-011..013).
 - 2026-10-15: owner decisions → ADR-011 shared Hetzner VM (Kamal, host nginx edge, own Postgres accessory),
   ADR-012 mode B, ADR-013 outreach from `david@inzenirji.si`. Server facts taken from `DataVallis/postaja` docs
@@ -30,11 +31,11 @@ VM `91.99.191.8`, user `deploy`, also runs asisto (host PHP-FPM behind nginx), P
 volil.si. Only add our own Kamal service, accessory, volume and nginx server block (manifest "Shared server").
 The agent sandbox cannot SSH there (egress proxy); every host step is an owner action from a runbook.
 
-## Owner's open actions (before the first deploy, TASK-002)
-1. ~~DNS: `A crm.inzenirji.si → 91.99.191.8`~~ — done by the owner 2026-10-15.
-2. Install `ops/nginx/crm.inzenirji.si.conf` on the host (commands in the file header), then certbot.
-3. Mailbox `david@inzenirji.si`; SPF, DKIM and DMARC for `inzenirji.si` (ADR-013) — before the first outreach send.
-4. GitHub environment `prod` secrets for this repo (names in CHEATSHEET) + a dedicated deploy SSH key.
+## Owner's open actions
+Done by the owner 2026-10-15 ("sem uredil vse"): DNS `crm.inzenirji.si`, nginx server block + certbot on the host,
+mailbox `david@inzenirji.si`, GitHub environment `prod` (secrets + variables per CHEATSHEET) and the deploy key.
+Seen from the agent (DNS over HTTPS): SPF `v=spf1 +a +mx ~all`, DMARC `p=none`. Not verifiable from the sandbox:
+DKIM and MX → owner runs a mail-tester.com check before the first outreach (TASK-008 is blocked on a score ≥ 9/10).
 
 ## Next
 TASK-001 scaffold (Next.js + Tailwind + Drizzle + Postgres in Docker locally, CI), TASK-002 Kamal deploy skeleton, then the C1 phase (prospecting, research, scoring) — target 2026-11-07.
