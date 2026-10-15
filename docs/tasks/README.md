@@ -27,5 +27,5 @@ Phases follow the business plan (`inzenirji.si` → `docs/nacrt-rasti.md` §7.5)
 | TASK-021 | App shell: sidebar menu, full width (owner's reference); own site vs. social/link pages | 005 | C1 | Done — Live on prod (PR #15) |
 | TASK-022 | Nearby competitors from Google for good businesses; location/type stored; A/B legend | 006, ADR-017 | C1 | Done — Live on prod (owner-tested) |
 | TASK-023 | Deep research: contact/about pages, hidden e-mails with source, Google profile (hours, summary, reviews), hours mismatch, re-research old audits | 006, ADR-020 | C1 | Done — Live on prod (PR #31) |
-| TASK-024 | AI personal remark (Claude API) from site text + Google reviews, cost logged, daily budget | 023, ADR-021 | C2 | Built — PR open (owner set `ANTHROPIC_API_KEY` 2026-10-15) |
-| TASK-025 | E-mails from public directories (bizi.si, AJPES …) and public social pages without login, with source | 023, ADR-007 | C2 | Planned — owner approved 2026-10-15; directory page structure to be checked |
+| TASK-024 | AI personal remark (Claude API) from site text + Google reviews, cost logged, daily budget | 023, ADR-021 | C2 | Done — Live on prod (PR #33) |
+| TASK-025 | E-mails from the public directory bizi.si by address, with source (AJPES, CompanyWall, social pages: not now) | 023, ADR-007, ADR-022 | C2 | Built — PR open |

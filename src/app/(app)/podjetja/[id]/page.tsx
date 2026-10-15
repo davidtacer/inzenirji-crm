@@ -7,6 +7,7 @@ import { websiteKind } from "@/server/contact/website";
 import { getDb } from "@/server/db/client";
 import type { Issue, SiteFacts } from "@/server/research/analyze";
 import { companyDetail, type GoogleProfileData } from "@/server/research/run";
+import type { DirectoryResult } from "@/server/directories/bizi";
 import type { ScorePart } from "@/server/scoring/score";
 import { CompanyOutreach } from "../../osnutki/forms";
 import { ResearchOneButton } from "../buttons";
@@ -53,6 +54,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ id: st
     fetchError?: string | null;
     scanned?: { url: string; status: number }[];
     google?: GoogleProfileData | null;
+    directory?: DirectoryResult | null;
   };
   const google = data.google ?? null;
   const facts = data.facts ?? null;
@@ -151,6 +153,26 @@ export default async function CompanyPage({ params }: { params: Promise<{ id: st
             {Object.entries(facts?.socials ?? {}).map(([k, href]) => (
               <Row key={k} k={k} v={ext(href, href.replace(/^https?:\/\/(www\.)?/, ""))} />
             ))}
+            {data.directory ? (
+              <Row
+                k="Imenik bizi.si"
+                v={
+                  data.directory.match ? (
+                    <span>
+                      {ext(data.directory.match.url, data.directory.match.legalName)}
+                      <span className="block font-mono text-[10px] text-text-secondary">
+                        ujemanje: naslov{data.directory.match.by === "name" ? " + ime" : data.directory.match.by === "phone" ? " + telefon" : ""} ·{" "}
+                        {data.directory.emails.length ? `e-naslov: ${data.directory.emails.join(", ")}` : "e-naslova ni objavljenega"}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="text-text-secondary">
+                      {data.directory.candidates ? `${data.directory.candidates} podjetij na naslovu, nobeno zanesljivo` : "ni najdeno"} · {ext(data.directory.searchUrl, "iskanje")}
+                    </span>
+                  )
+                }
+              />
+            ) : null}
             {data.scanned?.length ? (
               <Row
                 k="Pregledane strani"

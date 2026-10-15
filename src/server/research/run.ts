@@ -8,13 +8,24 @@ import { googleHours, hoursMismatch, parseSiteHours } from "./hours";
 import { PlacesError, placeProfile, type PlaceProfile, type PlaceReview } from "../places/client";
 import { QuotaError, reserveCall } from "../places/quota";
 import { PLACES_PROVIDER } from "../places/search";
+import { lookupBizi, type DirectoryResult } from "../directories/bizi";
 import { safeFetch, type FetchedPage, type Resolver } from "./safe-fetch";
 import { findNearbyCompetitors, type Competitor, type PlacesDeps } from "./competitors";
 import { isGoodBusiness } from "../places/import";
 import { rescoreCompany } from "../scoring/apply";
 
 /** `places`: when set, good businesses get their Google profile and real nearby competitors (TASK-022/023). */
-export type AuditDeps = { fetchImpl?: typeof fetch; resolve?: Resolver; now?: Date; places?: PlacesDeps };
+export type AuditDeps = {
+  fetchImpl?: typeof fetch;
+  resolve?: Resolver;
+  now?: Date;
+  places?: PlacesDeps;
+  /** Look up e-mails in public directories when the site has none (TASK-025). */
+  directories?: boolean;
+};
+
+/** Audit format: 2 = deep research (TASK-023), 3 = + directories (TASK-025). Older audits can be re-run. */
+export const AUDIT_VERSION = 3;
 
 export type GoogleProfileData = {
   businessStatus: string | null;
@@ -88,6 +99,17 @@ export async function runAudit(db: Db, companyId: string, deps: AuditDeps = {}) 
     }
   }
 
+  // Public directory when the company's own pages publish no e-mail (TASK-025, ADR-022).
+  let directory: DirectoryResult | null = null;
+  if (deps.directories && emailSource.size === 0) {
+    try {
+      directory = await lookupBizi(c, deps);
+    } catch (e) {
+      directory = null;
+      console.error("[research] directory lookup failed:", e instanceof Error ? e.message : "unknown");
+    }
+  }
+
   const reachable = !!facts;
   const nowYear = (deps.now ?? new Date()).getFullYear();
   const siteHours = siteText ? parseSiteHours(siteText) : null;
@@ -131,8 +153,8 @@ export async function runAudit(db: Db, companyId: string, deps: AuditDeps = {}) 
     await tx.insert(audits).values({
       companyId: c.id,
       data: {
-        /** 2 = deep research (TASK-023). */
-        v: 2,
+        v: AUDIT_VERSION,
+        directory,
         competitorSource,
         kind,
         page: page ? { finalUrl: page.finalUrl, status: page.status, ms: page.ms, https: page.https, redirects: page.redirects } : null,
@@ -154,6 +176,11 @@ export async function runAudit(db: Db, companyId: string, deps: AuditDeps = {}) 
       // Published by the business on its own site (ADR-007); the page is the source.
       await tx.insert(contacts).values({ companyId: c.id, email, emailSource: emailSource.get(raw) ?? page!.finalUrl }).onConflictDoNothing();
     }
+    for (const raw of directory?.match ? directory.emails : []) {
+      const email = normalizeEmail(raw);
+      // Published in a public business directory (ADR-007); the directory page is the source.
+      if (email) await tx.insert(contacts).values({ companyId: c.id, email, emailSource: directory!.match!.url }).onConflictDoNothing();
+    }
     if (competitorSource === "nearby") await tx.delete(competitorLinks).where(eq(competitorLinks.companyId, c.id));
     for (const comp of competitors!) {
       await tx
@@ -164,11 +191,11 @@ export async function runAudit(db: Db, companyId: string, deps: AuditDeps = {}) 
     await tx.update(deals).set({ stage: "researched", updatedAt: new Date() }).where(and(eq(deals.companyId, c.id), eq(deals.stage, "found")));
   });
   const score = await rescoreCompany(db, c.id);
-  return { group, issues: issues.length, emails: facts?.emails.length ?? 0, competitors: competitors!.length, competitorSource, siteDomain, score: score?.total ?? null };
+  return { group, issues: issues.length, emails: (facts?.emails.length ?? 0) + (directory?.match ? directory.emails.length : 0), directoryEmails: directory?.match ? directory.emails.length : 0, competitors: competitors!.length, competitorSource, siteDomain, score: score?.total ?? null };
 }
 
 /** Researched companies whose latest audit is from before deep research (TASK-023). */
-const shallow = sql`not exists (select 1 from ${audits} a where a.company_id = ${companies.id} and (a.data->>'v')::int >= 2)`;
+const shallow = sql`not exists (select 1 from ${audits} a where a.company_id = ${companies.id} and (a.data->>'v')::int >= ${AUDIT_VERSION})`;
 
 export async function shallowCount(db: Db): Promise<number> {
   const [r] = await db
