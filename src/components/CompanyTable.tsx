@@ -1,4 +1,5 @@
 import { isGoodBusiness } from "@/server/places/import";
+import { websiteKind } from "@/server/contact/website";
 
 type Row = {
   id: string;
@@ -54,16 +55,10 @@ export function CompanyTable({ rows }: { rows: Row[] }) {
               <td className="p-3 font-mono text-xs">
                 {r.ratingX10 !== null ? (r.ratingX10 / 10).toFixed(1).replace(".", ",") : "—"}
                 <span className="text-text-secondary"> ({r.reviewCount ?? 0})</span>
-                {isGoodBusiness(r) ? <span className="ml-2 border border-accent/50 px-1 text-[9px] text-accent">DOBER POSEL</span> : null}
+                {isGoodBusiness(r) ? <span className="ml-2 whitespace-nowrap border border-accent/50 px-1 text-[9px] text-accent">DOBER POSEL</span> : null}
               </td>
               <td className="p-3 font-mono text-xs">
-                {r.website ? (
-                  <a href={r.website} target="_blank" rel="noopener noreferrer" className="text-text-primary hover:text-accent">
-                    {r.websiteDomain ?? r.website}
-                  </a>
-                ) : (
-                  <span className="text-danger-text">NIMA STRANI</span>
-                )}
+                <WebsiteCell website={r.website} domain={r.websiteDomain} />
               </td>
               <td className="p-3 font-mono text-xs text-text-secondary">{r.phone ?? "—"}</td>
               <td className="p-3 font-mono text-[10px] uppercase tracking-widest text-text-secondary">{r.stage ? STAGE[r.stage] : "—"}</td>
@@ -72,5 +67,23 @@ export function CompanyTable({ rows }: { rows: Row[] }) {
         </tbody>
       </table>
     </div>
+  );
+}
+
+function WebsiteCell({ website, domain }: { website: string | null; domain: string | null }) {
+  const kind = websiteKind(domain);
+  if (!website || kind === "none") return <span className="text-danger-text">NIMA STRANI</span>;
+  const link = (
+    <a href={website} target="_blank" rel="noopener noreferrer" className="text-text-primary hover:text-accent">
+      {domain ?? website} ↗
+    </a>
+  );
+  if (kind === "own") return link;
+  // Social profile or link page: not an own site (group B), but the link stays — it is useful in outreach.
+  return (
+    <span className="flex flex-col gap-1">
+      <span className="text-[10px] tracking-widest text-danger-text">{kind === "social" ? "SAMO DRUŽBENO OMREŽJE" : "SAMO LINK"}</span>
+      {link}
+    </span>
   );
 }
