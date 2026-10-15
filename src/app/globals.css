@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+/* Inženirji.si brand tokens — same values as inzenirji.si/tailwind.config.ts (ADR-002). */
+@theme {
+  --color-base: #000000;
+  --color-surface: #0a0a0a;
+  --color-surface2: #111111;
+  --color-border: #222222;
+  --color-text-primary: #eaeaea;
+  --color-text-secondary: #888888;
+  --color-accent: #00ff41;
+  --color-danger-bg: #1a0505;
+  --color-danger-border: #3d0b0b;
+  --color-danger-text: #ff3b3b;
+
+  --font-mono: var(--font-jetbrains), "JetBrains Mono", "Fira Code", monospace;
+  --font-sans: var(--font-inter), "Inter", system-ui, sans-serif;
+
+  --tracking-tightest: -0.04em;
+}
+
+* {
+  border-radius: 0 !important;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-base);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--color-accent);
+  color: #000000;
+}
+
+.terminal-cursor::after {
+  content: "_";
+  color: var(--color-accent);
+  animation: blink 1s step-end infinite;
+  margin-left: 0.1em;
+}
+
+@keyframes blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.btn-brutal {
+  border: 1px solid var(--color-accent);
+  color: var(--color-accent);
+  background: transparent;
+  transition: none;
+}
+.btn-brutal:hover {
+  background: var(--color-accent);
+  color: #000000;
+}
