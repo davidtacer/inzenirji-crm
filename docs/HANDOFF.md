@@ -21,7 +21,8 @@ Conversation with the owner in Slovenian; code and docs in English.
 - 2026-10-15: repo created by the owner; docs foundation (manifest, product spec, architecture, ADR-001…010,
   task list) from the business plan `inzenirji.si/docs/nacrt-rasti.md`.
 
-- 2026-10-15: TASK-024 AI remark (ADR-021) built (PR open); owner set `ANTHROPIC_API_KEY`. Next: TASK-025 directories (bizi.si: owner pasted search results; robots.txt allows all; matching by address, legal names differ from Google names; company page markup not yet seen — WebFetch gets a server error).
+- 2026-10-15: TASK-025 bizi.si e-mails by address (ADR-022) built (PR open); real markup unverified.
+- 2026-10-15: TASK-024 AI remark (ADR-021) Live; owner set `ANTHROPIC_API_KEY`.
 - 2026-10-15: TASK-023 deep research (ADR-020) Live.
 - 2026-10-15: TASK-008 drafts + approval queue + guarded sending (ADR-019) Live. **Sending locked** until DKIM + owner sets `OUTREACH_SMTP_PASSWORD` and variable `OUTREACH_ENABLED=1`.
 - 2026-10-15: TASK-007 lead scoring 0–100 + "Danes" top 10 (ADR-018) Live on prod.
@@ -71,4 +72,4 @@ throwaway database. In the cloud sandbox: `initdb` as user postgres in `/var/tmp
 ## Next
 TASK-001 scaffold (Next.js + Tailwind + Drizzle + Postgres in Docker locally, CI), TASK-002 Kamal deploy skeleton, then the C1 phase (prospecting, research, scoring) — target 2026-11-07.
 
-Latest TASK: 025 (in progress: 024) · latest ADR: 021. Next: TASK-009 mailbox sync (IMAP david@) + reply classification; it needs `OUTREACH_SMTP_PASSWORD` too. Local Postgres for int tests may stop when the sandbox restarts — restart with `pg_ctl` (see above).
+Latest TASK: 025 · latest ADR: 022. Next: TASK-009 mailbox sync (needs `OUTREACH_SMTP_PASSWORD`). Next: TASK-009 mailbox sync (IMAP david@) + reply classification; it needs `OUTREACH_SMTP_PASSWORD` too. Local Postgres for int tests may stop when the sandbox restarts — restart with `pg_ctl` (see above).
