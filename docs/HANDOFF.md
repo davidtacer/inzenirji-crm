@@ -4,6 +4,11 @@
 Mode B (autonomous), standing permission 2026-10-15 — owner's words: "Način dela: B (avtonomno kot pri
 urejevalniku)" (ADR-012). Agent commits on `feat/*`, `fix/*`, `docs/*`, opens PRs to `dev`, merges only on green CI.
 Ask the owner only for: secrets, accounts, server and DNS steps, product decisions, prod, irreversible steps.
+**Owner's standing rule (2026-10-15):** every time the owner has to do something himself (server, DNS, GitHub
+settings, secrets, accounts), write out **every step**: exact commands to copy, where to click, what he should see,
+and what to do if it fails — even if it was explained before. He does not do these things often.
+**Merging:** the owner gave permission to merge own PRs on green CI (2026-10-15: "maš dovoljenje od moje strani,
+da lahko mergaš sam"). If the session's permission layer still denies a merge, tell him and he merges.
 Conversation with the owner in Slovenian; code and docs in English.
 
 ## Git and CI specifics
@@ -15,6 +20,7 @@ Conversation with the owner in Slovenian; code and docs in English.
 - 2026-10-15: repo created by the owner; docs foundation (manifest, product spec, architecture, ADR-001…010,
   task list) from the business plan `inzenirji.si/docs/nacrt-rasti.md`.
 
+- 2026-10-15: owner merged PR #1 (docs ADR-011..013).
 - 2026-10-15: owner decisions → ADR-011 shared Hetzner VM (Kamal, host nginx edge, own Postgres accessory),
   ADR-012 mode B, ADR-013 outreach from `david@inzenirji.si`. Server facts taken from `DataVallis/postaja` docs
   (CHEATSHEET, ADR-025/027/084, `config/deploy.dev.yml`, `ops/nginx/`).
@@ -25,7 +31,7 @@ volil.si. Only add our own Kamal service, accessory, volume and nginx server blo
 The agent sandbox cannot SSH there (egress proxy); every host step is an owner action from a runbook.
 
 ## Owner's open actions (before the first deploy, TASK-002)
-1. DNS: `A crm.inzenirji.si → 91.99.191.8` (Cloudflare, proxy off/"DNS only" so certbot can issue the cert).
+1. ~~DNS: `A crm.inzenirji.si → 91.99.191.8`~~ — done by the owner 2026-10-15.
 2. Install `ops/nginx/crm.inzenirji.si.conf` on the host (commands in the file header), then certbot.
 3. Mailbox `david@inzenirji.si`; SPF, DKIM and DMARC for `inzenirji.si` (ADR-013) — before the first outreach send.
 4. GitHub environment `prod` secrets for this repo (names in CHEATSHEET) + a dedicated deploy SSH key.
