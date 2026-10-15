@@ -1,6 +1,6 @@
 import nodemailer from "nodemailer";
 
-export type Mail = { to: string; subject: string; text: string; html: string };
+export type Mail = { to: string; subject: string; text: string; html: string; headers?: Record<string, string> };
 export interface Mailer {
   send(mail: Mail): Promise<void>;
 }
@@ -22,6 +22,20 @@ export function createMailerFromEnv(env: Record<string, string | undefined> = pr
       await transport.sendMail({ from, ...mail });
     },
   };
+}
+
+/**
+ * Outreach mailbox `david@inzenirji.si` (ADR-013), separate from the system mailbox used for login.
+ * OUTREACH_SMTP_HOST/PORT default to the system SMTP server; OUTREACH_FROM is the display sender.
+ */
+export function createOutreachMailerFromEnv(env: Record<string, string | undefined> = process.env): Mailer {
+  return createMailerFromEnv({
+    SMTP_HOST: env.OUTREACH_SMTP_HOST ?? env.SMTP_HOST,
+    SMTP_PORT: env.OUTREACH_SMTP_PORT ?? env.SMTP_PORT,
+    SMTP_USER: env.OUTREACH_SMTP_USER,
+    SMTP_PASSWORD: env.OUTREACH_SMTP_PASSWORD,
+    EMAIL_FROM: env.OUTREACH_FROM,
+  });
 }
 
 /** In-memory mailer for tests. */
