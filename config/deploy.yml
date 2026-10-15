@@ -48,11 +48,14 @@ env:
     SMTP_PORT: "465"
     SMTP_USER: hello@inzenirji.si
     EMAIL_FROM: "Inženirji.si CRM <hello@inzenirji.si>"
+    # Google Places Text Search: paid calls per day, reset at midnight Europe/Ljubljana (TASK-005).
+    PLACES_DAILY_CALL_CAP: "50"
     OWNER_EMAILS: "<%= ENV.fetch("OWNER_EMAILS") %>"
   secret:
     - DATABASE_URL
     - BETTER_AUTH_SECRET
     - SMTP_PASSWORD
+    - GOOGLE_PLACES_API_KEY
 
 accessories:
   db:

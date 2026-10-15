@@ -20,7 +20,7 @@ Never values here — only names and where they live.
 | Name | Used by | Lives in | Status |
 |---|---|---|---|
 | `ANTHROPIC_API_KEY` | agents | hosting secret store | Planned |
-| `GOOGLE_PLACES_API_KEY` | prospecting | hosting secret store | Planned |
+| `GOOGLE_PLACES_API_KEY` | prospecting (restricted to IP 91.99.191.8 + Places API) | GitHub env `prod` secret | Set by owner 2026-10-15 |
 | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` | Calendar, GA4, Search Console, Gmail | hosting secret store | Planned |
 | `SMTP_PASSWORD` | `hello@inzenirji.si` — login e-mails (ADR-015) | GitHub env `prod` secret | Set by owner 2026-10-15 |
 | `MAILBOX_PASSWORD` | `david@inzenirji.si` SMTP send + IMAP sync (outreach) | GitHub env `prod` secret | Planned |

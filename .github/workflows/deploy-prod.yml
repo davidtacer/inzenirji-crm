@@ -33,6 +33,7 @@ jobs:
       POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
       BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
       SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
       DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
       PROD_SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
     steps:
@@ -40,7 +41,7 @@ jobs:
       - name: Check required settings (names only)
         run: |
           missing=""
-          for v in PROD_HOST OWNER_EMAILS POSTGRES_PASSWORD BETTER_AUTH_SECRET SMTP_PASSWORD DEPLOY_SSH_KEY PROD_SSH_KNOWN_HOSTS; do
+          for v in PROD_HOST OWNER_EMAILS POSTGRES_PASSWORD BETTER_AUTH_SECRET SMTP_PASSWORD GOOGLE_PLACES_API_KEY DEPLOY_SSH_KEY PROD_SSH_KNOWN_HOSTS; do
             [ -n "${!v}" ] || missing="$missing $v"
           done
           [ -z "$missing" ] || { echo "::error::Missing in GitHub environment 'prod':$missing"; exit 1; }
