@@ -40,6 +40,7 @@ proxy:
 env:
   clear:
     NODE_ENV: production
+    RUN_MIGRATIONS: "1"
     APP_URL: https://crm.inzenirji.si
     OWNER_EMAILS: "<%= ENV.fetch("OWNER_EMAILS") %>"
   secret:
