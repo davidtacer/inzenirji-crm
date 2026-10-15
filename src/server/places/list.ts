@@ -16,6 +16,7 @@ export async function latestCompanies(db: Db, limit = 50) {
       websiteDomain: companies.websiteDomain,
       phone: companies.phone,
       group: companies.group,
+      score: companies.score,
       stage: deals.stage,
       updatedAt: companies.updatedAt,
     })

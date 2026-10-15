@@ -84,6 +84,8 @@ export const companies = pgTable(
     reviewCount: integer("review_count"),
     group: offerGroup("offer_group"),
     score: smallint("score"),
+    /** Score breakdown shown on the company page (TASK-007). */
+    scoreParts: jsonb("score_parts"),
     ...timestamps,
   },
   (t) => [

@@ -1,12 +1,18 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
+import { ScoreBadge } from "@/components/ScoreBadge";
+import { GROUP_HELP, GROUP_LABEL } from "@/lib/labels";
 import { getDb } from "@/server/db/client";
 import { companyCounts } from "@/server/places/list";
+import { rescoreMissing, topLeads } from "@/server/scoring/apply";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const c = await companyCounts(getDb());
+  const db = getDb();
+  // Companies researched before scoring existed get their score once, here.
+  await rescoreMissing(db, 200);
+  const [c, top] = await Promise.all([companyCounts(db), topLeads(db, 10)]);
   const stats: [string, number][] = [
     ["Podjetij v bazi", c.total],
     ["Dober posel (≥ 4,3, ≥ 30 ocen)", c.good],
@@ -14,7 +20,7 @@ export default async function HomePage() {
   ];
   return (
     <>
-      <PageHeader title="Danes" description="Pregled baze in naslednji koraki." />
+      <PageHeader title="Danes" description="Najboljši leadi za kontakt in pregled baze." />
       <div className="grid grid-cols-1 border border-border sm:grid-cols-3">
         {stats.map(([label, n], i) => (
           <div key={label} className={`bg-surface p-6 ${i < 2 ? "border-b border-border sm:border-b-0 sm:border-r" : ""}`}>
@@ -23,14 +29,46 @@ export default async function HomePage() {
           </div>
         ))}
       </div>
-      <div className="mt-6 border border-border bg-surface p-6 font-mono text-xs text-text-secondary">
-        <p>&gt; NASLEDNJE V RAZVOJU: RAZISKAVA STRANI, OCENA LEADOV, SEZNAM NAJBOLJŠIH 10</p>
-        <p className="mt-3">
-          <Link href="/iskanje" className="text-accent hover:underline">
-            &gt; Poišči nova podjetja →
-          </Link>
-        </p>
-      </div>
+
+      <section className="mt-6 border border-border bg-surface">
+        <h2 className="border-b border-border px-5 py-3 font-mono text-[10px] uppercase tracking-[0.3em] text-accent">
+          {"// Najboljših 10 za kontakt"}
+        </h2>
+        {top.length === 0 ? (
+          <p className="p-5 font-mono text-xs text-text-secondary">
+            &gt; Še ni raziskanih podjetij.{" "}
+            <Link href="/podjetja" className="text-accent hover:underline">
+              Raziskuj podjetja →
+            </Link>
+          </p>
+        ) : (
+          <ol>
+            {top.map((t, i) => (
+              <li key={t.id} className="flex gap-4 border-b border-border px-5 py-4 last:border-b-0 hover:bg-surface2">
+                <span className="w-5 shrink-0 pt-0.5 font-mono text-xs text-text-secondary">{i + 1}.</span>
+                <ScoreBadge score={t.score} />
+                <div className="min-w-0 flex-1">
+                  <p className="flex flex-wrap items-baseline gap-x-3">
+                    <Link href={`/podjetja/${t.id}`} className="font-sans text-sm text-text-primary hover:text-accent">
+                      {t.name}
+                    </Link>
+                    <span className="font-mono text-[10px] text-text-secondary">{[t.category, t.city].filter(Boolean).join(" · ")}</span>
+                    {t.group ? (
+                      <span title={GROUP_HELP[t.group]} className="font-mono text-[10px] text-accent">
+                        {GROUP_LABEL[t.group]}
+                      </span>
+                    ) : null}
+                    <span className={`font-mono text-[10px] ${t.hasEmail ? "text-accent" : "text-text-secondary"}`}>
+                      {t.hasEmail ? "✉ E-NASLOV" : "BREZ E-NASLOVA"}
+                    </span>
+                  </p>
+                  {t.summary ? <p className="mt-1 line-clamp-2 font-sans text-xs text-text-secondary">{t.summary}</p> : null}
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
     </>
   );
 }
