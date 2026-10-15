@@ -109,9 +109,9 @@ export async function createDueFollowUps(db: Db, now = new Date()): Promise<numb
   let created = 0;
   for (const d of due) {
     const sent = await db
-      .select({ kind: drafts.kind, status: drafts.status, subject: drafts.subject, toEmail: drafts.toEmail })
+      .select({ kind: drafts.kind, status: drafts.status, subject: drafts.subject, toEmail: drafts.toEmail, messageId: drafts.messageId })
       .from(drafts)
-      .where(and(eq(drafts.dealId, d.dealId), ne(drafts.status, "discarded")))
+      .where(and(eq(drafts.dealId, d.dealId), ne(drafts.status, "discarded"), sql`${drafts.kind}::text <> 'reply'`))
       .orderBy(asc(drafts.createdAt));
     // Wait while a step is still open (pending or approved); the next step follows the last *sent* one.
     if (sent.some((s) => s.status !== "sent")) continue;
@@ -126,7 +126,7 @@ export async function createDueFollowUps(db: Db, now = new Date()): Promise<numb
     const m = next === "followup_1" ? composeFollowUp1(ctx.input, first.subject) : composeFollowUp2(ctx.input, first.subject);
     const [row] = await db
       .insert(drafts)
-      .values({ dealId: d.dealId, kind: next, toEmail: first.toEmail, subject: m.subject, body: m.body })
+      .values({ dealId: d.dealId, kind: next, toEmail: first.toEmail, subject: m.subject, body: m.body, inReplyTo: first.messageId })
       .onConflictDoNothing()
       .returning({ id: drafts.id });
     if (row) created++;
@@ -176,6 +176,7 @@ export async function approveDraft(db: Db, id: string, edit: { subject: string; 
   const subject = edit.subject.trim();
   const body = edit.body.replace(/\r\n/g, "\n").trim();
   if (!subject || !body) throw new Error("DRAFT_EMPTY");
+  if (body.includes("[TUKAJ ODGOVORI")) throw new Error("DRAFT_PLACEHOLDER");
   const r = await db
     .update(drafts)
     .set({ subject, body, status: "approved", approvedAt: now })
