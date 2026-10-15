@@ -10,6 +10,7 @@ const admin = postgres(url, { max: 1, onnotice: () => {} });
 const db = createDb(url, { max: 2 });
 
 beforeAll(async () => {
+  await admin.unsafe("DROP SCHEMA IF EXISTS drizzle CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
   await runMigrations(url);
 });
 beforeEach(async () => {

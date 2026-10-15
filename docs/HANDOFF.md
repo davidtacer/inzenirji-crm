@@ -20,6 +20,8 @@ Conversation with the owner in Slovenian; code and docs in English.
 - 2026-10-15: repo created by the owner; docs foundation (manifest, product spec, architecture, ADR-001…010,
   task list) from the business plan `inzenirji.si/docs/nacrt-rasti.md`.
 
+- 2026-10-15: TASK-020 owner-only login built (PR open). Needs the `SMTP_PASSWORD` secret before it reaches `main`.
+- 2026-10-15 16:07: owner ran `setup` (DB booted) and promoted TASK-003; prod health `{"status":"ok","sha":"e650f24…","db":"ok"}`. **Live.**
 - 2026-10-15: TASK-003 data model merged (PR #7, CI green incl. container + migrations): 8 tables, startup migrations, DB health, do-not-contact.
 - 2026-10-15: TASK-002 deploy skeleton merged (PR #4). First deploy = owner step below.
 - 2026-10-15: TASK-001 scaffold merged (PR #3, CI green).
@@ -45,7 +47,8 @@ DKIM signs mail from `david@inzenirji.si`** (ADR-013); re-test must show "Your m
 - 2026-10-15 15:52: owner promoted `dev` → `main` (PR #6); automatic "Deploy prod" run 38746379019 green; smoke check
   served `ce9b738` (TASK-002 app, no database yet). `https://crm.inzenirji.si/api/health` →
   `{"status":"ok","sha":"ce9b738…"}`. **Live on prod** (app only).
-- The database accessory is **not booted yet** (the automatic run skips `setup`). From TASK-003 on the app needs it
+- 2026-10-15 16:07: database booted by the owner's `setup` run; TASK-003 live, health `db: ok` (sha e650f24).
+- (History) The database accessory was not booted by the first automatic run (it skips `setup`). From TASK-003 on the app needs it
   (migrations at start, `db` in health), so the owner runs `setup` **before** promoting TASK-003:
   1. Actions → "Deploy prod" → Run workflow → branch `main` → tick **setup** → Run (boots `inzenirji-crm-db`,
      redeploys the same version).
@@ -59,4 +62,4 @@ throwaway database. In the cloud sandbox: `initdb` as user postgres in `/var/tmp
 ## Next
 TASK-001 scaffold (Next.js + Tailwind + Drizzle + Postgres in Docker locally, CI), TASK-002 Kamal deploy skeleton, then the C1 phase (prospecting, research, scoring) — target 2026-11-07.
 
-Latest TASK: 019 (planned) · latest ADR: 014.
+Latest TASK: 020 · latest ADR: 015.
