@@ -219,3 +219,32 @@ describe("deepen (TASK-023)", () => {
     expect((await admin`select stage from deals d join companies c on c.id = d.company_id where c.name = 'Neraziskan'`)[0].stage).toBe("found");
   });
 });
+
+describe("directories (TASK-025)", () => {
+  it("no own site: finds the company on bizi.si by address and stores the e-mail with the directory page as source", async () => {
+    const c = await company({ name: "Fizioterapija Fizis", address: "Cesta proletarskih brigad 79, 2000 Maribor, Slovenija", website: "https://facebook.com/fizis", websiteDomain: "facebook.com" });
+    const seen: string[] = [];
+    const fake = (async (u: string) => {
+      const url = new URL(String(u));
+      seen.push(url.pathname + url.search);
+      if (url.pathname === "/iskanje")
+        return new Response(`<a href="https://www.bizi.si/FIZIS-D-O-O/">FIZIS d.o.o.</a><div>Cesta proletarskih brigad 79</div><div>2000 Maribor</div>`, { status: 200 });
+      return new Response(`<h1>FIZIS d.o.o.</h1><a href="mailto:info@fizis.si">info@fizis.si</a>`, { status: 200 });
+    }) as unknown as typeof fetch;
+    const r = await runAudit(db, c.id, { fetchImpl: fake, resolve, directories: true });
+    expect(seen).toEqual(["/iskanje?q=Cesta%20proletarskih%20brigad%2079%20Maribor", "/FIZIS-D-O-O/"]);
+    expect(r).toMatchObject({ emails: 1, directoryEmails: 1 });
+    const d = (await companyDetail(db, c.id))!;
+    expect(d.contacts.map((x) => [x.email, x.emailSource])).toEqual([["info@fizis.si", "https://www.bizi.si/FIZIS-D-O-O/"]]);
+    expect((d.audit!.data as { directory: { match: { legalName: string } } }).directory.match.legalName).toBe("FIZIS d.o.o.");
+  });
+
+  it("site already publishes an e-mail, or directories off → no directory request", async () => {
+    const c = await company({ name: "Brez", address: "Glavni trg 1, 2000 Maribor" });
+    const boom = (async () => {
+      throw new Error("must not fetch");
+    }) as unknown as typeof fetch;
+    await runAudit(db, c.id, { fetchImpl: boom, resolve });
+    expect((await companyDetail(db, c.id))!.contacts).toEqual([]);
+  });
+});
