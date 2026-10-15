@@ -42,10 +42,17 @@ env:
     NODE_ENV: production
     RUN_MIGRATIONS: "1"
     APP_URL: https://crm.inzenirji.si
+    BETTER_AUTH_URL: https://crm.inzenirji.si
+    # Login e-mails (ADR-015): system mailbox, same as Postaja and the editor.
+    SMTP_HOST: mail.datavallis.com
+    SMTP_PORT: "465"
+    SMTP_USER: hello@inzenirji.si
+    EMAIL_FROM: "Inženirji.si CRM <hello@inzenirji.si>"
     OWNER_EMAILS: "<%= ENV.fetch("OWNER_EMAILS") %>"
   secret:
     - DATABASE_URL
     - BETTER_AUTH_SECRET
+    - SMTP_PASSWORD
 
 accessories:
   db:

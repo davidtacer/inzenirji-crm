@@ -32,6 +32,7 @@ jobs:
       KAMAL_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
       POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
       BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
       DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
       PROD_SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
     steps:
@@ -39,7 +40,7 @@ jobs:
       - name: Check required settings (names only)
         run: |
           missing=""
-          for v in PROD_HOST OWNER_EMAILS POSTGRES_PASSWORD BETTER_AUTH_SECRET DEPLOY_SSH_KEY PROD_SSH_KNOWN_HOSTS; do
+          for v in PROD_HOST OWNER_EMAILS POSTGRES_PASSWORD BETTER_AUTH_SECRET SMTP_PASSWORD DEPLOY_SSH_KEY PROD_SSH_KNOWN_HOSTS; do
             [ -n "${!v}" ] || missing="$missing $v"
           done
           [ -z "$missing" ] || { echo "::error::Missing in GitHub environment 'prod':$missing"; exit 1; }
@@ -69,3 +70,4 @@ jobs:
           done
           echo "$body"
           echo "$body" | grep -q "\"sha\":\"${GITHUB_SHA}\"" && echo "$body" | grep -q '"db":"ok"'
+          test "$(curl -s -o /dev/null -w '%{http_code}' https://crm.inzenirji.si/login)" = "200"

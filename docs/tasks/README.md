@@ -6,7 +6,7 @@ Phases follow the business plan (`inzenirji.si` → `docs/nacrt-rasti.md` §7.5)
 |---|---|---|---|---|
 | TASK-001 | Scaffold: Next.js + Tailwind (Inženirji.si tokens), lint/typecheck/test/build, CI | ADR-002 | C1 · 2026-10-24 | Done (PR #3) |
 | TASK-002 | Deploy skeleton: Dockerfile, Kamal (`prod`), GitHub Actions deploy, health on crm.inzenirji.si | 001, ADR-011, ADR-014 | C1 | Done — Live on prod (PR #4, deploy run 38746379019) |
-| TASK-003 | Data model + migrations (company, contact, audit, deal, activity, draft, do_not_contact) | 001 | C1 | Done (PR #7) — Live after the owner's `setup` run |
+| TASK-003 | Data model + migrations (company, contact, audit, deal, activity, draft, do_not_contact) | 001 | C1 | Done — Live on prod (PR #7, health `db: ok` e650f24) |
 | TASK-004 | Import existing leads (Google Sheets + `processed.txt` history) | 003 | C1 | Planned |
 | TASK-005 | Prospecting: Google Places search by region × category, dedupe, daily cap | 003 | C1 · 2026-11-07 | Planned |
 | TASK-006 | Due diligence: site audit, freshness vs. Google profile, competitors, summary, group A/B | 005 | C1 | Planned |
@@ -23,3 +23,4 @@ Phases follow the business plan (`inzenirji.si` → `docs/nacrt-rasti.md` §7.5)
 | TASK-017 | Postaja feed for the Inženirji.si brand from finished projects | 014, ADR-006 | C5 · 2027-01 | Planned |
 | TASK-018 | After-launch flow: review/NPS/referral requests, editor-usage upsells (incl. Postaja for clients) | 014 | C5 | Planned |
 | TASK-019 | Win/loss analysis | 016 | C5 | Planned |
+| TASK-020 | Owner-only login: Better Auth magic link, login page, logout, protected pages | 003, ADR-015 | C1 | Built — PR open |
