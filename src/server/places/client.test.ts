@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mapPlace, PLACES_ENDPOINT, PLACES_FIELD_MASK, PlacesError, searchTextPage } from "./client";
+import { distanceM, mapPlace, NEARBY_ENDPOINT, PLACES_ENDPOINT, PLACES_FIELD_MASK, PlacesError, searchNearby, searchTextPage } from "./client";
 
 const raw = {
   id: "ChIJ123",
@@ -16,6 +16,8 @@ const raw = {
   primaryTypeDisplayName: { text: "Restavracija" },
   googleMapsUri: "https://maps.google.com/?cid=1",
   businessStatus: "OPERATIONAL",
+  primaryType: "restaurant",
+  location: { latitude: 46.5547, longitude: 15.6459 },
 };
 
 describe("mapPlace", () => {
@@ -31,6 +33,9 @@ describe("mapPlace", () => {
       reviewCount: 312,
       category: "Restavracija",
       mapsUrl: "https://maps.google.com/?cid=1",
+      placeType: "restaurant",
+      lat: 46.5547,
+      lng: 15.6459,
     });
   });
   it("drops closed businesses and incomplete results", () => {
@@ -75,5 +80,33 @@ describe("searchTextPage", () => {
     expect(e).toBeInstanceOf(PlacesError);
     expect(e.message).toBe("PLACES_ERROR_403");
     expect(String(e)).not.toContain("KEY123");
+  });
+});
+
+describe("searchNearby", () => {
+  it("asks for the same type around a point, ranked by distance", async () => {
+    let body: Record<string, unknown> = {};
+    let url = "";
+    const fake = (async (u: string, init: RequestInit) => {
+      url = u;
+      body = JSON.parse(init.body as string);
+      return new Response(JSON.stringify({ places: [raw] }), { status: 200 });
+    }) as unknown as typeof fetch;
+    const r = await searchNearby({ lat: 46.23, lng: 15.26, type: "hair_care" }, "K", fake);
+    expect(url).toBe(NEARBY_ENDPOINT);
+    expect(body).toMatchObject({
+      includedTypes: ["hair_care"],
+      rankPreference: "DISTANCE",
+      locationRestriction: { circle: { center: { latitude: 46.23, longitude: 15.26 }, radius: 2000 } },
+    });
+    expect(r).toHaveLength(1);
+  });
+});
+
+describe("distanceM", () => {
+  it("is about 1 km for 0.009° of latitude", () => {
+    const d = distanceM({ lat: 46.0, lng: 15.0 }, { lat: 46.009, lng: 15.0 });
+    expect(d).toBeGreaterThan(990);
+    expect(d).toBeLessThan(1010);
   });
 });

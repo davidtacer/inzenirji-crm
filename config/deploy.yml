@@ -49,7 +49,7 @@ env:
     SMTP_USER: hello@inzenirji.si
     EMAIL_FROM: "Inženirji.si CRM <hello@inzenirji.si>"
     # Google Places Text Search: paid calls per day, reset at midnight Europe/Ljubljana (TASK-005).
-    PLACES_DAILY_CALL_CAP: "50"
+    PLACES_DAILY_CALL_CAP: "100"
     OWNER_EMAILS: "<%= ENV.fetch("OWNER_EMAILS") %>"
   secret:
     - DATABASE_URL

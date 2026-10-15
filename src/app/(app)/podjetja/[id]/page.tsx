@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
-import { SOURCE_LABEL, STAGE_LABEL } from "@/lib/labels";
+import { GROUP_HELP, GROUP_LABEL, SOURCE_LABEL, STAGE_LABEL } from "@/lib/labels";
 import { websiteKind } from "@/server/contact/website";
 import { getDb } from "@/server/db/client";
 import type { Issue, SiteFacts } from "@/server/research/analyze";
@@ -64,9 +64,10 @@ export default async function CompanyPage({ params }: { params: Promise<{ id: st
       {audit ? (
         <div className="mb-6 border border-accent/40 bg-surface2 p-5">
           <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-accent">
-            Skupina {c.group ?? "—"} · raziskano {new Date(audit.createdAt).toLocaleString("sl-SI", { timeZone: "Europe/Ljubljana" })}
+            {c.group ? GROUP_LABEL[c.group] : "—"} · raziskano {new Date(audit.createdAt).toLocaleString("sl-SI", { timeZone: "Europe/Ljubljana" })}
           </p>
           <p className="font-sans text-sm text-text-primary">{audit.summary}</p>
+          {c.group ? <p className="mt-2 font-sans text-xs text-text-secondary">{GROUP_HELP[c.group]}</p> : null}
         </div>
       ) : (
         <p className="mb-6 border border-border bg-surface p-5 font-mono text-xs text-text-secondary">&gt; Podjetje še ni raziskano.</p>
@@ -137,7 +138,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ id: st
           )}
         </Box>
 
-        <Box title="Konkurenti (isti kraj in panoga)">
+        <Box title={(audit?.data as { competitorSource?: string } | undefined)?.competitorSource === "nearby" ? "Konkurenti v okolici (Google)" : "Konkurenti (isti kraj in panoga, iz baze)"}>
           {d.competitors.length === 0 ? (
             <p className="font-mono text-xs text-text-secondary">Ni konkurentov v bazi. Poišči več podjetij iste panoge v tem kraju.</p>
           ) : (
@@ -148,6 +149,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ id: st
                     {r.name}
                   </Link>
                   <span className="font-mono text-[10px] text-text-secondary">
+                    {r.distanceM !== null ? `${r.distanceM < 1000 ? `${r.distanceM} m` : `${(r.distanceM / 1000).toFixed(1).replace(".", ",")} km`} · ` : ""}
                     {r.ratingX10 !== null ? `${(r.ratingX10 / 10).toFixed(1).replace(".", ",")} (${r.reviewCount ?? 0})` : ""} ·{" "}
                     {websiteKind(r.websiteDomain) === "own" ? r.websiteDomain : <span className="text-danger-text">brez strani</span>}
                   </span>

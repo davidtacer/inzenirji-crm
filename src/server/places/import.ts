@@ -11,7 +11,7 @@ export function isGoodBusiness(p: { ratingX10: number | null; reviewCount: numbe
 
 const digits = (s: string | null) => (s ? s.replace(/\D/g, "") : "");
 
-export type ImportResult = { created: number; updated: number };
+export type ImportResult = { created: number; updated: number; ids: Record<string, string> };
 
 /**
  * Stores search results. Dedupe: same place id → update; otherwise same website domain or phone on a company
@@ -21,6 +21,7 @@ export type ImportResult = { created: number; updated: number };
 export async function importPlaces(db: Db, places: Place[], country = "SI"): Promise<ImportResult> {
   let created = 0;
   let updated = 0;
+  const ids: Record<string, string> = {};
   for (const p of places) {
     const websiteDomain = domainOf(p.website);
     const values = {
@@ -35,6 +36,9 @@ export async function importPlaces(db: Db, places: Place[], country = "SI"): Pro
       placeId: p.placeId,
       ratingX10: p.ratingX10,
       reviewCount: p.reviewCount,
+      placeType: p.placeType,
+      lat: p.lat,
+      lng: p.lng,
       updatedAt: new Date(),
     };
     await db.transaction(async (tx) => {
@@ -65,7 +69,8 @@ export async function importPlaces(db: Db, places: Place[], country = "SI"): Pro
         created++;
       }
       await tx.insert(deals).values({ companyId: id, source: "places_search" }).onConflictDoNothing();
+      ids[p.placeId] = id;
     });
   }
-  return { created, updated };
+  return { created, updated, ids };
 }
