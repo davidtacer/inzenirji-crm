@@ -5,6 +5,8 @@ import { GROUP_HELP, GROUP_LABEL } from "@/lib/labels";
 import { getDb } from "@/server/db/client";
 import { companyCounts } from "@/server/places/list";
 import { rescoreMissing, topLeads } from "@/server/scoring/apply";
+import { pendingDraftCount } from "@/server/outreach/drafts";
+import { DraftTopButton } from "./osnutki/forms";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +14,7 @@ export default async function HomePage() {
   const db = getDb();
   // Companies researched before scoring existed get their score once, here.
   await rescoreMissing(db, 200);
-  const [c, top] = await Promise.all([companyCounts(db), topLeads(db, 10)]);
+  const [c, top, pending] = await Promise.all([companyCounts(db), topLeads(db, 10), pendingDraftCount(db)]);
   const stats: [string, number][] = [
     ["Podjetij v bazi", c.total],
     ["Dober posel (≥ 4,3, ≥ 30 ocen)", c.good],
@@ -61,6 +63,7 @@ export default async function HomePage() {
                     <span className={`font-mono text-[10px] ${t.hasEmail ? "text-accent" : "text-text-secondary"}`}>
                       {t.hasEmail ? "✉ E-NASLOV" : "BREZ E-NASLOVA"}
                     </span>
+                    {t.hasDraft ? <span className="font-mono text-[10px] text-[#F0B429]">OSNUTEK PRIPRAVLJEN</span> : null}
                   </p>
                   {t.summary ? <p className="mt-1 line-clamp-2 font-sans text-xs text-text-secondary">{t.summary}</p> : null}
                 </div>
@@ -68,6 +71,14 @@ export default async function HomePage() {
             ))}
           </ol>
         )}
+        {top.length ? (
+          <div className="flex flex-wrap items-center gap-4 border-t border-border px-5 py-4">
+            <DraftTopButton />
+            <Link href="/osnutki" className="font-mono text-xs text-accent hover:underline">
+              &gt; Osnutki za odobritev: {pending} →
+            </Link>
+          </div>
+        ) : null}
       </section>
     </>
   );

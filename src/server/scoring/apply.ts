@@ -76,6 +76,7 @@ export async function topLeads(db: Db, limit = 10) {
       website: companies.website,
       websiteDomain: companies.websiteDomain,
       hasEmail: sql<boolean>`exists (select 1 from ${contacts} where ${contacts.companyId} = ${companies.id} and ${contacts.email} is not null)`,
+      hasDraft: sql<boolean>`exists (select 1 from drafts d where d.deal_id = ${deals.id} and d.status <> 'discarded')`,
       summary: sql<string | null>`(select ${audits.summary} from ${audits} where ${audits.companyId} = ${companies.id} order by ${audits.createdAt} desc limit 1)`,
     })
     .from(companies)

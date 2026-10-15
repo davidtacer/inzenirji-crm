@@ -54,6 +54,9 @@ export const activityType = pgEnum("activity_type", ["email_in", "email_out", "c
 
 export const draftStatus = pgEnum("draft_status", ["pending", "approved", "sent", "discarded"]);
 
+/** Outreach sequence step (spec §5.5): day 0, day 3, day 8. */
+export const draftKind = pgEnum("draft_kind", ["first", "followup_1", "followup_2"]);
+
 export const dncKind = pgEnum("dnc_kind", ["email", "domain", "company"]);
 
 const timestamps = {
@@ -198,6 +201,7 @@ export const drafts = pgTable(
     toEmail: text("to_email").notNull(),
     subject: text("subject").notNull(),
     body: text("body").notNull(),
+    kind: draftKind("kind").notNull().default("first"),
     status: draftStatus("status").notNull().default("pending"),
     approvedAt: timestamp("approved_at", { withTimezone: true }),
     sentAt: timestamp("sent_at", { withTimezone: true }),
@@ -205,6 +209,8 @@ export const drafts = pgTable(
   },
   (t) => [
     index("drafts_status_idx").on(t.status),
+    // One live draft per sequence step and deal; a discarded draft can be prepared again.
+    uniqueIndex("drafts_deal_kind_live_uq").on(t.dealId, t.kind).where(sql`${t.status} <> 'discarded'`),
     check("drafts_to_lowercase", sql`${t.toEmail} = lower(${t.toEmail})`),
     // A sent draft must have been approved first (ADR-004), enforced by the database too.
     check("drafts_sent_requires_approval", sql`${t.status} <> 'sent' or (${t.approvedAt} is not null and ${t.sentAt} is not null)`),

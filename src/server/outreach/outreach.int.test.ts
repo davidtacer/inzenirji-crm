@@ -1,0 +1,187 @@
+import postgres from "postgres";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { addToDnc } from "../contact/dnc";
+import { createDb } from "../db/client";
+import { runMigrations } from "../db/migrate";
+import { audits, companies, contacts, deals, drafts } from "../db/schema";
+import { createCaptureMailer } from "../email/mailer";
+import {
+  addContactEmail,
+  approveDraft,
+  blockCompany,
+  createDueFollowUps,
+  createFirstDraft,
+  discardDraft,
+  listDrafts,
+  markReplied,
+} from "./drafts";
+import { sendApprovedDraft, type OutreachConfig } from "./send";
+import { verifyUnsubscribeToken } from "./unsubscribe";
+
+const url = process.env.TEST_DATABASE_URL!;
+const admin = postgres(url, { max: 1, onnotice: () => {} });
+const db = createDb(url, { max: 4 });
+const cfg: OutreachConfig = { enabled: true, dailyCap: 2, fromAddress: "david@inzenirji.si", appUrl: "https://crm.test", secret: "s3cret" };
+const T0 = new Date("2026-10-20T08:00:00Z");
+const day = (n: number) => new Date(T0.getTime() + n * 86_400_000);
+
+beforeAll(async () => {
+  await admin.unsafe("DROP SCHEMA IF EXISTS drizzle CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
+  await runMigrations(url);
+});
+beforeEach(async () => {
+  await admin.unsafe("TRUNCATE companies, do_not_contact RESTART IDENTITY CASCADE");
+});
+afterAll(async () => {
+  await admin.end({ timeout: 5 });
+  await db.$client.end({ timeout: 5 });
+});
+
+async function lead(name: string, email: string | null = `info@${name.toLowerCase()}.si`) {
+  const [c] = await db
+    .insert(companies)
+    .values({ name, city: "Celje", group: "A", website: `https://${name.toLowerCase()}.si`, websiteDomain: `${name.toLowerCase()}.si`, ratingX10: 47, reviewCount: 60 })
+    .returning();
+  await db.insert(deals).values({ companyId: c.id, source: "places_search", stage: "researched" });
+  await db.insert(audits).values({
+    companyId: c.id,
+    data: {},
+    issues: [
+      { code: "old_year", severity: "medium", text: "V nogi strani piše letnica 2016." },
+      { code: "no_structured_data", severity: "low", text: "x" },
+    ],
+  });
+  if (email) await db.insert(contacts).values({ companyId: c.id, email, emailSource: `https://${name.toLowerCase()}.si` });
+  return c;
+}
+const stage = async (id: string) => (await admin`select stage, next_action_at from deals where company_id = ${id}`)[0];
+const draftOf = async (id: string) => (await admin`select status from drafts where id = ${id}`)[0].status as string;
+
+describe("outreach flow", () => {
+  it("draft → approve → send → follow-ups day 3 and day 8 → sequence ends", async () => {
+    const c = await lead("Ana");
+    const r = await createFirstDraft(db, c.id);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(await createFirstDraft(db, c.id)).toEqual({ ok: false, reason: "EXISTS" });
+
+    const mailer = createCaptureMailer();
+    // Not approved → refused, nothing sent (ADR-004).
+    expect(await sendApprovedDraft(db, r.draftId, { mailer, config: cfg, now: T0 })).toEqual({ ok: false, error: "NOT_APPROVED" });
+    expect(await approveDraft(db, r.draftId, { subject: "Spletna stran za Ana", body: "Pozdravljeni,\r\n\r\nurejeno besedilo." }, T0)).toBe(true);
+    expect(await sendApprovedDraft(db, r.draftId, { mailer, config: { ...cfg, enabled: false }, now: T0 })).toEqual({ ok: false, error: "LOCKED" });
+    expect(mailer.sent).toHaveLength(0);
+
+    expect(await sendApprovedDraft(db, r.draftId, { mailer, config: cfg, now: T0 })).toEqual({ ok: true });
+    expect(mailer.sent).toHaveLength(1);
+    const m = mailer.sent[0];
+    expect(m.to).toBe("info@ana.si");
+    expect(m.text).toBe("Pozdravljeni,\n\nurejeno besedilo.");
+    expect(m.headers?.["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
+    const token = m.headers!["List-Unsubscribe"].match(/odjava\?t=([^>]+)>/)![1];
+    expect(verifyUnsubscribeToken(token, "s3cret")).toBe("info@ana.si");
+    expect((await stage(c.id)).stage).toBe("contacted");
+    // Sending twice is impossible.
+    expect(await sendApprovedDraft(db, r.draftId, { mailer, config: cfg, now: T0 })).toEqual({ ok: false, error: "NOT_APPROVED" });
+
+    expect(await createDueFollowUps(db, day(2))).toBe(0);
+    expect(await createDueFollowUps(db, day(3))).toBe(1);
+    expect(await createDueFollowUps(db, day(3))).toBe(0);
+    const f1 = (await listDrafts(db)).pending[0];
+    expect(f1.kind).toBe("followup_1");
+    expect(f1.subject).toBe("Re: Spletna stran za Ana");
+    await approveDraft(db, f1.id, { subject: f1.subject, body: f1.body }, day(3));
+    expect((await sendApprovedDraft(db, f1.id, { mailer, config: cfg, now: day(3) })).ok).toBe(true);
+
+    expect(await createDueFollowUps(db, day(7))).toBe(0);
+    expect(await createDueFollowUps(db, day(8))).toBe(1);
+    const f2 = (await listDrafts(db)).pending[0];
+    expect(f2.kind).toBe("followup_2");
+    await approveDraft(db, f2.id, { subject: f2.subject, body: f2.body }, day(8));
+    expect((await sendApprovedDraft(db, f2.id, { mailer, config: cfg, now: day(8) })).ok).toBe(true);
+    expect((await stage(c.id)).next_action_at).toBeNull();
+    expect(await createDueFollowUps(db, day(30))).toBe(0);
+    expect((await admin`select count(*)::int n from activities where type = 'email_out'`)[0].n).toBe(3);
+  });
+
+  it("daily cap counts across drafts, also for parallel sends", async () => {
+    const capture = createCaptureMailer();
+    // Slow SMTP so the three sends overlap; only the lock keeps the cap.
+    const mailer = { sent: capture.sent, async send(m: Parameters<typeof capture.send>[0]) { await new Promise((r) => setTimeout(r, 150)); await capture.send(m); } };
+    const ids: string[] = [];
+    for (const n of ["Ena", "Dva", "Tri"]) {
+      const c = await lead(n);
+      const r = await createFirstDraft(db, c.id);
+      if (!r.ok) throw new Error(r.reason);
+      await approveDraft(db, r.draftId, { subject: "s", body: "b" }, T0);
+      ids.push(r.draftId);
+    }
+    const results = await Promise.all(ids.map((id) => sendApprovedDraft(db, id, { mailer, config: cfg, now: T0 })));
+    expect(results.filter((r) => r.ok)).toHaveLength(2);
+    expect(results.filter((r) => !r.ok && r.error === "CAP")).toHaveLength(1);
+    expect(mailer.sent).toHaveLength(2);
+    // Next day the cap resets.
+    const left = ids.find((_, i) => !results[i].ok)!;
+    expect((await sendApprovedDraft(db, left, { mailer, config: cfg, now: day(1) })).ok).toBe(true);
+  });
+
+  it("do-not-contact: no draft, and an approved draft is discarded at send time", async () => {
+    const a = await lead("Blok");
+    await addToDnc(db, { kind: "domain", value: "blok.si", reason: "odjava" });
+    expect(await createFirstDraft(db, a.id)).toEqual({ ok: false, reason: "BLOCKED" });
+
+    const b = await lead("Pozno");
+    const r = await createFirstDraft(db, b.id);
+    if (!r.ok) throw new Error(r.reason);
+    await approveDraft(db, r.draftId, { subject: "s", body: "b" }, T0);
+    await addToDnc(db, { kind: "email", value: "INFO@pozno.si", reason: "odjava" });
+    const mailer = createCaptureMailer();
+    expect(await sendApprovedDraft(db, r.draftId, { mailer, config: cfg, now: T0 })).toEqual({ ok: false, error: "BLOCKED" });
+    expect(await draftOf(r.draftId)).toBe("discarded");
+    expect(mailer.sent).toHaveLength(0);
+  });
+
+  it("failed SMTP keeps the draft approved and the deal untouched", async () => {
+    const c = await lead("Napaka");
+    const r = await createFirstDraft(db, c.id);
+    if (!r.ok) throw new Error(r.reason);
+    await approveDraft(db, r.draftId, { subject: "s", body: "b" }, T0);
+    const broken = { async send() { throw new Error("smtp down"); } };
+    expect(await sendApprovedDraft(db, r.draftId, { mailer: broken, config: cfg, now: T0 })).toEqual({ ok: false, error: "SEND_FAILED" });
+    expect(await draftOf(r.draftId)).toBe("approved");
+    expect((await stage(c.id)).stage).toBe("researched");
+  });
+
+  it("no e-mail → owner adds one with a source; replied and blocked stop everything", async () => {
+    const c = await lead("Brez", null);
+    expect(await createFirstDraft(db, c.id)).toEqual({ ok: false, reason: "NO_EMAIL" });
+    expect((await addContactEmail(db, c.id, "x", "fb")).ok).toBe(false);
+    expect((await addContactEmail(db, c.id, " Info@Brez.si ", "https://facebook.com/brez")).ok).toBe(true);
+    const r = await createFirstDraft(db, c.id);
+    expect(r.ok).toBe(true);
+
+    expect(await markReplied(db, c.id, T0)).toBe(true);
+    expect((await stage(c.id)).stage).toBe("replied");
+    if (r.ok) expect(await draftOf(r.draftId)).toBe("discarded");
+
+    const d = await lead("Ne");
+    const r2 = await createFirstDraft(db, d.id);
+    expect(await blockCompany(db, d.id, "ni zainteresiran", T0)).toBe(true);
+    if (r2.ok) expect(await draftOf(r2.draftId)).toBe("discarded");
+    expect((await stage(d.id)).stage).toBe("lost");
+    const dnc = await admin`select kind, value from do_not_contact order by kind, value`;
+    expect(dnc.map((x) => `${x.kind}:${x.value}`).sort()).toEqual([`company:${d.id}`, "domain:ne.si", "email:info@ne.si"]);
+    expect(await createFirstDraft(db, d.id)).toEqual({ ok: false, reason: "WRONG_STAGE" });
+    expect((await admin`select score from companies where id = ${d.id}`)[0].score).toBe(0);
+  });
+
+  it("database: one live draft per step, discarded can be redone", async () => {
+    const c = await lead("Uniq");
+    const r = await createFirstDraft(db, c.id);
+    if (!r.ok) throw new Error(r.reason);
+    const [deal] = await db.select().from(deals);
+    await expect(db.insert(drafts).values({ dealId: deal.id, kind: "first", toEmail: "a@b.si", subject: "s", body: "b" })).rejects.toThrow();
+    expect(await discardDraft(db, r.draftId)).toBe(true);
+    expect((await createFirstDraft(db, c.id)).ok).toBe(true);
+  });
+});
