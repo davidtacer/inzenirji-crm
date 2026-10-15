@@ -15,7 +15,7 @@ Status labels: **Live** · **Built** · **Planned**. Everything below is **Plann
 ## Integrations
 | Service | Use | Auth | Status |
 |---|---|---|---|
-| Google Places API | prospecting | API key | Planned |
+| Google Places API (New) Text Search | prospecting, daily cap `PLACES_DAILY_CALL_CAP` | API key | Built (TASK-005) |
 | Mailbox `david@inzenirji.si` (IMAP sync + SMTP send) | sync replies, send approved drafts | mailbox password | Planned (ADR-013) |
 | Google Calendar API | read bookings from appointment schedules | OAuth | Planned |
 | Stripe | prepayment links, payment status | secret key + webhook | Planned |

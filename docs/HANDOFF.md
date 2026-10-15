@@ -20,6 +20,7 @@ Conversation with the owner in Slovenian; code and docs in English.
 - 2026-10-15: repo created by the owner; docs foundation (manifest, product spec, architecture, ADR-001…010,
   task list) from the business plan `inzenirji.si/docs/nacrt-rasti.md`.
 
+- 2026-10-15: TASK-005 Google Places prospecting built (PR open); owner set `GOOGLE_PLACES_API_KEY` (restricted to the server IP) 16:34.
 - 2026-10-15 16:27: **TASK-020 login Live on prod, owner-tested** — owner set `SMTP_PASSWORD`, promoted, requested a link, received it from hello@inzenirji.si and is signed in.
 - 2026-10-15 16:07: owner ran `setup` (DB booted) and promoted TASK-003; prod health `{"status":"ok","sha":"e650f24…","db":"ok"}`. **Live.**
 - 2026-10-15: TASK-003 data model merged (PR #7, CI green incl. container + migrations): 8 tables, startup migrations, DB health, do-not-contact.
@@ -62,4 +63,4 @@ throwaway database. In the cloud sandbox: `initdb` as user postgres in `/var/tmp
 ## Next
 TASK-001 scaffold (Next.js + Tailwind + Drizzle + Postgres in Docker locally, CI), TASK-002 Kamal deploy skeleton, then the C1 phase (prospecting, research, scoring) — target 2026-11-07.
 
-Latest TASK: 020 · latest ADR: 015.
+Latest TASK: 020 · latest ADR: 015. Local Postgres for int tests may stop when the sandbox restarts — restart with `pg_ctl` (see above).
