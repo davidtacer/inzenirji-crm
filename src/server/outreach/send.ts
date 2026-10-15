@@ -40,7 +40,7 @@ export function lockReason(env: Record<string, string | undefined> = process.env
   return null;
 }
 
-export type SendError = "NOT_FOUND" | "LOCKED" | "NOT_APPROVED" | "BLOCKED" | "CAP" | "SEND_FAILED";
+export type SendError = "NOT_FOUND" | "LOCKED" | "NOT_APPROVED" | "BLOCKED" | "CAP" | "BOUNCE_STOP" | "SEND_FAILED";
 
 export const SEND_REASON: Record<SendError, string> = {
   NOT_FOUND: "Osnutka ni.",
@@ -48,10 +48,20 @@ export const SEND_REASON: Record<SendError, string> = {
   NOT_APPROVED: "Osnutek ni odobren.",
   BLOCKED: "Naslov je na seznamu »ne kontaktiraj« — osnutek je zavržen.",
   CAP: "Dosežena je današnja omejitev pošiljanja.",
+  BOUNCE_STOP: "Pošiljanje novih e-mailov je ustavljeno: v zadnjih 7 dneh je več kot 3 % nedostavljenih (ADR-013). Preveri naslove.",
   SEND_FAILED: "Pošiljanje ni uspelo. Osnutek ostane odobren, poskusi kasneje.",
 };
 
-const NEXT_STEP_DAYS: Record<"first" | "followup_1" | "followup_2", number | null> = { first: 3, followup_1: 5, followup_2: null };
+const NEXT_STEP_DAYS: Record<"first" | "followup_1" | "followup_2" | "reply", number | null> = { first: 3, followup_1: 5, followup_2: null, reply: null };
+
+/** Bounce-rate stop (ADR-013): > 3 % bounces among ≥ 20 cold e-mails sent in the last 7 days. */
+export async function bounceStop(db: Db, now = new Date()): Promise<boolean> {
+  const since = new Date(now.getTime() - 7 * 86_400_000).toISOString();
+  const [r] = (await db.execute(sql`select
+      (select count(*)::int from drafts where status = 'sent' and kind::text <> 'reply' and sent_at >= ${since}) as sent,
+      (select count(*)::int from inbound_messages where classification = 'bounce' and received_at >= ${since}) as bounces`)) as unknown as { sent: number; bounces: number }[];
+  return r.sent >= 20 && r.bounces / r.sent > 0.03;
+}
 
 /** Start of today in Europe/Ljubljana as an instant. */
 function startOfLocalDay(now: Date): Date {
@@ -63,21 +73,26 @@ function startOfLocalDay(now: Date): Date {
   return new Date(Date.parse(`${day}T00:00:00Z`) - minutes * 60_000);
 }
 
+/** Cold e-mails sent today (replies to people who wrote to us do not count against the cap). */
 export async function sentToday(db: Db, now = new Date()): Promise<number> {
   const [r] = await db
     .select({ n: sql<number>`count(*)::int` })
     .from(drafts)
-    .where(and(eq(drafts.status, "sent"), gte(drafts.sentAt, startOfLocalDay(now))));
+    .where(and(eq(drafts.status, "sent"), gte(drafts.sentAt, startOfLocalDay(now)), sql`${drafts.kind}::text <> 'reply'`));
   return r?.n ?? 0;
 }
 
-export function buildMail(d: { toEmail: string; subject: string; body: string }, cfg: OutreachConfig): Mail {
+export const messageIdFor = (draftId: string) => `<${draftId}@inzenirji.si>`;
+
+export function buildMail(d: { id?: string; toEmail: string; subject: string; body: string; inReplyTo?: string | null }, cfg: OutreachConfig): Mail {
   const url = `${cfg.appUrl}/api/odjava?t=${unsubscribeToken(d.toEmail, cfg.secret)}`;
   return {
     to: d.toEmail,
     subject: d.subject,
     text: d.body,
     html: toHtml(d.body),
+    ...(d.id ? { messageId: messageIdFor(d.id) } : {}),
+    ...(d.inReplyTo ? { inReplyTo: d.inReplyTo, references: [d.inReplyTo] } : {}),
     headers: {
       "List-Unsubscribe": `<mailto:${cfg.fromAddress}?subject=odjava>, <${url}>`,
       "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
@@ -109,24 +124,28 @@ export async function sendApprovedDraft(
       await tx.update(drafts).set({ status: "discarded" }).where(eq(drafts.id, id));
       return { ok: false as const, error: "BLOCKED" as const };
     }
-    if ((await sentToday(tx as unknown as Db, now)) >= cfg.dailyCap) return { ok: false as const, error: "CAP" as const };
+    const cold = d.draft.kind !== "reply";
+    if (cold && (await sentToday(tx as unknown as Db, now)) >= cfg.dailyCap) return { ok: false as const, error: "CAP" as const };
+    if (cold && (await bounceStop(tx as unknown as Db, now))) return { ok: false as const, error: "BOUNCE_STOP" as const };
     try {
       await deps.mailer.send(buildMail(d.draft, cfg));
     } catch (e) {
       console.error("[outreach] send failed:", e instanceof Error ? e.message : "unknown");
       return { ok: false as const, error: "SEND_FAILED" as const };
     }
-    await tx.update(drafts).set({ status: "sent", sentAt: now }).where(eq(drafts.id, id));
+    await tx.update(drafts).set({ status: "sent", sentAt: now, messageId: messageIdFor(id) }).where(eq(drafts.id, id));
     const days = NEXT_STEP_DAYS[d.draft.kind];
     const early = d.stage === "found" || d.stage === "researched";
-    await tx
-      .update(deals)
-      .set({
-        ...(early ? { stage: "contacted" as const } : {}),
-        nextActionAt: days === null ? null : new Date(now.getTime() + days * 86_400_000),
-        updatedAt: now,
-      })
-      .where(eq(deals.companyId, d.companyId));
+    if (cold) {
+      await tx
+        .update(deals)
+        .set({
+          ...(early ? { stage: "contacted" as const } : {}),
+          nextActionAt: days === null ? null : new Date(now.getTime() + days * 86_400_000),
+          updatedAt: now,
+        })
+        .where(eq(deals.companyId, d.companyId));
+    }
     await tx.insert(activities).values({
       dealId: d.draft.dealId,
       type: "email_out",

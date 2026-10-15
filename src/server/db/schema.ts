@@ -55,7 +55,10 @@ export const activityType = pgEnum("activity_type", ["email_in", "email_out", "c
 export const draftStatus = pgEnum("draft_status", ["pending", "approved", "sent", "discarded"]);
 
 /** Outreach sequence step (spec §5.5): day 0, day 3, day 8. */
-export const draftKind = pgEnum("draft_kind", ["first", "followup_1", "followup_2"]);
+export const draftKind = pgEnum("draft_kind", ["first", "followup_1", "followup_2", "reply"]);
+
+/** Classification of an incoming reply (spec §5.5, TASK-009). */
+export const replyClass = pgEnum("reply_class", ["interested", "not_now", "no", "question", "out_of_office", "bounce"]);
 
 export const dncKind = pgEnum("dnc_kind", ["email", "domain", "company"]);
 
@@ -205,12 +208,19 @@ export const drafts = pgTable(
     status: draftStatus("status").notNull().default("pending"),
     approvedAt: timestamp("approved_at", { withTimezone: true }),
     sentAt: timestamp("sent_at", { withTimezone: true }),
+    /** Our Message-ID of the sent e-mail, to match replies (TASK-009). */
+    messageId: text("message_id"),
+    /** For reply drafts: the prospect's Message-ID we answer (threading). */
+    inReplyTo: text("in_reply_to"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index("drafts_status_idx").on(t.status),
     // One live draft per sequence step and deal; a discarded draft can be prepared again.
-    uniqueIndex("drafts_deal_kind_live_uq").on(t.dealId, t.kind).where(sql`${t.status} <> 'discarded'`),
+    // Replies are exempt (a conversation has many).
+    uniqueIndex("drafts_deal_kind_live_uq").on(t.dealId, t.kind).where(sql`${t.status} <> 'discarded' and ${t.kind} <> 'reply'`),
+    // One reply draft per incoming message (follow-ups also thread to the first e-mail, so only replies).
+    uniqueIndex("drafts_in_reply_to_uq").on(t.inReplyTo).where(sql`${t.inReplyTo} is not null and ${t.status} <> 'discarded' and ${t.kind} = 'reply'`),
     check("drafts_to_lowercase", sql`${t.toEmail} = lower(${t.toEmail})`),
     // A sent draft must have been approved first (ADR-004), enforced by the database too.
     check("drafts_sent_requires_approval", sql`${t.status} <> 'sent' or (${t.approvedAt} is not null and ${t.sentAt} is not null)`),
@@ -328,3 +338,34 @@ export const aiUsage = pgTable(
   },
   (t) => [index("ai_usage_created_idx").on(t.createdAt), check("ai_usage_cost_non_negative", sql`${t.costMicroUsd} >= 0`)],
 );
+
+/** Replies from prospects found in the outreach mailbox (TASK-009). Mail from unknown senders is never stored. */
+export const inboundMessages = pgTable(
+  "inbound_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    messageId: text("message_id").notNull(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    dealId: uuid("deal_id").references(() => deals.id, { onDelete: "cascade" }),
+    fromEmail: text("from_email").notNull(),
+    subject: text("subject").notNull().default(""),
+    receivedAt: timestamp("received_at", { withTimezone: true }).notNull(),
+    bodyText: text("body_text").notNull().default(""),
+    classification: replyClass("classification").notNull(),
+    /** How it was classified: "rule" or the AI model id. */
+    classifiedBy: text("classified_by").notNull(),
+    handledAt: timestamp("handled_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("inbound_message_id_uq").on(t.messageId), index("inbound_company_idx").on(t.companyId, t.receivedAt)],
+);
+
+/** IMAP sync position per mailbox folder. */
+export const mailboxState = pgTable("mailbox_state", {
+  mailbox: text("mailbox").primaryKey(),
+  uidValidity: text("uid_validity").notNull(),
+  lastUid: integer("last_uid").notNull().default(0),
+  syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
+});
