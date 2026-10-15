@@ -67,5 +67,5 @@ Migrations run at web container start. Backups: nightly `pg_dump` to Hetzner Obj
 | Env | URL | Status |
 |---|---|---|
 | local | `localhost:3000` + Postgres in Docker | Planned |
-| prod | `https://crm.inzenirji.si`, owner-only | Planned |
+| prod | `https://crm.inzenirji.si`, owner-only | Live (app since 2026-10-15; database after the owner's `setup` run) |
 One environment on the server is enough for an internal single-user tool; a dev destination can be added later.
