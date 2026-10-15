@@ -36,7 +36,9 @@ The agent sandbox cannot SSH there (egress proxy); every host step is an owner a
 Done by the owner 2026-10-15 ("sem uredil vse"): DNS `crm.inzenirji.si`, nginx server block + certbot on the host,
 mailbox `david@inzenirji.si`, GitHub environment `prod` (secrets + variables per CHEATSHEET) and the deploy key.
 Seen from the agent (DNS over HTTPS): SPF `v=spf1 +a +mx ~all`, DMARC `p=none`. Not verifiable from the sandbox:
-DKIM and MX → owner runs a mail-tester.com check before the first outreach (TASK-008 is blocked on a score ≥ 9/10).
+DKIM and MX → owner ran mail-tester.com on 2026-10-15: **9/10**. SPF pass (sending server `gateone.datavallis.com`,
+78.46.239.231), DMARC pass, not blocklisted, **DKIM missing** (−1). TASK-008 (first outreach send) is **blocked until
+DKIM signs mail from `david@inzenirji.si`** (ADR-013); re-test must show "Your message is signed with DKIM".
 
 ## First deploy (owner, once TASK-002 is merged to `dev`)
 1. Promote `dev` → `main`: GitHub → Pull requests → New pull request → base `main`, compare `dev` → Create → Merge.
