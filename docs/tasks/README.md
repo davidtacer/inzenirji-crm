@@ -30,4 +30,5 @@ Phases follow the business plan (`inzenirji.si` → `docs/nacrt-rasti.md` §7.5)
 | TASK-024 | AI personal remark (Claude API) from site text + Google reviews, cost logged, daily budget | 023, ADR-021 | C2 | Done — Live on prod (PR #33) |
 | TASK-025 | E-mails from the public directory bizi.si by address, with source (AJPES, CompanyWall, social pages: not now) | 023, ADR-007, ADR-022 | C2 | Done — Live on prod (PR #35) |
 | TASK-026 | Manual company entry: paste a bizi.si or website URL → prefilled form → save + research | 005, ADR-024 | C2 | Done — Live, owner-tested 2026-10-16 (sent to himself, reply classified) |
-| TASK-027 | Contextual AI reply drafts with one concrete next step (booking link / phone / ask for number) | 009, ADR-025 | C2 | Built — PR open |
+| TASK-027 | Contextual AI reply drafts with one concrete next step (booking link / phone / ask for number) | 009, ADR-025 | C2 | Done — Live (PR #41) |
+| TASK-028 | Owner settings page `/nastavitve` (sending switch, caps, booking link, phone, AI budget); env only for secrets | ADR-026 | C2 | Built — PR open |

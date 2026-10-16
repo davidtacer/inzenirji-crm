@@ -2,11 +2,12 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/server/auth/session";
 import { getDb } from "@/server/db/client";
+import { getSettings } from "@/server/settings";
 import { researchBatch, runAudit } from "@/server/research/run";
 
-function placesDeps() {
+async function placesDeps() {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
-  return apiKey ? { apiKey, dailyCap: Number(process.env.PLACES_DAILY_CALL_CAP ?? 100) } : undefined;
+  return apiKey ? { apiKey, dailyCap: (await getSettings(getDb())).placesDailyCap } : undefined;
 }
 
 // Production research also asks public directories for an e-mail (TASK-025).
@@ -19,7 +20,7 @@ export async function researchOneAction(_prev: ActionState, form: FormData): Pro
   const id = String(form.get("id") ?? "");
   if (!/^[0-9a-f-]{36}$/.test(id)) return { ok: false, message: "Neveljavno podjetje." };
   try {
-    const r = await runAudit(getDb(), id, { places: placesDeps(), directories: DIRECTORIES });
+    const r = await runAudit(getDb(), id, { places: await placesDeps(), directories: DIRECTORIES });
     revalidatePath(`/podjetja/${id}`);
     revalidatePath("/podjetja");
     return { ok: true, message: `Raziskano: skupina ${r.group}, težav ${r.issues}, e-naslovov ${r.emails}${r.directoryEmails ? ` (${r.directoryEmails} iz bizi.si)` : ""}, konkurentov ${r.competitors}${r.competitorSource === "nearby" ? " (iz okolice)" : " (iz baze)"}.` };
@@ -32,7 +33,7 @@ export async function researchOneAction(_prev: ActionState, form: FormData): Pro
 export async function researchBatchAction(_prev: ActionState): Promise<ActionState> {
   void _prev;
   if (!(await getCurrentUser())) return { ok: false, message: "Prijava je potekla. Osveži stran." };
-  const r = await researchBatch(getDb(), { limit: 20, concurrency: 3, places: placesDeps(), directories: DIRECTORIES });
+  const r = await researchBatch(getDb(), { limit: 20, concurrency: 3, places: await placesDeps(), directories: DIRECTORIES });
   revalidatePath("/podjetja");
   revalidatePath("/");
   revalidatePath("/iskanje");
@@ -43,7 +44,7 @@ export async function researchBatchAction(_prev: ActionState): Promise<ActionSta
 export async function deepenAction(_prev: ActionState): Promise<ActionState> {
   void _prev;
   if (!(await getCurrentUser())) return { ok: false, message: "Prijava je potekla. Osveži stran." };
-  const r = await researchBatch(getDb(), { limit: 20, concurrency: 3, deepen: true, places: placesDeps(), directories: DIRECTORIES });
+  const r = await researchBatch(getDb(), { limit: 20, concurrency: 3, deepen: true, places: await placesDeps(), directories: DIRECTORIES });
   revalidatePath("/podjetja");
   revalidatePath("/");
   if (r.done === 0 && r.failed === 0) return { ok: true, message: "Vsa raziskana podjetja so že poglobljeno raziskana." };

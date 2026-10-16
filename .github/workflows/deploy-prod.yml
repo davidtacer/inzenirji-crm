@@ -28,9 +28,6 @@ jobs:
     env:
       PROD_HOST: ${{ vars.PROD_HOST }}
       OWNER_EMAILS: ${{ vars.OWNER_EMAILS }}
-      OUTREACH_ENABLED: ${{ vars.OUTREACH_ENABLED }}
-      BOOKING_URL: ${{ vars.BOOKING_URL }}
-      OWNER_PHONE: ${{ vars.OWNER_PHONE }}
       KAMAL_REGISTRY_USERNAME: ${{ github.actor }}
       KAMAL_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
       POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}

@@ -14,9 +14,10 @@ import {
   markReplied,
   unapproveDraft,
 } from "@/server/outreach/drafts";
-import { outreachConfigFromEnv, SEND_REASON, sendApprovedDraft } from "@/server/outreach/send";
+import { outreachConfig, SEND_REASON, sendApprovedDraft } from "@/server/outreach/send";
+import { getSettings } from "@/server/settings";
 import { topLeads } from "@/server/scoring/apply";
-import { aiConfigFromEnv } from "@/server/ai/remark";
+import { aiConfig } from "@/server/ai/remark";
 
 export type ActionState = { ok: boolean; message: string } | null;
 
@@ -66,7 +67,7 @@ export async function sendAction(_prev: ActionState, form: FormData): Promise<Ac
   if (!(await getCurrentUser())) return EXPIRED;
   const id = form.get("id");
   if (!isId(id)) return { ok: false, message: "Neveljaven osnutek." };
-  const config = outreachConfigFromEnv();
+  const config = outreachConfig(await getSettings(getDb()));
   if (!config.enabled) return { ok: false, message: SEND_REASON.LOCKED };
   const r = await sendApprovedDraft(getDb(), id, { mailer: createOutreachMailerFromEnv(), config });
   refresh();
@@ -77,7 +78,7 @@ export async function draftOneAction(_prev: ActionState, form: FormData): Promis
   if (!(await getCurrentUser())) return EXPIRED;
   const id = form.get("companyId");
   if (!isId(id)) return { ok: false, message: "Neveljavno podjetje." };
-  const r = await createFirstDraft(getDb(), id, aiConfigFromEnv());
+  const r = await createFirstDraft(getDb(), id, aiConfig(await getSettings(getDb())));
   refresh(id);
   return r.ok ? { ok: true, message: "Osnutek je pripravljen — najdeš ga v »Osnutki«." } : { ok: false, message: DRAFT_REASON[r.reason] };
 }
@@ -87,7 +88,7 @@ export async function draftTopAction(_prev: ActionState): Promise<ActionState> {
   if (!(await getCurrentUser())) return EXPIRED;
   const db = getDb();
   const top = await topLeads(db, 10);
-  const r = await createFirstDrafts(db, top.map((t) => t.id), aiConfigFromEnv());
+  const r = await createFirstDrafts(db, top.map((t) => t.id), aiConfig(await getSettings(db)));
   refresh();
   const why = Object.entries(r.skipped)
     .map(([k, n]) => `${n}× ${DRAFT_REASON[k as keyof typeof DRAFT_REASON].replace(/\.$/, "").toLowerCase()}`)

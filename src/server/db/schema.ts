@@ -369,3 +369,10 @@ export const mailboxState = pgTable("mailbox_state", {
   lastUid: integer("last_uid").notNull().default(0),
   syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** Owner settings edited in the CRM (TASK-028): one row per key. Secrets never live here. */
+export const settings = pgTable("settings", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});

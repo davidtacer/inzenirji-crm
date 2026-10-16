@@ -11,6 +11,7 @@ import {
   Inbox,
   Mail,
   Search,
+  Settings,
   ShieldBan,
   type LucideIcon,
 } from "lucide-react";
@@ -38,7 +39,10 @@ const GROUPS: Group[] = [
   },
   {
     title: "Nastavitve",
-    items: [{ href: "/ne-kontaktiraj", label: "Ne kontaktiraj", icon: ShieldBan, soon: true }],
+    items: [
+      { href: "/nastavitve", label: "Nastavitve", icon: Settings },
+      { href: "/ne-kontaktiraj", label: "Ne kontaktiraj", icon: ShieldBan, soon: true },
+    ],
   },
 ];
 

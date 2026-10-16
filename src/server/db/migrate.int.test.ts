@@ -35,6 +35,7 @@ describe("migrations", () => {
       "inbound_messages",
       "mailbox_state",
       "session",
+      "settings",
       "user",
       "verification",
     ]);

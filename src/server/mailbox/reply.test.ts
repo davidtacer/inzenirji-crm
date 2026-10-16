@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { cleanReply, contactOptionsFromEnv, nextStep } from "./reply";
+import { cleanReply, contactOptions, nextStep } from "./reply";
 
 describe("nextStep", () => {
   it("booking link first, then phone, else ask for their number", () => {
     expect(nextStep({ bookingUrl: "https://cal.app/x", phone: "041 111 222" })).toContain("https://cal.app/x");
     expect(nextStep({ bookingUrl: null, phone: "041 111 222" })).toBe("Pokličite me na 041 111 222 ali mi pošljite svojo številko in vas pokličem jaz.");
     expect(nextStep({ bookingUrl: null, phone: null })).toBe("Pošljite mi svojo telefonsko številko in kdaj vam najbolj ustreza, pa vas pokličem.");
-    expect(contactOptionsFromEnv({ BOOKING_URL: " ", OWNER_PHONE: "041 1" })).toEqual({ bookingUrl: null, phone: "041 1" });
+    expect(contactOptions({ bookingUrl: " ", ownerPhone: "041 1" })).toEqual({ bookingUrl: null, phone: "041 1" });
   });
 });
 
