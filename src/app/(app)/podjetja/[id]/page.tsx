@@ -89,6 +89,7 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
       searches: number;
       website: string | null;
       ok: boolean;
+      by?: "api" | "agent";
       error?: string | null;
       websiteState?: "live" | "under_construction" | "parked" | null;
       websiteFrom?: string | null;
@@ -263,6 +264,7 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
             {data.web && !data.web.ok ? (
               <p className="mb-3 font-mono text-xs text-danger-text">&gt; Iskanje po spletu ni uspelo: {data.web.error ?? "neznan razlog"} Poskusi »Raziskuj znova«.</p>
             ) : null}
+            {data.web?.by === "agent" ? <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-accent">Nočna raziskava (Claude)</p> : null}
             {data.web?.summary ? <p className="mb-4 font-sans text-sm text-text-primary">{data.web.summary}</p> : null}
             {data.web?.website ? (
               <p className="mb-3 flex flex-wrap items-baseline gap-x-3 font-sans text-sm">
