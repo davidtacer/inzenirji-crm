@@ -9,6 +9,8 @@ import { pendingDraftCount } from "@/server/outreach/drafts";
 import { DraftTopButton } from "./osnutki/forms";
 import { DeepenButton } from "./podjetja/buttons";
 import { shallowCount } from "@/server/research/run";
+import { callsBoard } from "@/server/calls/calls";
+import { formatLj, within } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +18,8 @@ export default async function HomePage() {
   const db = getDb();
   // Companies researched before scoring existed get their score once, here.
   await rescoreMissing(db, 200);
-  const [c, top, pending, shallow] = await Promise.all([companyCounts(db), topLeads(db, 10), pendingDraftCount(db), shallowCount(db)]);
+  const [c, top, pending, shallow, calls] = await Promise.all([companyCounts(db), topLeads(db, 10), pendingDraftCount(db), shallowCount(db), callsBoard(db)]);
+  const soon = calls.booked.filter((b) => within(b.callAt, 36));
   const stats: [string, number][] = [
     ["Podjetij v bazi", c.total],
     ["Dober posel (≥ 4,3, ≥ 30 ocen)", c.good],
@@ -33,6 +36,30 @@ export default async function HomePage() {
           </div>
         ))}
       </div>
+
+      {soon.length || calls.replied.length ? (
+        <section className="mt-6 border border-accent/40 bg-surface">
+          <h2 className="border-b border-border px-5 py-3 font-mono text-[10px] uppercase tracking-[0.3em] text-accent">{"// Klici"}</h2>
+          <ul>
+            {soon.map((b) => (
+              <li key={b.companyId} className="flex flex-wrap gap-x-4 border-b border-border px-5 py-3 last:border-b-0">
+                <span className="font-mono text-xs text-accent">{formatLj(b.callAt)}</span>
+                <Link href={`/podjetja/${b.companyId}`} className="font-sans text-sm text-text-primary hover:text-accent">
+                  {b.name}
+                </Link>
+                <span className="font-mono text-[10px] text-text-secondary">{b.hasBrief ? "brief ✓" : "pripravi brief"}</span>
+              </li>
+            ))}
+            {calls.replied.length ? (
+              <li className="px-5 py-3 font-mono text-xs">
+                <Link href="/klici" className="text-[#F0B429] hover:underline">
+                  &gt; {calls.replied.length} odgovorilo — dogovori klic →
+                </Link>
+              </li>
+            ) : null}
+          </ul>
+        </section>
+      ) : null}
 
       <section className="mt-6 border border-border bg-surface">
         <h2 className="border-b border-border px-5 py-3 font-mono text-[10px] uppercase tracking-[0.3em] text-accent">

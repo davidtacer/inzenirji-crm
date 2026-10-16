@@ -171,6 +171,13 @@ export const deals = pgTable(
     nextActionAt: timestamp("next_action_at", { withTimezone: true }),
     lostReason: text("lost_reason"),
     valueCents: integer("value_cents"),
+    /** Agreed call time (TASK-012); Google Calendar sync later. */
+    callAt: timestamp("call_at", { withTimezone: true }),
+    /** Pre-call brief (AI or rules), shown on the company page and on "Klici". */
+    brief: jsonb("brief"),
+    briefAt: timestamp("brief_at", { withTimezone: true }),
+    /** Latest structured call summary from the owner's notes (scope, wishes, objections, next step, materials). */
+    callSummary: jsonb("call_summary"),
     ...timestamps,
   },
   (t) => [

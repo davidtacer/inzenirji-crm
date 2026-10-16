@@ -8,6 +8,8 @@ import { getDb } from "@/server/db/client";
 import type { Issue, SiteFacts } from "@/server/research/analyze";
 import { companyDetail, type GoogleProfileData } from "@/server/research/run";
 import { conversation } from "@/server/mailbox/process";
+import { SalesPanel } from "@/components/SalesPanel";
+import { callNotesHistory, type Brief, type CallSummary } from "@/server/calls/calls";
 import { REPLY_LABEL } from "@/lib/replyLabels";
 import type { DirectoryResult } from "@/server/directories/bizi";
 import type { ScorePart } from "@/server/scoring/score";
@@ -61,6 +63,7 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
   };
   const google = data.google ?? null;
   const talk = await conversation(getDb(), c.id);
+  const notes = await callNotesHistory(getDb(), c.id);
   const facts = data.facts ?? null;
   const kind = websiteKind(c.websiteDomain);
 
@@ -108,6 +111,19 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
                 />
               ))}
             </dl>
+          </Box>
+        ) : null}
+        {d.deal && d.stage ? (
+          <Box title="Prodaja">
+            <SalesPanel
+              companyId={c.id}
+              stage={d.stage}
+              callAt={d.deal.callAt}
+              brief={(d.deal.brief as Brief | null) ?? null}
+              briefAt={d.deal.briefAt}
+              summary={(d.deal.callSummary as CallSummary | null) ?? null}
+              history={notes.map((n) => ({ at: n.at, notes: String((n.payload as { notes?: string }).notes ?? "") }))}
+            />
           </Box>
         ) : null}
         {talk.length ? (
