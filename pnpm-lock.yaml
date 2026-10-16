@@ -41,6 +41,9 @@ importers:
       react-dom:
         specifier: 19.2.8
         version: 19.2.8(react@19.2.8)
+      upnqr:
+        specifier: 1.2.2
+        version: 1.2.2
     devDependencies:
       '@tailwindcss/postcss':
         specifier: ^4.3.3
@@ -3227,6 +3230,9 @@ packages:
     peerDependencies:
       browserslist: '>= 4.21.0'
 
+  upnqr@1.2.2:
+    resolution: {integrity: sha512-M4SM48bhXReqn+k3l8abIwe288eDvNCvRcq5O+VpGiqj805SezsvI+JZq4zr+Pwwt/5QMKGao+3h3P8SLC4wJQ==}
+
   uri-js@4.4.1:
     resolution: {integrity: sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==}
 
@@ -6380,6 +6386,8 @@ snapshots:
       browserslist: 4.29.3
       escalade: 3.2.0
       picocolors: 1.1.1
+
+  upnqr@1.2.2: {}
 
   uri-js@4.4.1:
     dependencies:

@@ -24,3 +24,10 @@ Scanning the UPN QR with a real Slovenian banking app — owner checks with his 
 "Pripravi e-mail s ponudbo" answered "Osnutek odgovora … že obstaja" with nothing in Osnutki: the one-reply-per-message
 index counted the already **sent** reply. Index now covers only open drafts (pending/approved), migration 0014.
 Regression test added (sent reply to the same message, proposal e-mail still created); with the old predicate it fails.
+
+## Fix 2026-10-16: UPN QR did not scan (owner report)
+Owner: "QR koda ni pravilna, ne dela z našimi bankami, uporabi upnqr". Our encoder wrote the reference with a space
+("SI00 57308522"). The data string now comes from the `upnqr` package (1.2.2, ISC, no dependencies); reference without
+spaces; due date at noon UTC (no day shift). Unit test decodes the string with `upnqr.decode`. Independent check:
+QR rendered to PNG and read back with jsQR → version 15, bytes identical, ISO-8859-2 (Ž). Still to confirm by the
+owner with a real banking app.
