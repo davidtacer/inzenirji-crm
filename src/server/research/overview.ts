@@ -1,7 +1,7 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import type { Db } from "../db/client";
 import { activities, aiUsage, companies, deals } from "../db/schema";
-import { GeminiError, geminiConfig, groundedSearch } from "../google/gemini";
+import { GEMINI_TIMEOUT_MS, GeminiError, geminiConfig, groundedSearch } from "../google/gemini";
 
 /*
  * "Google pregled" (TASK-037, ADR-039): the owner asks Gemini with Google Search about one company. The grounded
@@ -72,7 +72,7 @@ export async function runOverview(db: Db, companyId: string, fetchImpl: typeof f
             ? `Model ${cfg.model} ne obstaja; popravi ga v Nastavitvah.`
             : `Gemini je zavrnil zahtevo (${e.status}${e.detail ? `: ${e.detail}` : ""}).`
         : e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError")
-          ? "Gemini se ni odzval v 60 sekundah."
+          ? `Gemini se ni odzval v ${GEMINI_TIMEOUT_MS / 60_000} minutah. Poskusi znova.`
           : "Google pregled ni uspel.";
     console.error("[overview] failed:", e instanceof GeminiError ? `${e.status} ${e.detail ?? ""}` : (e as Error)?.name);
     return msg;
