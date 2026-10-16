@@ -64,7 +64,11 @@ export async function runOverview(db: Db, companyId: string, fetchImpl: typeof f
       e instanceof GeminiError
         ? e.status === 400 && /api key/i.test(e.detail ?? "")
           ? "Ključ za Gemini ni veljaven."
-          : e.status === 404
+          : e.status === 401 || e.status === 403
+            ? `Google ni sprejel ključa za Gemini (${e.status}${e.detail ? `: ${e.detail}` : ""}). Ustvari nov ključ v AI Studio in ga shrani v Nastavitvah.`
+            : e.status === 429
+              ? "Gemini: dosežena omejitev (kvota). V AI Studio pri ključu vklopi plačljivi paket (Set up billing) ali poskusi kasneje."
+              : e.status === 404
             ? `Model ${cfg.model} ne obstaja; popravi ga v Nastavitvah.`
             : `Gemini je zavrnil zahtevo (${e.status}${e.detail ? `: ${e.detail}` : ""}).`
         : e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError")

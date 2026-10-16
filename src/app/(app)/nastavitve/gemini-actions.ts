@@ -8,7 +8,7 @@ export async function saveGeminiAction(_prev: { ok: boolean; message: string } |
   if (!(await getCurrentUser())) return { ok: false, message: "Prijava je potekla." };
   const apiKey = String(form.get("apiKey") ?? "").trim();
   const model = String(form.get("model") ?? "").trim();
-  if (apiKey && !/^[A-Za-z0-9_-]{20,100}$/.test(apiKey)) return { ok: false, message: "Ključ ni videti pravilen (začne se z AIza…)." };
+  if (apiKey && !/^[A-Za-z0-9._-]{20,300}$/.test(apiKey)) return { ok: false, message: "Ključ ni videti pravilen (začne se z AIza… ali AQ.…, brez presledkov)." };
   if (model && !/^[a-z0-9.-]{3,60}$/.test(model)) return { ok: false, message: "Ime modela ni pravilno." };
   await saveGemini(getDb(), { apiKey: apiKey || null, model: model || null });
   revalidatePath("/nastavitve");
