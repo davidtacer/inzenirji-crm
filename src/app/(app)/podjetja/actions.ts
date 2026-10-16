@@ -6,7 +6,7 @@ import { getSettings } from "@/server/settings";
 import { aiConfig } from "@/server/ai/remark";
 import { researchBatch, runAudit } from "@/server/research/run";
 import { runningJob, startJob } from "@/server/jobs";
-import { runOverview } from "@/server/research/overview";
+import { linkKind, runOverview } from "@/server/research/overview";
 import { companies, companyLinks } from "@/server/db/schema";
 import { domainOf } from "@/server/contact/normalize";
 import { eq } from "drizzle-orm";
@@ -96,7 +96,7 @@ export async function addLinkAction(_prev: ActionState, form: FormData): Promise
   const id = String(form.get("companyId") ?? "");
   const url = String(form.get("url") ?? "").trim();
   if (!/^[0-9a-f-]{36}$/.test(id) || !/^https?:\/\/\S{3,990}$/.test(url)) return { ok: false, message: "Neveljavna povezava." };
-  const kind = String(form.get("kind") ?? "other").slice(0, 20);
+  const kind = String(form.get("kind") || linkKind(url)).slice(0, 20);
   await getDb()
     .insert(companyLinks)
     .values({ companyId: id, url, kind, source: "owner", verified: true, note: "Google pregled (potrdil lastnik)" })

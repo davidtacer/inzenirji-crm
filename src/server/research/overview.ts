@@ -21,12 +21,13 @@ export function overviewPrompt(c: { name: string; category: string | null; addre
     c.website ? `Znana povezava: ${c.website}` : "",
     "",
     "Išči tudi s krajšim imenom (brez s.p./d.o.o.) in z imenom lastnika. Preveri, da gre za isto podjetje (naslov, telefon).",
-    "Naštej v kratkih alinejah, vsak podatek s polnim URL-jem vira:",
+    "Naštej v kratkih alinejah, vsak podatek z virom:",
     "- uradna spletna stran (tudi če je samo v opisu na Instagramu/Facebooku ali kaže »v izdelavi«) in stare strani (Wix ipd.)",
     "- Facebook, Instagram, TikTok (URL, število sledilcev, kaj piše v opisu)",
     "- e-naslovi in telefoni (z URL-jem strani, kjer so objavljeni, npr. Facebook O nas, imenik)",
     "- pravna oseba (ime, naslov, davčna, vir) in prejšnji lastniki na istem naslovu",
     "- osebe, storitve, delovni čas, zanimiva dejstva za osebni e-mail",
+    "URL napiši samo, če si ga dobesedno videl v rezultatu iskanja. Nikoli ga ne sestavljaj iz imena podjetja in ne ugibaj ID-jev (npr. pri Facebooku). Če URL-ja nimaš, napiši samo, kje je podatek (npr. »Facebook stran Frizerski salon Pri Slavici, 262 sledilcev«).",
     "Odgovori v slovenščini. Ničesar ne ugibaj.",
   ]
     .filter((l, i) => l !== "" || i > 0)

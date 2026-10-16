@@ -48,3 +48,18 @@ export function SetWebsite({ companyId, url }: { companyId: string; url: string 
     </form>
   );
 }
+
+/** Owner pastes a link he opened himself (e.g. from Google's sources) and saves it (TASK-037). */
+export function PasteLink({ companyId }: { companyId: string }) {
+  const [state, action, busy] = useActionState<ActionState, FormData>(addLinkAction, null);
+  return (
+    <form action={action} className="flex flex-wrap items-center gap-2">
+      <input type="hidden" name="companyId" value={companyId} />
+      <input name="url" type="url" required placeholder="https://… (prilepi naslov strani, ki si jo odprl)" className="min-w-0 flex-1 border border-border bg-transparent px-2 py-1 font-sans text-sm text-text-primary" />
+      <button type="submit" disabled={busy} className={small}>
+        {busy ? "…" : "Dodaj povezavo"}
+      </button>
+      {state ? <span className={`font-mono text-[10px] ${state.ok ? "text-accent" : "text-danger-text"}`}>{state.ok ? "✓ dodano" : state.message}</span> : null}
+    </form>
+  );
+}
