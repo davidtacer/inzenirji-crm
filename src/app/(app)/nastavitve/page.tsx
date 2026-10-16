@@ -69,7 +69,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           )}
         </aside>
         <aside className="h-fit border border-border bg-surface p-5">
-          <h2 className="mb-3 font-mono text-[10px] uppercase tracking-[0.3em] text-accent">{"// Demo urejevalnika"}</h2>
+          <h2 className="mb-3 font-mono text-[10px] uppercase tracking-[0.3em] text-accent">{"// Leadi s spleta (demo + obrazec)"}</h2>
           <DemoLeadsCard createdAt={demo ? formatLj(demo.createdAt, false) : null} />
         </aside>
         <aside className="h-fit border border-border bg-surface p-5">

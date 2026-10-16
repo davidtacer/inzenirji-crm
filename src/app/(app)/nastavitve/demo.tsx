@@ -8,7 +8,9 @@ export function DemoLeadsCard({ createdAt }: { createdAt: string | null }) {
   const [copied, setCopied] = useState(false);
   return (
     <div className="flex flex-col gap-3 font-sans text-xs text-text-secondary">
-      <p>Ko obiskovalec demota vpiše e-naslov, ga urejevalnik pošlje v CRM (vir »demo urejevalnika«). Isti ključ CRM-u omogoči branje števil demota na strani Danes.</p>
+      <p>
+        Isti ključ uporabljata demo urejevalnika (e-naslovi obiskovalcev, vir »demo urejevalnika«) in obrazec na inzenirji.si (povpraševanja, vir »obrazec na strani«). CRM z njim bere tudi števila demota za stran Danes.
+      </p>
       <p>
         Ključ:{" "}
         {createdAt ? <span className="text-accent">nastavljen ({createdAt})</span> : <span className="text-danger-text">še ni ustvarjen</span>}
@@ -26,10 +28,13 @@ export function DemoLeadsCard({ createdAt }: { createdAt: string | null }) {
           >
             {copied ? "Kopirano ✓" : "Kopiraj ključ"}
           </button>
+          <p className="font-mono text-[10px] uppercase tracking-widest text-text-secondary">Vpiši ga na dve mesti:</p>
           <ol className="list-decimal pl-4 leading-relaxed">
-            <li>Cloudflare → Workers &amp; Pages → inzenirji-editor-dev → Settings → Variables and Secrets.</li>
-            <li>Add → tip Secret → ime CRM_LEADS_TOKEN → vrednost: ta ključ → Deploy/Save.</li>
-            <li>Ključ se po osvežitvi strani ne prikaže več. Če ga izgubiš, ustvari novega in ga ponovno vpiši.</li>
+            <li>Urejevalnik: Cloudflare → Workers &amp; Pages → inzenirji-editor-dev → Settings → Variables and Secrets → Add → tip Secret → ime CRM_LEADS_TOKEN → vrednost: ta ključ → Deploy.</li>
+            <li>
+              Spletna stran: Vercel → projekt inzenirji.si → Settings → Environment Variables → Add: ime CRM_LEADS_TOKEN, vrednost: ta ključ, okolje Production → Save. Nato Deployments → zadnji → ⋯ → Redeploy.
+            </li>
+            <li>Ključ se po osvežitvi strani ne prikaže več. Če ga izgubiš, ustvari novega in ga vpiši na obe mesti znova.</li>
           </ol>
         </div>
       ) : state ? (
