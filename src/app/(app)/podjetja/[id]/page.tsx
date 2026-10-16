@@ -42,8 +42,9 @@ const ext = (href: string, label?: string) => (
   </a>
 );
 
-export default async function CompanyPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function CompanyPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ obstaja?: string }> }) {
   const { id } = await params;
+  const { obstaja } = await searchParams;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const d = await companyDetail(getDb(), id);
   if (!d) notFound();
@@ -70,6 +71,9 @@ export default async function CompanyPage({ params }: { params: Promise<{ id: st
           ← Podjetja
         </Link>
       </p>
+      {obstaja ? (
+        <p className="mb-4 border border-[#F0B429]/60 p-3 font-mono text-xs text-[#F0B429]">&gt; To podjetje je že v bazi — odprl sem obstoječe. Morebitni novi e-naslov je dodan.</p>
+      ) : null}
       <PageHeader
         title={c.name}
         description={[c.category, c.city].filter(Boolean).join(" · ")}
