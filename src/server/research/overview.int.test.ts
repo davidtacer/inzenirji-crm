@@ -4,7 +4,7 @@ import { createDb } from "../db/client";
 import { runMigrations } from "../db/migrate";
 import { companies, deals } from "../db/schema";
 import { geminiConfig, geminiStatus, saveGemini, usesThinkingLevel } from "../google/gemini";
-import { latestOverview, linkKind, mentioned, runOverview } from "./overview";
+import { groupSources, latestOverview, linkKind, mentioned, runOverview } from "./overview";
 
 const url = process.env.TEST_DATABASE_URL!;
 const admin = postgres(url, { max: 1, onnotice: () => {} });
@@ -106,6 +106,18 @@ describe("Google pregled (TASK-037)", () => {
       emails: ["tjasamogu@gmail.com"],
       urls: ["https://www.facebook.com/people/Frizerski-salon-Pri-Slavici/100063486733971/", "https://www.bizi.si/TJASA-MOGU-S-P/"],
     });
+    expect(mentioned("a https://www.bizi.si/X/ b http://bizi.si/X c https://www.bizi.si/X/#o").urls).toEqual(["https://www.bizi.si/X/"]);
+    expect(
+      groupSources([
+        { title: "facebook.com", uri: "https://r/1" },
+        { title: "bizi.si", uri: "https://r/2" },
+        { title: "facebook.com", uri: "https://r/1" },
+        { title: "www.facebook.com", uri: "https://r/3" },
+      ]),
+    ).toEqual([
+      { title: "facebook.com", uris: ["https://r/1", "https://r/3"] },
+      { title: "bizi.si", uris: ["https://r/2"] },
+    ]);
     expect(linkKind("https://www.facebook.com/x")).toBe("facebook");
     expect(linkKind("https://www.bizi.si/X/")).toBe("directory");
     expect(linkKind("https://salonfantazija.si")).toBe("other");
