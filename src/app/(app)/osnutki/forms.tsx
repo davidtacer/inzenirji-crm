@@ -148,3 +148,20 @@ export function CompanyOutreach({ companyId, stage, hasEmail }: { companyId: str
     </div>
   );
 }
+
+/** One-click add for an e-mail the web search saw but we could not verify automatically (TASK-031). */
+export function AddCandidateEmail({ companyId, email, source }: { companyId: string; email: string; source: string }) {
+  const [state, action, busy] = useActionState<ActionState, FormData>(addEmailAction, null);
+  if (state?.ok) return <span className="font-mono text-xs text-accent">✓ dodan</span>;
+  return (
+    <form action={action} className="inline-flex items-center gap-2">
+      <input type="hidden" name="companyId" value={companyId} />
+      <input type="hidden" name="email" value={email} />
+      <input type="hidden" name="source" value={source || "splet (potrdil lastnik)"} />
+      <button type="submit" disabled={busy} className="border border-accent/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-accent hover:bg-accent hover:text-black">
+        {busy ? "…" : "Potrdi in dodaj"}
+      </button>
+      {state && !state.ok ? <span className="font-mono text-[10px] text-danger-text">{state.message}</span> : null}
+    </form>
+  );
+}

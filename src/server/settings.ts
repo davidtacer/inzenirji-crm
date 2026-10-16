@@ -20,6 +20,8 @@ export type Settings = {
   aiDailyBudgetUsd: number;
   /** Google Places paid calls per day. */
   placesDailyCap: number;
+  /** Research also searches the web (Claude web search) for site, profiles, directories, e-mails (TASK-031). */
+  webSearchEnabled: boolean;
 };
 
 export const LIMITS = {
@@ -36,6 +38,7 @@ export function defaultSettings(env: Record<string, string | undefined> = proces
     ownerPhone: env.OWNER_PHONE?.trim() ?? "",
     aiDailyBudgetUsd: Number(env.AI_DAILY_BUDGET_USD ?? 2) || 2,
     placesDailyCap: Number(env.PLACES_DAILY_CALL_CAP ?? 100) || 100,
+    webSearchEnabled: true,
   };
 }
 
@@ -71,6 +74,7 @@ export function validateSettings(input: Partial<SettingsInput>): { ok: true; val
         ownerPhone,
         aiDailyBudgetUsd: num("aiDailyBudgetUsd", "AI omejitev"),
         placesDailyCap: num("placesDailyCap", "Google klici na dan"),
+        webSearchEnabled: input.webSearchEnabled === true || input.webSearchEnabled === "on",
       },
     };
   } catch (e) {

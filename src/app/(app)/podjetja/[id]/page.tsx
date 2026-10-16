@@ -14,10 +14,24 @@ import { callNotesHistory, type Brief, type CallSummary } from "@/server/calls/c
 import { REPLY_LABEL } from "@/lib/replyLabels";
 import type { DirectoryResult } from "@/server/directories/bizi";
 import type { ScorePart } from "@/server/scoring/score";
-import { CompanyOutreach } from "../../osnutki/forms";
+import { AddCandidateEmail, CompanyOutreach } from "../../osnutki/forms";
 import { ResearchOneButton } from "../buttons";
 
 export const dynamic = "force-dynamic";
+
+const LINK_KIND: Record<string, string> = {
+  website: "Stran",
+  facebook: "Facebook",
+  instagram: "Instagram",
+  tiktok: "TikTok",
+  linkedin: "LinkedIn",
+  youtube: "YouTube",
+  directory: "Imenik",
+  booking: "Rezervacije",
+  email: "E-naslov?",
+  other: "Drugo",
+};
+const SOURCE_NAME: Record<string, string> = { google: "Google", site: "njihova stran", web_search: "splet", directory: "bizi.si", owner: "ti" };
 
 const SEV: Record<Issue["severity"], string> = { high: "text-danger-text", medium: "text-[#F0B429]", low: "text-text-secondary" };
 
@@ -61,6 +75,7 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
     scanned?: { url: string; status: number }[];
     google?: GoogleProfileData | null;
     directory?: DirectoryResult | null;
+    web?: { summary: string | null; legalName: string | null; searches: number; website: string | null; ok: boolean } | null;
   };
   const google = data.google ?? null;
   const talk = await conversation(getDb(), c.id);
@@ -194,6 +209,37 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
           </dl>
         </Box>
 
+        {d.links.length || data.web ? (
+          <Box title="Na spletu">
+            {data.web?.summary ? <p className="mb-3 font-sans text-sm text-text-primary">{data.web.summary}</p> : null}
+            {data.web?.legalName ? <p className="mb-3 font-mono text-xs text-text-secondary">Uradno ime: {data.web.legalName}</p> : null}
+            {data.web && !data.web.ok ? <p className="mb-3 font-mono text-xs text-danger-text">&gt; Iskanje po spletu ni uspelo — poskusi »Raziskuj znova«.</p> : null}
+            <ul className="flex flex-col gap-2">
+              {d.links.map((l) => (
+                <li key={l.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border pb-2 last:border-b-0">
+                  <span className="w-24 shrink-0 font-mono text-[10px] uppercase tracking-widest text-text-secondary">{LINK_KIND[l.kind] ?? l.kind}</span>
+                  {l.kind === "email" ? (
+                    <>
+                      <span className="font-sans text-sm text-text-primary">{l.url.replace(/^mailto:/, "")}</span>
+                      {l.note ? <span className="font-mono text-[10px] text-text-secondary">vir: {l.note.replace(/^https?:\/\/(www\.)?/, "").slice(0, 50)}</span> : null}
+                      {d.contacts.some((p) => `mailto:${p.email}` === l.url) ? (
+                        <span className="font-mono text-xs text-accent">✓ med kontakti</span>
+                      ) : (
+                        <AddCandidateEmail companyId={c.id} email={l.url.replace(/^mailto:/, "")} source={l.note ?? ""} />
+                      )}
+                    </>
+                  ) : (
+                    <span className="min-w-0 break-all font-sans text-sm">{ext(l.url, l.url.replace(/^https?:\/\/(www\.)?/, "").slice(0, 70))}</span>
+                  )}
+                  <span className={`ml-auto font-mono text-[10px] ${l.verified ? "text-accent" : "text-text-secondary"}`}>
+                    {SOURCE_NAME[l.source] ?? l.source}
+                    {l.kind !== "email" ? (l.verified ? " · preverjeno" : " · ni preverjeno") : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Box>
+        ) : null}
         <Box title="Povezave">
           <dl>
             <Row

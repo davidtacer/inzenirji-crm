@@ -3,7 +3,7 @@ import { defaultSettings, validateSettings } from "./settings";
 import { lockReason, outreachConfig } from "./outreach/send";
 import { aiConfig } from "./ai/remark";
 
-const ok = { sendingEnabled: "on", dailySendCap: "10", bookingUrl: "", ownerPhone: "041 123 456", aiDailyBudgetUsd: "2,5", placesDailyCap: "100" };
+const ok = { sendingEnabled: "on", dailySendCap: "10", bookingUrl: "", ownerPhone: "041 123 456", aiDailyBudgetUsd: "2,5", placesDailyCap: "100", webSearchEnabled: "on" };
 
 describe("settings", () => {
   it("defaults keep the old environment values until something is saved", () => {
@@ -14,10 +14,11 @@ describe("settings", () => {
       ownerPhone: "",
       aiDailyBudgetUsd: 2,
       placesDailyCap: 100,
+      webSearchEnabled: true,
     });
   });
   it("validates numbers in range, https link, phone", () => {
-    expect(validateSettings(ok)).toEqual({ ok: true, value: { sendingEnabled: true, dailySendCap: 10, bookingUrl: "", ownerPhone: "041 123 456", aiDailyBudgetUsd: 2.5, placesDailyCap: 100 } });
+    expect(validateSettings(ok)).toEqual({ ok: true, value: { sendingEnabled: true, dailySendCap: 10, bookingUrl: "", ownerPhone: "041 123 456", aiDailyBudgetUsd: 2.5, placesDailyCap: 100, webSearchEnabled: true } });
     expect(validateSettings({ ...ok, dailySendCap: "500" })).toEqual({ ok: false, message: "Omejitev e-mailov na dan: vpiši število od 0 do 50." });
     expect(validateSettings({ ...ok, bookingUrl: "calendar.google.com/x" })).toMatchObject({ ok: false });
     expect(validateSettings({ ...ok, ownerPhone: "pokliči" })).toMatchObject({ ok: false });

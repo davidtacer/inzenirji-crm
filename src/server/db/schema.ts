@@ -420,3 +420,25 @@ export const calendarEvents = pgTable(
   },
   (t) => [index("calendar_events_start_idx").on(t.startAt)],
 );
+
+/**
+ * Everything we know about a company on the web (TASK-031): its site, social profiles, directory entries, and
+ * e-mail candidates that could not be verified automatically (kind "email", url = "mailto:…", note = where it was seen).
+ */
+export const companyLinks = pgTable(
+  "company_links",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    url: text("url").notNull(),
+    kind: text("kind").notNull(),
+    /** google | site | web_search | directory | owner */
+    source: text("source").notNull(),
+    verified: boolean("verified").notNull().default(false),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("company_links_uq").on(t.companyId, t.url)],
+);
