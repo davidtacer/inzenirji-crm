@@ -24,7 +24,17 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
   const [rows, pending] = await Promise.all([listCompanies(db, filter), unresearchedCount(db)]);
   return (
     <>
-      <PageHeader title="Podjetja" description="Vsa najdena podjetja. Raziskava odpre njihovo stran in predlaga skupino A ali B." right={<ResearchBatchButton pending={pending} />} />
+      <PageHeader title="Podjetja" description="Vsa najdena podjetja. Raziskava odpre njihovo stran in predlaga skupino A ali B." right={
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/podjetja/novo"
+              className="border border-border px-4 py-2 font-mono text-xs uppercase tracking-widest text-text-primary hover:border-accent hover:text-accent"
+            >
+              + Dodaj podjetje
+            </Link>
+            <ResearchBatchButton pending={pending} />
+          </div>
+        } />
       <GroupLegend />
       <div className="mb-4 flex flex-wrap gap-px border border-border bg-border">
         {FILTERS.map(([k, label]) => (
