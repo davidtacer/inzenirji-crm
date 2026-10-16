@@ -21,7 +21,7 @@ import { demoNotes } from "@/server/demo/demo";
 import { latestJob } from "@/server/jobs";
 import { latestOverview, linkKind, mentioned } from "@/server/research/overview";
 import { geminiStatus } from "@/server/google/gemini";
-import { AddLink, OverviewButton, SetWebsite } from "../overview";
+import { AddLink, OverviewButton, PasteLink, SetWebsite } from "../overview";
 import { jobView } from "@/lib/jobs";
 import { formatLj } from "@/lib/time";
 
@@ -282,9 +282,26 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
                   className="mb-4 h-[72px] w-full border-0 bg-transparent"
                 />
               ) : null}
+              {overview.sources?.length ? (
+                <div className="mb-4 border-t border-border pt-3">
+                  <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-text-secondary">Viri, ki jih je našel Google (te povezave delujejo)</p>
+                  <ul className="flex flex-col gap-1">
+                    {overview.sources.map((s, i) => (
+                      <li key={`${i}-${s.uri}`} className="font-sans text-sm">
+                        <a href={s.uri} target="_blank" rel="noopener noreferrer" className="text-text-primary underline decoration-border underline-offset-4 hover:text-accent">
+                          {s.title || "vir"} ↗
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-3 mb-2 font-sans text-xs text-text-secondary">Odpri vir, preveri, da je pravo podjetje, kopiraj naslov iz brskalnika in ga prilepi sem:</p>
+                  <PasteLink companyId={c.id} />
+                </div>
+              ) : null}
               {found.emails.length || found.urls.length ? (
                 <div className="border-t border-border pt-3">
-                  <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-text-secondary">Shrani v CRM (samo kar je pravilno)</p>
+                  <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-text-secondary">Shrani v CRM (samo kar je pravilno)</p>
+                  {found.urls.length ? <p className="mb-2 font-sans text-xs text-[#F0B429]">Povezave v besedilu je napisal Gemini in so lahko napačne. Najprej jo odpri; shrani jo samo, če se odpre prava stran.</p> : null}
                   <ul className="flex flex-col gap-2">
                     {found.emails.map((e) => (
                       <li key={e} className="flex flex-wrap items-center gap-3 font-sans text-sm">
