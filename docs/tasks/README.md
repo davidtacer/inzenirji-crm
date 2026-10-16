@@ -15,8 +15,8 @@ Phases follow the business plan (`inzenirji.si` → `docs/nacrt-rasti.md` §7.5)
 | TASK-009 | Mailbox sync, reply matching and classification, reply drafts | 008, ADR-023 | C2 | Done — Live on prod (PR #37) |
 | TASK-010 | Mockup module (on demand, owner-started) | 006, ADR-005 | C2 | Planned |
 | TASK-011 | Inbound leads: website form, Meta lead forms, demo sign-ups, site-audit requests | 003 | C2 | Planned |
-| TASK-012 | Google Calendar bookings + pre-call brief + call notes → proposal draft | 009, ADR-008, ADR-027 | C3 · 2026-12-05 | Part 1 Live (PR #45); part 2 Google Calendar sync (ADR-029) Live (PR #49), needs owner's OAuth client |
-| TASK-013 | Proposals (PDF), Stripe prepayment, payment status, invoices | 012 | C3 | Planned |
+| TASK-012 | Google Calendar bookings + pre-call brief + call notes → proposal draft | 009, ADR-008, ADR-027 | C3 · 2026-12-05 | Part 1 Live (PR #45); part 2 Google Calendar sync (ADR-029) Live, owner connected his calendar 2026-10-16 (booking moved the deal to call_booked) |
+| TASK-013 | Proposals (PDF), Stripe prepayment, payment status, invoices | 012, ADR-031 | C3 | Part 1 built — PR open (web proposal, UPN QR, accept, views, paid → won); Stripe + invoices later |
 | TASK-014 | Projects: materials checklist, client uploads, reminders, guarantee clock | 013, ADR-010 | C3 | Planned |
 | TASK-015 | Meta Ads metrics + GA4 + Search Console daily snapshots | 003 | C4 · 2026-12-19 | Planned |
 | TASK-016 | Weekly report (Monday 08:00) + KPI dashboard | 015 | C4 | Planned |
@@ -33,5 +33,5 @@ Phases follow the business plan (`inzenirji.si` → `docs/nacrt-rasti.md` §7.5)
 | TASK-027 | Contextual AI reply drafts with one concrete next step (booking link / phone / ask for number) | 009, ADR-025 | C2 | Done — Live (PR #41) |
 | TASK-029 | Full correspondence: Sent folder (owner's own e-mails), per-company history import, full-text conversation | 009, ADR-028 | C2 | Done — Live (PR #47) |
 | TASK-030 | Companies list: search (name, city, category, address, domain, phone, e-mail), filters (stage, group, city, e-mail, own site, good business, min score), sort, presets, total | 005 | C2 | Done — Live (PR #51) |
-| TASK-031 | Web search in research (Claude web search) + own verification, all links stored, e-mail candidates | 023, ADR-030 | C1 | Built — PR open |
+| TASK-031 | Web search in research (Claude web search) + own verification, all links stored, e-mail candidates | 023, ADR-030 | C1 | Done — Live (PR #53) |
 | TASK-028 | Owner settings page `/nastavitve` (sending switch, caps, booking link, phone, AI budget); env only for secrets | ADR-026 | C2 | Done — Live, owner-tested 2026-10-16 (PR #43) |
