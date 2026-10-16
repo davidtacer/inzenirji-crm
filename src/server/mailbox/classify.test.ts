@@ -49,6 +49,7 @@ describe("toInbound", () => {
       [
         "From: Ana Novak <Ana@Salon.si>",
         "To: david@inzenirji.si",
+        "Cc: Pisarna <pisarna@salon.si>",
         "Subject: Re: Spletna stran",
         "Message-ID: <abc@salon.si>",
         "In-Reply-To: <11111111-2222-3333-4444-555555555555@inzenirji.si>",
@@ -68,6 +69,7 @@ describe("toInbound", () => {
       inReplyTo: "<11111111-2222-3333-4444-555555555555@inzenirji.si>",
       references: ["<11111111-2222-3333-4444-555555555555@inzenirji.si>"],
       autoSubmitted: "no",
+      to: ["david@inzenirji.si", "pisarna@salon.si"],
     });
     expect(m!.text.trim()).toBe("Zanima me, pokličite.");
   });

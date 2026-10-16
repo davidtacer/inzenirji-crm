@@ -9,6 +9,7 @@ import type { Issue, SiteFacts } from "@/server/research/analyze";
 import { companyDetail, type GoogleProfileData } from "@/server/research/run";
 import { conversation } from "@/server/mailbox/process";
 import { SalesPanel } from "@/components/SalesPanel";
+import { HistoryButton } from "../../odgovori/history-button";
 import { callNotesHistory, type Brief, type CallSummary } from "@/server/calls/calls";
 import { REPLY_LABEL } from "@/lib/replyLabels";
 import type { DirectoryResult } from "@/server/directories/bizi";
@@ -126,21 +127,32 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
             />
           </Box>
         ) : null}
-        {talk.length ? (
-          <Box title="Pogovor">
-            <ol className="flex flex-col gap-4">
+        <Box title={`Pogovor (${talk.length})`}>
+          {talk.length ? (
+            <ol className="mb-5 flex flex-col gap-4">
               {talk.map((t, i) => (
                 <li key={i} className={`border-l-2 pl-3 ${t.dir === "in" ? "border-accent" : "border-border"}`}>
                   <p className="font-mono text-[10px] uppercase tracking-widest text-text-secondary">
-                    {t.dir === "in" ? `← prejeto · ${REPLY_LABEL[t.label] ?? t.label}` : "→ poslano"} · {t.at.toLocaleString("sl-SI", { timeZone: "Europe/Ljubljana", dateStyle: "short", timeStyle: "short" })}
+                    {t.dir === "in" ? `← prejeto · ${REPLY_LABEL[t.label] ?? t.label}` : t.via === "crm" ? "→ poslano iz CRM" : "→ poslal ročno"} ·{" "}
+                    {t.at.toLocaleString("sl-SI", { timeZone: "Europe/Ljubljana", dateStyle: "short", timeStyle: "short" })}
+                    {t.who ? <span className="normal-case tracking-normal"> · {t.who}</span> : null}
                   </p>
                   <p className="font-sans text-sm text-text-primary">{t.subject}</p>
-                  <p className="line-clamp-4 whitespace-pre-wrap font-sans text-xs text-text-secondary">{t.text}</p>
+                  <details>
+                    <summary className="cursor-pointer list-none font-sans text-xs text-text-secondary">
+                      <span className="line-clamp-2 whitespace-pre-wrap">{t.text}</span>
+                      <span className="font-mono text-[10px] uppercase tracking-widest text-accent">celotno besedilo ↓</span>
+                    </summary>
+                    <pre className="mt-2 whitespace-pre-wrap font-sans text-xs leading-relaxed text-text-primary">{t.text}</pre>
+                  </details>
                 </li>
               ))}
             </ol>
-          </Box>
-        ) : null}
+          ) : (
+            <p className="mb-4 font-mono text-xs text-text-secondary">&gt; Še ni e-mailov s tem podjetjem v CRM.</p>
+          )}
+          <HistoryButton companyId={c.id} />
+        </Box>
         <Box title="Stik in e-mail">
           <CompanyOutreach companyId={c.id} stage={d.stage} hasEmail={d.contacts.some((p) => !!p.email)} />
         </Box>

@@ -356,17 +356,27 @@ export const inboundMessages = pgTable(
       .notNull()
       .references(() => companies.id, { onDelete: "cascade" }),
     dealId: uuid("deal_id").references(() => deals.id, { onDelete: "cascade" }),
+    /** "in" = from the prospect, "out" = sent by the owner outside the CRM (Sent folder, TASK-029). */
+    direction: text("direction").notNull().default("in"),
     fromEmail: text("from_email").notNull(),
+    /** Recipients for outgoing mail. */
+    toEmails: text("to_emails"),
     subject: text("subject").notNull().default(""),
     receivedAt: timestamp("received_at", { withTimezone: true }).notNull(),
     bodyText: text("body_text").notNull().default(""),
-    classification: replyClass("classification").notNull(),
+    /** Null for outgoing mail. */
+    classification: replyClass("classification"),
     /** How it was classified: "rule" or the AI model id. */
     classifiedBy: text("classified_by").notNull(),
     handledAt: timestamp("handled_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex("inbound_message_id_uq").on(t.messageId), index("inbound_company_idx").on(t.companyId, t.receivedAt)],
+  (t) => [
+    uniqueIndex("inbound_message_id_uq").on(t.messageId),
+    index("inbound_company_idx").on(t.companyId, t.receivedAt),
+    check("inbound_direction", sql`${t.direction} in ('in', 'out')`),
+    check("inbound_in_has_class", sql`${t.direction} = 'out' or ${t.classification} is not null`),
+  ],
 );
 
 /** IMAP sync position per mailbox folder. */

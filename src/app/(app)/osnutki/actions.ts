@@ -17,6 +17,7 @@ import {
 import { outreachConfig, SEND_REASON, sendApprovedDraft } from "@/server/outreach/send";
 import { getSettings } from "@/server/settings";
 import { topLeads } from "@/server/scoring/apply";
+import { importCompanyHistory } from "@/server/mailbox/sync";
 import { aiConfig } from "@/server/ai/remark";
 
 export type ActionState = { ok: boolean; message: string } | null;
@@ -101,6 +102,10 @@ export async function addEmailAction(_prev: ActionState, form: FormData): Promis
   const id = form.get("companyId");
   if (!isId(id)) return { ok: false, message: "Neveljavno podjetje." };
   const r = await addContactEmail(getDb(), id, String(form.get("email") ?? ""), String(form.get("source") ?? ""));
+  if (r.ok) {
+    const h = await importCompanyHistory(getDb(), id);
+    if (h.ok && h.inbound + h.sent) r.message += ` Uvoženih e-mailov iz nabiralnika: ${h.inbound + h.sent}.`;
+  }
   refresh(id);
   return r;
 }

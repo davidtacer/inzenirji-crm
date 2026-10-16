@@ -38,7 +38,7 @@ export default async function RepliesPage() {
           {rows.map((r) => (
             <article key={r.id} className="border border-border bg-surface">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-5 py-3">
-                <span className={`border px-1.5 py-0.5 font-mono text-[10px] tracking-widest ${REPLY_TONE[r.classification]}`}>{REPLY_LABEL[r.classification]}</span>
+                <span className={`border px-1.5 py-0.5 font-mono text-[10px] tracking-widest ${REPLY_TONE[r.classification ?? "question"]}`}>{REPLY_LABEL[r.classification ?? "question"]}</span>
                 <Link href={`/podjetja/${r.companyId}`} className="font-sans text-sm text-text-primary hover:text-accent">
                   {r.companyName}
                 </Link>
@@ -49,7 +49,7 @@ export default async function RepliesPage() {
                 <p className="mb-2 font-sans text-sm text-text-primary">{r.subject}</p>
                 <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-text-secondary">{ownText(r.bodyText).slice(0, 1200) || "(prazno)"}</pre>
                 <p className="mt-3 font-mono text-[10px] uppercase tracking-widest text-text-secondary">
-                  {EFFECT[r.classification]}
+                  {EFFECT[r.classification ?? "question"]}
                   {r.classifiedBy !== "rule" ? ` · razvrstil: ${r.classifiedBy === "default" ? "privzeto (preveri)" : "AI"}` : ""}
                   {r.replyDraftStatus === "pending" ? (
                     <>
