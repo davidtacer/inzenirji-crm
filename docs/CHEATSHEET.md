@@ -24,7 +24,8 @@ Never values here — only names and where they live.
 | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` | Calendar, GA4, Search Console, Gmail | hosting secret store | Planned |
 | `SMTP_PASSWORD` | `hello@inzenirji.si` — login e-mails (ADR-015) | GitHub env `prod` secret | Set by owner 2026-10-15 |
 | `OUTREACH_SMTP_PASSWORD` | `david@inzenirji.si` SMTP send (TASK-008) and IMAP read (TASK-009) | GitHub env `prod` secret | Set by owner 2026-10-15 |
-| `BOOKING_URL` | Google Calendar appointment schedule link in reply drafts (ADR-008) | GitHub env `prod` **variable** | Not set (optional) |
+| `BOOKING_URL` | Google Calendar appointment schedule link in reply drafts (ADR-008, ADR-025) | GitHub env `prod` **variable** | Not set (optional) |
+| `OWNER_PHONE` | owner's phone offered in reply drafts (ADR-025) | GitHub env `prod` **variable** | Not set (optional) |
 | `OUTREACH_ENABLED` | `1` switches outreach sending on (ADR-019); anything else = locked | GitHub env `prod` **variable** | Not set (locked) — set to `1` only after mail-tester shows DKIM signed |
 | `POSTGRES_PASSWORD` | Postgres accessory; `DATABASE_URL` is built from it in `.kamal/secrets` | GitHub env `prod` secret | Planned |
 | `PROD_HOST` | Kamal server address (`91.99.191.8`) | GitHub env `prod` variable | Planned |
