@@ -6,6 +6,8 @@ import { SOURCE_LABEL, STAGE_LABEL } from "@/lib/labels";
 import { getDb } from "@/server/db/client";
 import { SOURCE_VALUES, companyCities, listCompanies, parseCompanyQuery, unresearchedCount } from "@/server/research/run";
 import { ResearchBatchButton } from "./buttons";
+import { latestJob } from "@/server/jobs";
+import { jobView } from "@/lib/jobs";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +31,7 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
   const sp = await searchParams;
   const q = parseCompanyQuery(sp);
   const db = getDb();
-  const [rows, pending, cities] = await Promise.all([listCompanies(db, q), unresearchedCount(db), companyCities(db)]);
+  const [rows, pending, cities, job] = await Promise.all([listCompanies(db, q), unresearchedCount(db), companyCities(db), latestJob(db, ["research_batch"])]);
   const current = new URLSearchParams(Object.entries(sp).filter((e): e is [string, string] => !!e[1] && e[0] !== "f")).toString();
   return (
     <>
@@ -44,7 +46,7 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
             >
               + Dodaj podjetje
             </Link>
-            <ResearchBatchButton pending={pending} />
+            <ResearchBatchButton pending={pending} job={jobView(job)} />
           </div>
         }
       />

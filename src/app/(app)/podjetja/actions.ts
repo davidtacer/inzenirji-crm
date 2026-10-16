@@ -5,6 +5,7 @@ import { getDb } from "@/server/db/client";
 import { getSettings } from "@/server/settings";
 import { aiConfig } from "@/server/ai/remark";
 import { researchBatch, runAudit } from "@/server/research/run";
+import { runningJob, startJob } from "@/server/jobs";
 
 /** Research options from Nastavitve: Google Places cap, AI web search (TASK-031). */
 async function researchDeps() {
@@ -22,38 +23,52 @@ const DIRECTORIES = true;
 
 export type ActionState = { ok: boolean; message: string } | null;
 
+/** Final message of a one-company research (shown when the background job ends). */
+function researchMessage(r: Awaited<ReturnType<typeof runAudit>>) {
+  return `Raziskano: skupina ${r.group}, težav ${r.issues}, e-naslovov ${r.emails}${r.directoryEmails ? ` (${r.directoryEmails} iz bizi.si)` : ""}${r.web ? `, splet: ${r.web.found} povezav${r.web.website ? " + spletna stran" : ""}${r.web.candidates ? `, ${r.web.candidates} e-naslovov za potrditev` : ""}` : ""}, konkurentov ${r.competitors}${r.competitorSource === "nearby" ? " (iz okolice)" : " (iz baze)"}.`;
+}
+
+const RUNNING = "Raziskava teče v ozadju (1–2 minuti na podjetje). Stran se osveži sama.";
+
+/* Research runs as a background job (TASK-035): the request only starts it, the page shows progress. */
 export async function researchOneAction(_prev: ActionState, form: FormData): Promise<ActionState> {
   if (!(await getCurrentUser())) return { ok: false, message: "Prijava je potekla. Osveži stran." };
   const id = String(form.get("id") ?? "");
   if (!/^[0-9a-f-]{36}$/.test(id)) return { ok: false, message: "Neveljavno podjetje." };
-  try {
-    const r = await runAudit(getDb(), id, await researchDeps());
-    revalidatePath(`/podjetja/${id}`);
-    revalidatePath("/podjetja");
-    return { ok: true, message: `Raziskano: skupina ${r.group}, težav ${r.issues}, e-naslovov ${r.emails}${r.directoryEmails ? ` (${r.directoryEmails} iz bizi.si)` : ""}${r.web ? `, splet: ${r.web.found} povezav${r.web.website ? " + spletna stran" : ""}${r.web.candidates ? `, ${r.web.candidates} e-naslovov za potrditev` : ""}` : ""}, konkurentov ${r.competitors}${r.competitorSource === "nearby" ? " (iz okolice)" : " (iz baze)"}.` };
-  } catch (e) {
-    console.error("[research] one failed:", e instanceof Error ? e.message : "unknown");
-    return { ok: false, message: "Raziskava ni uspela. Poskusi znova." };
-  }
+  const db = getDb();
+  if (await runningJob(db, ["research_one"], id)) return { ok: true, message: RUNNING };
+  const deps = await researchDeps();
+  await startJob(db, { kind: "research_one", companyId: id }, async () => researchMessage(await runAudit(db, id, deps)));
+  revalidatePath(`/podjetja/${id}`);
+  return { ok: true, message: RUNNING };
 }
 
 export async function researchBatchAction(_prev: ActionState): Promise<ActionState> {
   void _prev;
   if (!(await getCurrentUser())) return { ok: false, message: "Prijava je potekla. Osveži stran." };
-  const r = await researchBatch(getDb(), { limit: 20, concurrency: 3, ...(await researchDeps()) });
+  const db = getDb();
+  if (await runningJob(db, ["research_batch", "research_deepen"])) return { ok: true, message: RUNNING };
+  const deps = await researchDeps();
+  await startJob(db, { kind: "research_batch" }, async (progress) => {
+    const r = await researchBatch(db, { limit: 20, concurrency: 3, onProgress: progress, ...deps });
+    if (r.done === 0 && r.failed === 0) return "Vsa podjetja so že raziskana.";
+    return `Raziskanih ${r.done}${r.failed ? `, neuspešnih ${r.failed}` : ""}.`;
+  });
   revalidatePath("/podjetja");
-  revalidatePath("/");
-  revalidatePath("/iskanje");
-  if (r.done === 0 && r.failed === 0) return { ok: true, message: "Vsa podjetja so že raziskana." };
-  return { ok: r.failed === 0, message: `Raziskanih ${r.done}${r.failed ? `, neuspešnih ${r.failed}` : ""}.` };
+  return { ok: true, message: RUNNING };
 }
 
 export async function deepenAction(_prev: ActionState): Promise<ActionState> {
   void _prev;
   if (!(await getCurrentUser())) return { ok: false, message: "Prijava je potekla. Osveži stran." };
-  const r = await researchBatch(getDb(), { limit: 20, concurrency: 3, deepen: true, ...(await researchDeps()) });
-  revalidatePath("/podjetja");
+  const db = getDb();
+  if (await runningJob(db, ["research_batch", "research_deepen"])) return { ok: true, message: RUNNING };
+  const deps = await researchDeps();
+  await startJob(db, { kind: "research_deepen" }, async (progress) => {
+    const r = await researchBatch(db, { limit: 20, concurrency: 3, deepen: true, onProgress: progress, ...deps });
+    if (r.done === 0 && r.failed === 0) return "Vsa raziskana podjetja so že poglobljeno raziskana.";
+    return `Poglobljeno raziskanih ${r.done}${r.failed ? `, neuspešnih ${r.failed}` : ""}. Zdaj lahko znova pripraviš osnutke.`;
+  });
   revalidatePath("/");
-  if (r.done === 0 && r.failed === 0) return { ok: true, message: "Vsa raziskana podjetja so že poglobljeno raziskana." };
-  return { ok: r.failed === 0, message: `Poglobljeno raziskanih ${r.done}${r.failed ? `, neuspešnih ${r.failed}` : ""}. Zdaj lahko znova pripraviš osnutke.` };
+  return { ok: true, message: RUNNING };
 }
