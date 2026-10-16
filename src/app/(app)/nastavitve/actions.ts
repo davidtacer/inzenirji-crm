@@ -16,6 +16,13 @@ export async function saveSettingsAction(_prev: SaveState, form: FormData): Prom
     aiDailyBudgetUsd: String(form.get("aiDailyBudgetUsd") ?? ""),
     placesDailyCap: String(form.get("placesDailyCap") ?? ""),
     webSearchEnabled: form.get("webSearchEnabled") === "on",
+    sellerName: String(form.get("sellerName") ?? ""),
+    sellerStreet: String(form.get("sellerStreet") ?? ""),
+    sellerCity: String(form.get("sellerCity") ?? ""),
+    sellerTaxId: String(form.get("sellerTaxId") ?? ""),
+    vatPayer: form.get("vatPayer") === "on",
+    iban: String(form.get("iban") ?? ""),
+    proposalValidDays: String(form.get("proposalValidDays") ?? ""),
   });
   if (!v.ok) return v;
   await saveSettings(getDb(), v.value);

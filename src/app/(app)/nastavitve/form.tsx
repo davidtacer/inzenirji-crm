@@ -48,6 +48,22 @@ export function SettingsForm({ s }: { s: Settings }) {
         <Field name="ownerPhone" title="Tvoj telefon" value={s.ownerPhone} placeholder="041 123 456" hint="Če ni povezave za termin, odgovor ponudi to številko. Prazno = stranko prosimo za njeno številko." />
       </Section>
 
+      <Section title="Podatki za ponudbe in plačila">
+        <Field name="sellerName" title="Ime podjetja" value={s.sellerName} placeholder="David Tacer s.p." hint="Kot je registrirano (AJPES)." />
+        <Field name="sellerStreet" title="Ulica in hišna št." value={s.sellerStreet} placeholder="Ulica 1" hint="" />
+        <Field name="sellerCity" title="Pošta in kraj" value={s.sellerCity} placeholder="2000 Maribor" hint="" />
+        <Field name="sellerTaxId" title="Davčna številka" value={s.sellerTaxId} placeholder="SI12345678" hint="Prikaže se na ponudbi." />
+        <Field name="iban" title="IBAN" value={s.iban} placeholder="SI56 0000 0000 0000 000" hint="Za predplačilo in UPN QR kodo na ponudbi." />
+        <label className="flex items-start gap-3">
+          <input type="checkbox" name="vatPayer" defaultChecked={s.vatPayer} className="mt-1 h-4 w-4 accent-[#00FF41]" />
+          <span className="flex flex-col gap-1">
+            <span className="font-sans text-sm text-text-primary">Zavezanec za DDV (22 %)</span>
+            <span className={help}>Če nisi, ponudba pokaže »DDV ni obračunan na podlagi 1. odstavka 94. člena ZDDV-1«. Preveri z računovodjo.</span>
+          </span>
+        </label>
+        <Field name="proposalValidDays" title="Ponudba velja (dni)" type="number" value={s.proposalValidDays} hint="Privzeto 14." />
+      </Section>
+
       <Section title="Raziskava">
         <label className="flex items-start gap-3">
           <input type="checkbox" name="webSearchEnabled" defaultChecked={s.webSearchEnabled} className="mt-1 h-4 w-4 accent-[#00FF41]" />

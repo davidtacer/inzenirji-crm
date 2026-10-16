@@ -1,6 +1,8 @@
 import { BriefButton, NotesForm, StageForm } from "@/app/(app)/klici/forms";
 import type { Brief, CallSummary } from "@/server/calls/calls";
 import { defaultCallInput, formatLj, toLocalInput } from "@/lib/time";
+import { NewProposalButton } from "@/app/(app)/ponudbe/forms";
+import Link from "next/link";
 
 const h = "mb-1 font-mono text-[10px] uppercase tracking-widest text-text-secondary";
 
@@ -26,6 +28,7 @@ export function SalesPanel(props: {
   briefAt: Date | null;
   summary: CallSummary | null;
   history: { at: Date; notes: string }[];
+  proposals: { id: string; status: string; viewCount: number; title: string }[];
 }) {
   const { brief, summary } = props;
   return (
@@ -85,6 +88,15 @@ export function SalesPanel(props: {
             </ol>
           </details>
         ) : null}
+      </div>
+      <div className="flex flex-col gap-3 border-t border-border pt-5">
+        <p className={h}>Ponudba</p>
+        {props.proposals.map((p) => (
+          <Link key={p.id} href={`/ponudbe/${p.id}`} className="font-sans text-sm text-text-primary hover:text-accent">
+            {p.title} · <span className="font-mono text-xs text-text-secondary">{{ draft: "osnutek", sent: "poslana", accepted: "SPREJETA", declined: "zavrnjena" }[p.status]}{p.viewCount ? `, odprta ${p.viewCount}×` : ""}</span> →
+          </Link>
+        ))}
+        {props.proposals.some((p) => p.status === "draft") ? null : <NewProposalButton companyId={props.companyId} />}
       </div>
     </div>
   );

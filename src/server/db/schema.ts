@@ -442,3 +442,42 @@ export const companyLinks = pgTable(
   },
   (t) => [uniqueIndex("company_links_uq").on(t.companyId, t.url)],
 );
+
+export const proposalStatus = pgEnum("proposal_status", ["draft", "sent", "accepted", "declined"]);
+
+/**
+ * Proposals (TASK-013, ADR-031). The client sees them at /ponudba/<token> (no login). Money in integer cents.
+ * items: [{ label, priceCents }]; materials: string[].
+ */
+export const proposals = pgTable(
+  "proposals",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    dealId: uuid("deal_id")
+      .notNull()
+      .references(() => deals.id, { onDelete: "cascade" }),
+    token: text("token").notNull(),
+    status: proposalStatus("status").notNull().default("draft"),
+    title: text("title").notNull(),
+    intro: text("intro").notNull().default(""),
+    items: jsonb("items").notNull().default([]),
+    vatRateBp: integer("vat_rate_bp").notNull().default(2200),
+    depositPct: smallint("deposit_pct").notNull().default(50),
+    timelineDays: smallint("timeline_days").notNull().default(7),
+    materials: jsonb("materials").notNull().default([]),
+    validUntil: date("valid_until").notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    firstViewedAt: timestamp("first_viewed_at", { withTimezone: true }),
+    lastViewedAt: timestamp("last_viewed_at", { withTimezone: true }),
+    viewCount: integer("view_count").notNull().default(0),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    acceptedName: text("accepted_name"),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("proposals_token_uq").on(t.token),
+    index("proposals_deal_idx").on(t.dealId),
+    check("proposals_deposit_range", sql`${t.depositPct} between 0 and 100`),
+    check("proposals_accepted_has_name", sql`${t.status} <> 'accepted' or (${t.acceptedAt} is not null and ${t.acceptedName} is not null)`),
+  ],
+);
