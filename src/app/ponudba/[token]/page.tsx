@@ -25,7 +25,7 @@ export default async function PublicProposal({ params }: { params: Promise<{ tok
   const t = totals(items, p.vatRateBp, st.vatPayer, p.depositPct);
   // Stable 8-digit reference from the proposal id, so the payment can be matched to it.
   const ref = `SI00 ${String(parseInt(p.id.replace(/-/g, "").slice(0, 8), 16) % 100_000_000).padStart(8, "0")}`;
-  const due = new Date(Date.parse(`${p.validUntil}T00:00:00Z`));
+  const due = new Date(Date.parse(`${p.validUntil}T12:00:00Z`));
   const qr = sellerComplete(st) && t.deposit > 0
     ? await upnQrSvg({ amountCents: t.deposit, purpose: `Predplačilo ${p.depositPct}% - ${r.company.name}`, dueDate: due, iban: st.iban, reference: ref, name: st.sellerName, street: st.sellerStreet, city: st.sellerCity })
     : null;
