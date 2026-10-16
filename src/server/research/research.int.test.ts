@@ -3,7 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createDb } from "../db/client";
 import { runMigrations } from "../db/migrate";
 import { companies, deals } from "../db/schema";
-import { companyDetail, researchBatch, runAudit, shallowCount } from "./run";
+import { companyDetail, listCompanies, parseCompanyQuery, researchBatch, runAudit, shallowCount } from "./run";
 import { audits } from "../db/schema";
 
 const url = process.env.TEST_DATABASE_URL!;
@@ -246,5 +246,30 @@ describe("directories (TASK-025)", () => {
     }) as unknown as typeof fetch;
     await runAudit(db, c.id, { fetchImpl: boom, resolve });
     expect((await companyDetail(db, c.id))!.contacts).toEqual([]);
+  });
+});
+
+describe("company filters (TASK-030)", () => {
+  it("search across name/e-mail/domain, stage, group, e-mail yes/no, own site, min score, sort, total", async () => {
+    const { contacts: ct } = await import("../db/schema");
+    const a = await company({ name: "Salon Fantazija", city: "Celje", group: "B", score: 83, ratingX10: 49, reviewCount: 260 });
+    const b = await company({ name: "Frizoteka", city: "Celje", group: "A", website: "https://frizoteka.si", websiteDomain: "frizoteka.si", score: 60 });
+    await company({ name: "Mesar", city: "Maribor", websiteDomain: "facebook.com", score: 20 });
+    await db.insert(ct).values({ companyId: b.id, email: "info@frizoteka.si", emailSource: "x" });
+    await admin`update deals set stage = 'researched' where company_id = ${a.id}`;
+    const names = async (p: Record<string, string>) => (await listCompanies(db, parseCompanyQuery(p))).map((r) => r.name);
+    expect(await names({ q: "fanta" })).toEqual(["Salon Fantazija"]);
+    expect(await names({ q: "info@friz" })).toEqual(["Frizoteka"]);
+    expect(await names({ q: "100%" })).toEqual([]);
+    expect(await names({ stage: "researched" })).toEqual(["Salon Fantazija"]);
+    expect(await names({ group: "A" })).toEqual(["Frizoteka"]);
+    expect(await names({ email: "no", city: "celje" })).toEqual(["Salon Fantazija"]);
+    expect(await names({ site: "own" })).toEqual(["Frizoteka"]);
+    expect(await names({ site: "none" })).toEqual(["Salon Fantazija", "Mesar"]);
+    expect(await names({ min: "50" })).toEqual(["Salon Fantazija", "Frizoteka"]);
+    expect(await names({ sort: "name" })).toEqual(["Frizoteka", "Mesar", "Salon Fantazija"]);
+    expect(await names({ f: "good" })).toEqual(["Salon Fantazija"]);
+    expect((await listCompanies(db, { limit: 1 })).total).toBe(3);
+    expect(parseCompanyQuery({ stage: "x", group: "C", min: "500", sort: "evil" })).toEqual({});
   });
 });

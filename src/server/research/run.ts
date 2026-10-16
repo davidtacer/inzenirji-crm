@@ -274,16 +274,77 @@ export async function companyDetail(db: Db, id: string) {
 
 export type CompanyFilter = "all" | "good" | "A" | "B" | "found" | "researched";
 
-export async function listCompanies(db: Db, filter: CompanyFilter, limit = 200) {
-  const where =
-    filter === "good"
-      ? and(sql`${companies.ratingX10} >= 43`, sql`${companies.reviewCount} >= 30`)
-      : filter === "A" || filter === "B"
-        ? eq(companies.group, filter)
-        : filter === "found" || filter === "researched"
-          ? eq(deals.stage, filter)
-          : undefined;
-  return db
+/** Company list filters (TASK-030): free text, stage, group, city, contact, website, minimum score, sort. */
+export type CompanyQuery = {
+  q?: string;
+  stage?: string;
+  group?: "A" | "B";
+  city?: string;
+  email?: "yes" | "no";
+  site?: "own" | "none";
+  good?: boolean;
+  minScore?: number;
+  sort?: "score" | "rating" | "reviews" | "name" | "new";
+  limit?: number;
+};
+
+const STAGE_VALUES = ["found", "researched", "contacted", "replied", "call_booked", "call_done", "proposal_sent", "won", "lost", "nurture"];
+
+/** Reads the URL query into a CompanyQuery; unknown values are ignored. Old `?f=` links still work. */
+export function parseCompanyQuery(p: Record<string, string | undefined>): CompanyQuery {
+  const q: CompanyQuery = {};
+  if (p.q?.trim()) q.q = p.q.trim().slice(0, 100);
+  if (p.stage && STAGE_VALUES.includes(p.stage)) q.stage = p.stage;
+  if (p.group === "A" || p.group === "B") q.group = p.group;
+  if (p.city?.trim()) q.city = p.city.trim().slice(0, 60);
+  if (p.email === "yes" || p.email === "no") q.email = p.email;
+  if (p.site === "own" || p.site === "none") q.site = p.site;
+  if (p.good === "1") q.good = true;
+  const min = Number(p.min);
+  if (Number.isFinite(min) && min > 0 && min <= 100) q.minScore = Math.round(min);
+  if (p.sort === "rating" || p.sort === "reviews" || p.sort === "name" || p.sort === "new" || p.sort === "score") q.sort = p.sort;
+  // legacy chips
+  if (p.f === "good") q.good = true;
+  if (p.f === "A" || p.f === "B") q.group = p.f;
+  if (p.f === "found" || p.f === "researched") q.stage = p.f;
+  return q;
+}
+
+const SOCIAL_OR_LINK = ["facebook.com", "instagram.com", "tiktok.com", "linktr.ee", "onelink.to", "youtube.com", "linkedin.com"];
+
+export async function listCompanies(db: Db, query: CompanyQuery | CompanyFilter = {}, limit = 200) {
+  const qy: CompanyQuery = typeof query === "string" ? parseCompanyQuery({ f: query }) : query;
+  const conds = [];
+  if (qy.q) {
+    const like = `%${qy.q.replace(/[%_\\]/g, (m) => `\\${m}`)}%`;
+    conds.push(
+      sql`(${companies.name} ilike ${like} or ${companies.city} ilike ${like} or ${companies.category} ilike ${like} or ${companies.address} ilike ${like}
+        or ${companies.websiteDomain} ilike ${like} or ${companies.phone} ilike ${like}
+        or exists (select 1 from ${contacts} ct where ct.company_id = ${companies.id} and ct.email ilike ${like}))`,
+    );
+  }
+  if (qy.stage) conds.push(sql`${deals.stage} = ${qy.stage}`);
+  if (qy.group) conds.push(eq(companies.group, qy.group));
+  if (qy.city) conds.push(sql`${companies.city} ilike ${qy.city}`);
+  if (qy.good) conds.push(and(sql`${companies.ratingX10} >= 43`, sql`${companies.reviewCount} >= 30`));
+  if (qy.minScore) conds.push(sql`${companies.score} >= ${qy.minScore}`);
+  const hasEmail = sql`exists (select 1 from ${contacts} ct where ct.company_id = ${companies.id} and ct.email is not null)`;
+  if (qy.email === "yes") conds.push(hasEmail);
+  if (qy.email === "no") conds.push(sql`not ${hasEmail}`);
+  const social = sql.join(SOCIAL_OR_LINK.map((d) => sql`${d}`), sql`, `);
+  if (qy.site === "own") conds.push(sql`${companies.websiteDomain} is not null and ${companies.websiteDomain} not in (${social})`);
+  if (qy.site === "none") conds.push(sql`(${companies.websiteDomain} is null or ${companies.websiteDomain} in (${social}))`);
+  const order =
+    qy.sort === "rating"
+      ? [sql`${companies.ratingX10} desc nulls last`, sql`${companies.reviewCount} desc nulls last`]
+      : qy.sort === "reviews"
+        ? [sql`${companies.reviewCount} desc nulls last`]
+        : qy.sort === "name"
+          ? [sql`${companies.name} asc`]
+          : qy.sort === "new"
+            ? [desc(companies.createdAt)]
+            : [sql`${companies.score} desc nulls last`, desc(companies.updatedAt)];
+  const base = db
     .select({
       id: companies.id,
       name: companies.name,
@@ -300,9 +361,27 @@ export async function listCompanies(db: Db, filter: CompanyFilter, limit = 200) 
     })
     .from(companies)
     .leftJoin(deals, eq(deals.companyId, companies.id))
-    .where(where)
-    .orderBy(sql`${companies.score} desc nulls last`, desc(companies.updatedAt))
-    .limit(limit);
+    .where(conds.length ? and(...conds) : undefined);
+  const [rows, [total]] = await Promise.all([
+    base.orderBy(...order).limit(qy.limit ?? limit),
+    db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(companies)
+      .leftJoin(deals, eq(deals.companyId, companies.id))
+      .where(conds.length ? and(...conds) : undefined),
+  ]);
+  return Object.assign(rows, { total: total.n });
+}
+
+/** Cities in the database, most companies first (filter dropdown). */
+export async function companyCities(db: Db) {
+  return db
+    .select({ city: companies.city, n: sql<number>`count(*)::int` })
+    .from(companies)
+    .where(sql`${companies.city} is not null`)
+    .groupBy(companies.city)
+    .orderBy(sql`count(*) desc`, companies.city)
+    .limit(60);
 }
 
 export async function unresearchedCount(db: Db) {
