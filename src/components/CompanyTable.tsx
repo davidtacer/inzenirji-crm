@@ -17,6 +17,7 @@ type Row = {
   stage: string | null;
   group?: "A" | "B" | null;
   score?: number | null;
+  triedDemo?: boolean | null;
 };
 
 
@@ -49,7 +50,14 @@ export function CompanyTable({ rows }: { rows: Row[] }) {
                 <Link href={`/podjetja/${r.id}`} className="font-sans text-sm text-text-primary hover:text-accent">
                   {r.name}
                 </Link>
-                <p className="font-mono text-[10px] text-text-secondary">{r.category ?? ""}</p>
+                <p className="font-mono text-[10px] text-text-secondary">
+                  {r.category ?? ""}
+                  {r.triedDemo ? (
+                    <span title="Preizkusil demo urejevalnika" className="ml-2 whitespace-nowrap border border-[#F0B429]/60 px-1 text-[9px] text-[#F0B429]">
+                      DEMO
+                    </span>
+                  ) : null}
+                </p>
               </td>
               <td className="p-3 font-sans text-sm text-text-secondary">{r.city ?? "—"}</td>
               <td className="p-3 font-mono text-xs">

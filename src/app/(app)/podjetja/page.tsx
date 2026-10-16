@@ -2,9 +2,9 @@ import Link from "next/link";
 import { CompanyTable } from "@/components/CompanyTable";
 import { GroupLegend } from "@/components/GroupLegend";
 import { PageHeader } from "@/components/PageHeader";
-import { STAGE_LABEL } from "@/lib/labels";
+import { SOURCE_LABEL, STAGE_LABEL } from "@/lib/labels";
 import { getDb } from "@/server/db/client";
-import { companyCities, listCompanies, parseCompanyQuery, unresearchedCount } from "@/server/research/run";
+import { SOURCE_VALUES, companyCities, listCompanies, parseCompanyQuery, unresearchedCount } from "@/server/research/run";
 import { ResearchBatchButton } from "./buttons";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +22,7 @@ const PRESETS: [string, string][] = [
   ["stage=researched&email=no", "Brez e-naslova (za klic)"],
   ["group=A", "A · prenos"],
   ["group=B", "B · nova stran"],
+  ["source=editor_demo&sort=new", "Iz demota"],
 ];
 
 export default async function CompaniesPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
@@ -73,6 +74,17 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
             {STAGES.map((s) => (
               <option key={s} value={s}>
                 {STAGE_LABEL[s]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className={lab}>
+          Vir
+          <select name="source" defaultValue={q.source ?? ""} className={field}>
+            <option value="">vsi</option>
+            {SOURCE_VALUES.map((s) => (
+              <option key={s} value={s}>
+                {SOURCE_LABEL[s]}
               </option>
             ))}
           </select>
