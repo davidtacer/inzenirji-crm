@@ -17,6 +17,8 @@ import type { DirectoryResult } from "@/server/directories/bizi";
 import type { ScorePart } from "@/server/scoring/score";
 import { AddCandidateEmail, CompanyOutreach } from "../../osnutki/forms";
 import { ResearchOneButton } from "../buttons";
+import { demoNotes } from "@/server/demo/demo";
+import { formatLj } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +69,7 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
   const d = await companyDetail(getDb(), id);
   if (!d) notFound();
   const c = d.company;
+  const demo = await demoNotes(getDb(), c.id);
   const audit = d.audit;
   const issues = (audit?.issues ?? []) as Issue[];
   const data = (audit?.data ?? {}) as {
@@ -171,6 +174,29 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
           )}
           <HistoryButton companyId={c.id} />
         </Box>
+        {demo.length ? (
+          <Box title="Demo urejevalnika">
+            {demo.map((n) => (
+              <div key={n.at.toISOString()} className="mb-3 last:mb-0">
+                <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-text-secondary">
+                  {formatLj(n.at)}
+                  {n.website ? ` · ${n.website}` : ""}
+                </p>
+                {n.edits.length ? (
+                  <ul className="flex flex-col gap-1 font-sans text-sm text-text-primary">
+                    {n.edits.map((e) => (
+                      <li key={`${e.at}${e.request}`}>
+                        <span className={e.changed ? "text-accent" : "text-text-secondary"}>{e.changed ? "✓" : "·"}</span> {e.request}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="font-mono text-xs text-text-secondary">&gt; E-naslov vpisan brez sprememb.</p>
+                )}
+              </div>
+            ))}
+          </Box>
+        ) : null}
         <Box title="Stik in e-mail">
           <CompanyOutreach companyId={c.id} stage={d.stage} hasEmail={d.contacts.some((p) => !!p.email)} />
         </Box>

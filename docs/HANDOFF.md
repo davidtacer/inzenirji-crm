@@ -21,7 +21,10 @@ Conversation with the owner in Slovenian; code and docs in English.
 - 2026-10-15: repo created by the owner; docs foundation (manifest, product spec, architecture, ADR-001…010,
   task list) from the business plan `inzenirji.si/docs/nacrt-rasti.md`.
 
-- 2026-10-16: TASK-014 projects (ADR-033) built (PR open); new Kamal volume `inzenirji-crm-uploads`.
+- 2026-10-16: TASK-032 editor demo leads (ADR-034) built: `POST /api/leads/demo`, key at Nastavitve → Demo
+  urejevalnika, Danes funnel, company card. Owner: create the key and paste it into the editor Worker secret
+  `CRM_LEADS_TOKEN` (editor repo `docs/runbooks/demo.md`).
+- 2026-10-16: TASK-014 projects (ADR-033) Live (PR #61); new Kamal volume `inzenirji-crm-uploads`.
 - 2026-10-16: TASK-013 part 1 proposals (ADR-031/032) Live, owner-tested end-to-end incl. UPN QR.
 - 2026-10-16: TASK-031 web search (ADR-030) Live. TASK-030 filters Live. Google Calendar connected by the owner.
 - 2026-10-16: TASK-012 part 2 Google Calendar (ADR-029) Live; owner must create the OAuth client (CHEATSHEET).
@@ -82,4 +85,4 @@ throwaway database. In the cloud sandbox: `initdb` as user postgres in `/var/tmp
 ## Next
 TASK-001 scaffold (Next.js + Tailwind + Drizzle + Postgres in Docker locally, CI), TASK-002 Kamal deploy skeleton, then the C1 phase (prospecting, research, scoring) — target 2026-11-07.
 
-Latest TASK: 028 · latest ADR: 033. Next: TASK-013 proposals (PDF + prepayment), Google Calendar sync for TASK-012. Next candidates: "Za klic" list, public editor demo, TASK-010+ per plan. Next: TASK-009 mailbox sync (IMAP david@) + reply classification; it needs `OUTREACH_SMTP_PASSWORD` too. Local Postgres for int tests may stop when the sandbox restarts — restart with `pg_ctl` (see above).
+Latest TASK: 032 · latest ADR: 034. Next candidates: reports (TASK-015/016), after launch (TASK-018), win/loss (TASK-019), rest of TASK-011 inbound leads. Local Postgres for int tests may stop when the sandbox restarts — restart with `pg_ctl` (see above).
