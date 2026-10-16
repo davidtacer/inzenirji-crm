@@ -10,7 +10,7 @@ const btn =
 export type JobView = { status: string; message: string | null; done: number; total: number; failed: number } | null;
 
 /** Shows a running job (with progress) and refreshes the page every 5 s until it ends; then its final message. */
-function JobLine({ job }: { job: JobView }) {
+export function JobLine({ job }: { job: JobView }) {
   const router = useRouter();
   const running = job?.status === "running";
   useEffect(() => {

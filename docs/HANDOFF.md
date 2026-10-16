@@ -21,6 +21,7 @@ Conversation with the owner in Slovenian; code and docs in English.
 - 2026-10-15: repo created by the owner; docs foundation (manifest, product spec, architecture, ADR-001…010,
   task list) from the business plan `inzenirji.si/docs/nacrt-rasti.md`.
 
+- 2026-10-16: TASK-037 Google pregled with Gemini (ADR-039). Owner: aistudio.google.com/apikey → Create API key → Nastavitve → Google pregled (Gemini) → Shrani; then company page → "Google pregled".
 - 2026-10-16: TASK-036 nightly Claude researcher over MCP (ADR-038) built. Owner: Nastavitve → Nočna raziskava → create URL →
   claude.ai Settings → Connectors → Add custom connector; then the agent creates the scheduled task.
 - 2026-10-16: TASK-035 research as background jobs (ADR-037) Live.
@@ -92,4 +93,4 @@ throwaway database. In the cloud sandbox: `initdb` as user postgres in `/var/tmp
 ## Next
 TASK-001 scaffold (Next.js + Tailwind + Drizzle + Postgres in Docker locally, CI), TASK-002 Kamal deploy skeleton, then the C1 phase (prospecting, research, scoring) — target 2026-11-07.
 
-Latest TASK: 036 · latest ADR: 038. Next candidates: reports (TASK-015/016), after launch (TASK-018), win/loss (TASK-019), rest of TASK-011 inbound leads. Local Postgres for int tests may stop when the sandbox restarts — restart with `pg_ctl` (see above).
+Latest TASK: 037 · latest ADR: 039. Next candidates: reports (TASK-015/016), after launch (TASK-018), win/loss (TASK-019), rest of TASK-011 inbound leads. Local Postgres for int tests may stop when the sandbox restarts — restart with `pg_ctl` (see above).

@@ -42,3 +42,8 @@ app name "Inženirji CRM", support e-mail, test user = the owner's Google accoun
 OAuth client ID → Web application**, authorised redirect URI `https://crm.inzenirji.si/api/google/callback`. Put the
 client ID and secret into GitHub env `prod` as `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET`, redeploy, then
 Nastavitve → "Poveži Google Koledar".
+
+## Gemini API key (Google pregled, ADR-039)
+aistudio.google.com/apikey → **Create API key** (key starts with `AIza`). Paste it in CRM → Nastavitve → "Google pregled
+(Gemini)" (stored encrypted in `settings`, not in env). Model default `gemini-flash-latest`, changeable there. If Gemini
+reports a quota error, enable billing on the key's project (first 5,000 grounded searches a month are free).
