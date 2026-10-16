@@ -7,7 +7,8 @@ import { createCaptureMailer } from "../email/mailer";
 import { approveDraft, createDueFollowUps, createFirstDraft, listDrafts } from "../outreach/drafts";
 import { bounceStop, sendApprovedDraft, type OutreachConfig } from "../outreach/send";
 import type { InboundMail } from "./classify";
-import { processInbound } from "./process";
+import { conversation, listInbound, processInbound, processSent } from "./process";
+import { importCompanyHistory } from "./sync";
 
 const url = process.env.TEST_DATABASE_URL!;
 const admin = postgres(url, { max: 1, onnotice: () => {} });
@@ -169,5 +170,54 @@ describe("contextual reply (TASK-027)", () => {
     expect(replyPrompt).toContain("Tvoj zadnji e-mail njim:\nb");
     expect(replyPrompt).toContain("NE sprašuj nazaj");
     expect((await admin`select job from ai_usage order by job`).map((r) => r.job)).toEqual(["classify", "reply"]);
+  });
+});
+
+describe("owner's own e-mails and history (TASK-029)", () => {
+  it("Sent folder: stored when a recipient is a company, deal → contacted; CRM-sent and unknown recipients skipped", async () => {
+    const [c] = await db.insert(companies).values({ name: "Fizis", websiteDomain: "fizis.si", website: "https://fizis.si" }).returning();
+    await db.insert(deals).values({ companyId: c.id, source: "manual", stage: "researched" });
+    const { ourId } = await contacted("iva");
+    const r = await processSent(db, [
+      mail({ from: "david@inzenirji.si", to: ["Info@Fizis.si"], subject: "Spletna stran za Fizis", text: "Pozdravljeni, ročno napisano." }),
+      mail({ messageId: ourId, from: "david@inzenirji.si", to: ["info@iva.si"], text: "CRM" }),
+      mail({ from: "david@inzenirji.si", to: ["prijatelj@gmail.com"], text: "zasebno" }),
+    ], day(1));
+    expect(r).toEqual({ seen: 3, stored: 1 });
+    expect((await stage(c.id)).stage).toBe("contacted");
+    const talk = await conversation(db, c.id);
+    expect(talk).toMatchObject([{ dir: "out", via: "mail", label: "ročno", subject: "Spletna stran za Fizis", who: "Info@Fizis.si" }]);
+    expect((await listInbound(db)).map((x) => x.companyName)).not.toContain("Fizis");
+  });
+
+  it("history import: stores both directions without effects ('ne' does not block), replied stage when they answered", async () => {
+    const [c] = await db.insert(companies).values({ name: "Jure", websiteDomain: "jure.si", website: "https://jure.si" }).returning();
+    await db.insert(deals).values({ companyId: c.id, source: "manual", stage: "researched" });
+    await db.insert(contacts).values({ companyId: c.id, email: "jure@gmail.com", emailSource: "vnesel lastnik" });
+    process.env.OUTREACH_SMTP_USER = "david@inzenirji.si";
+    process.env.OUTREACH_SMTP_PASSWORD = "x";
+    process.env.OUTREACH_SMTP_HOST = "imap.test";
+    let asked: string[] = [];
+    try {
+      const r = await importCompanyHistory(db, c.id, {
+        fetch: async (_cfg, terms) => {
+          asked = terms;
+          return {
+            inbox: [mail({ from: "jure@gmail.com", text: "Ne, hvala.", date: day(-20) }), mail({ from: "info@jure.si", text: "Koliko stane?", date: day(-19) })],
+            sent: [mail({ from: "david@inzenirji.si", to: ["jure@gmail.com"], text: "Pozdravljeni Jure", date: day(-21) })],
+          };
+        },
+      });
+      expect(r).toEqual({ ok: true, inbound: 2, sent: 1 });
+    } finally {
+      delete process.env.OUTREACH_SMTP_PASSWORD;
+      delete process.env.OUTREACH_SMTP_HOST;
+      delete process.env.OUTREACH_SMTP_USER;
+    }
+    expect(asked.sort()).toEqual(["@jure.si", "jure@gmail.com"]);
+    expect((await admin`select count(*)::int n from do_not_contact`)[0].n).toBe(0);
+    expect((await stage(c.id)).stage).toBe("replied");
+    expect((await admin`select count(*)::int n from drafts where kind = 'reply'`)[0].n).toBe(0);
+    expect((await conversation(db, c.id)).map((t) => t.dir)).toEqual(["out", "in", "in"]);
   });
 });
