@@ -1,9 +1,11 @@
 import QRCode from "qrcode";
+import { encode } from "upnqr";
 
 /*
- * UPN QR (Slovenian payment QR, ZBS standard) for the prepayment (TASK-013, ADR-031).
- * 19 fields + checksum, each followed by "\n", ISO-8859-2, QR version 15, error correction M.
- * Fields 2–11 (payer side) stay empty: the client's bank fills them.
+ * UPN QR (Slovenian payment QR) for the prepayment (TASK-013, ADR-031). The data string comes from the `upnqr`
+ * package (owner's choice, 2026-10-16, after our own encoder did not scan in Slovenian banks). The QR symbol follows
+ * the ZBS standard: ISO-8859-2 bytes, version 15, error correction M.
+ * The reference is written WITHOUT spaces (e.g. "SI0057308522"); it may be shown with a space on the page.
  */
 
 export type UpnInput = {
@@ -26,32 +28,17 @@ export function toLatin2(s: string): Uint8Array {
 const cut = (s: string, n: number) => s.replace(/\s+/g, " ").trim().slice(0, n);
 
 export function upnText(u: UpnInput): string {
-  const d = u.dueDate;
-  const due = `${String(d.getUTCDate()).padStart(2, "0")}.${String(d.getUTCMonth() + 1).padStart(2, "0")}.${d.getUTCFullYear()}`;
-  const fields = [
-    "UPNQR",
-    "", // IBAN plačnika
-    "", // polog
-    "", // dvig
-    "", // referenca plačnika
-    "", // ime plačnika
-    "", // ulica plačnika
-    "", // kraj plačnika
-    String(Math.round(u.amountCents)).padStart(11, "0"),
-    "", // datum plačila
-    "", // nujno
-    "OTHR",
-    cut(u.purpose, 42),
-    due,
-    u.iban.replace(/\s+/g, "").toUpperCase(),
-    cut(u.reference, 26),
-    cut(u.name, 33),
-    cut(u.street, 33),
-    cut(u.city, 33),
-  ];
-  const body = fields.map((f) => `${f}\n`).join("");
-  const checksum = String(body.length).padStart(3, "0");
-  return `${body}${checksum}\n`;
+  return encode({
+    znesek: Math.round(u.amountCents) / 100,
+    koda_namena: "OTHR",
+    namen_placila: cut(u.purpose, 42),
+    rok_placila: u.dueDate,
+    IBAN_prejemnika: u.iban.replace(/\s+/g, "").toUpperCase(),
+    referenca_prejemnika: u.reference.replace(/\s+/g, "").toUpperCase().slice(0, 26),
+    ime_prejemnika: cut(u.name, 33),
+    ulica_prejemnika: cut(u.street, 33),
+    kraj_prejemnika: cut(u.city, 33),
+  });
 }
 
 export async function upnQrSvg(u: UpnInput): Promise<string> {
