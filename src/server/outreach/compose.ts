@@ -9,6 +9,10 @@ import type { Issue } from "../research/analyze";
 
 export const EDITOR_URL = "https://www.inzenirji.si/urejevalnik";
 export const SITE_URL = "https://www.inzenirji.si";
+/** Public editor demo (ADR-015); the landing redirects /demo to it. */
+export const DEMO_URL = "https://www.inzenirji.si/demo";
+/** Our flagship: the owner edits his site by chatting with the AI editor (owner, 2026-10-16). */
+export const EDITOR_LINE = `Največja prednost: stran potem urejate sami, s pogovorom. Napišete, kaj želite spremeniti, ali pošljete sliko, in AI urejevalnik to uredi v nekaj sekundah. Preizkusite ga kar sami: ${DEMO_URL}`;
 export const OPT_OUT_LINE = "P.S. Če vas to ne zanima, mi samo odpišite »ne« in vam ne bom več pisal.";
 
 export type ComposeInput = {
@@ -39,7 +43,8 @@ function rating(x10: number) {
 
 /** One sentence fragment that follows "opazil sem, da …". */
 export function remarkFor(input: ComposeInput): string {
-  if (input.aiRemark) return input.aiRemark;
+  // Older AI remarks may start with "da" ("opazil sem, da da …").
+  if (input.aiRemark) return input.aiRemark.trim().replace(/^da\s+/i, "");
   const top = input.issues[0];
   const goodReviews = (input.ratingX10 ?? 0) >= 45 && (input.reviewCount ?? 0) >= 30;
   const praise = goodReviews ? ` - škoda, ker imate na Googlu odlične ocene (${rating(input.ratingX10!)} iz ${input.reviewCount} mnenj)` : "";
@@ -110,8 +115,8 @@ export function composeFirst(input: ComposeInput): Composed {
       : "";
   const offer =
     input.group === "B"
-      ? "Novo stran vam naredimo za 590 € + DDV in je na spletu v 7 dneh od prejema vseh materialov."
-      : `Vašo obstoječo vsebino prenesemo na našo platformo, kjer potem stran urejate sami - besedilo, slike ali cene spremenite tako, da napišete, kaj želite, kot v klepetu. Kako to deluje, si lahko pogledate tukaj: ${EDITOR_URL}`;
+      ? `Novo stran vam naredimo za 590 € + DDV in je na spletu v 7 dneh od prejema vseh materialov.\n\n${EDITOR_LINE}`
+      : `Vašo obstoječo vsebino prenesemo na našo platformo, kjer potem stran urejate sami, s pogovorom. Napišete, kaj želite spremeniti, ali pošljete sliko, in AI urejevalnik to uredi v nekaj sekundah. Preizkusite ga kar sami: ${DEMO_URL}`;
   const body = [
     "Pozdravljeni,",
     `opazil sem, da ${remarkFor(input)}.${rivalLine}`,
@@ -130,6 +135,7 @@ export function composeFollowUp1(input: ComposeInput, firstSubject: string): Com
   const body = [
     "Pozdravljeni,",
     `samo kratko preverjam, ali ste prejeli moje sporočilo glede spletne strani za ${input.name}.${second ? ` Ob ponovnem pogledu sem opazil še, da ${second}.` : ""}`,
+    `Če vas zanima, kako bi stran urejali sami s pogovorom, urejevalnik lahko preizkusite kar zdaj: ${DEMO_URL}`,
     "Če vas zanima, mi odpišite in se dogovoriva za kratek pogovor - brez obveznosti.",
     SIGNATURE,
     OPT_OUT_LINE,
@@ -155,6 +161,7 @@ export function toHtml(body: string): string {
   const linked = (s: string) =>
     esc(s)
       .replace(/https:\/\/www\.inzenirji\.si\/urejevalnik/g, '<a href="https://www.inzenirji.si/urejevalnik">inzenirji.si/urejevalnik</a>')
+      .replace(/https:\/\/www\.inzenirji\.si\/demo/g, '<a href="https://www.inzenirji.si/demo">inzenirji.si/demo</a>')
       .replace(/\(https:\/\/www\.inzenirji\.si\)/g, "")
       .replace(/inženirji\.si(?![^<]*<\/a>)/g, '<a href="https://www.inzenirji.si">inženirji.si</a>');
   return `<div>${body

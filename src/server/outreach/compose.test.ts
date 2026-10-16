@@ -22,7 +22,8 @@ describe("composeFirst", () => {
     const m = composeFirst(base);
     expect(m.subject).toBe("Spletna stran za Salon Ana");
     expect(m.body).toContain("opazil sem, da je v nogi vaše spletne strani še letnica 2015, stran pa teče na WordPress 4.9 - škoda, ker imate na Googlu odlične ocene (4,8 iz 80 mnenj).");
-    expect(m.body).toContain("inzenirji.si/urejevalnik");
+    expect(m.body).toContain("stran urejate sami, s pogovorom");
+    expect(m.body).toContain("https://www.inzenirji.si/demo");
     expect(m.body).not.toMatch(/€/); // ADR-009: never a migration price
     expect(m.body).not.toMatch(/—/); // style: plain hyphens
     expect(m.body).not.toMatch(/priponk|mockup|predlog v/i); // ADR-005
@@ -44,7 +45,9 @@ describe("composeFirst", () => {
     expect(m.body).toContain("Frizer Beta, 450 m od vas, ima svojo spletno stran");
     expect(m.body).toContain("590 € + DDV");
     expect(m.body).toContain("na kavo");
-    expect(m.body).not.toContain("urejevalnik");
+    expect(m.body).toContain("AI urejevalnik to uredi v nekaj sekundah");
+    expect(m.body).toContain("https://www.inzenirji.si/demo");
+    expect(words(m.body)).toBeLessThan(175);
   });
 
   it("rival line only when the lead itself is weak online", () => {
@@ -54,6 +57,10 @@ describe("composeFirst", () => {
   it("hours mismatch becomes the personal remark", () => {
     const r = remarkFor({ ...base, issues: [{ code: "hours_mismatch", severity: "high", text: "Na strani piše, da ste ob sobotah odprti do 12h, na Googlu pa do 13h." }] });
     expect(r).toBe("na vaši spletni strani piše, da ste ob sobotah odprti do 12h, na Googlu pa do 13h - stranke ne vedo, kaj velja");
+  });
+
+  it("drops a leading 'da' from an AI remark", () => {
+    expect(remarkFor({ ...base, aiRemark: "da nimate lastne spletne strani" })).toBe("nimate lastne spletne strani");
   });
 
   it("no issues and no great reviews still makes a sentence", () => {
@@ -66,6 +73,7 @@ describe("follow-ups", () => {
     const f1 = composeFollowUp1(base, "Spletna stran za Salon Ana");
     expect(f1.subject).toBe("Re: Spletna stran za Salon Ana");
     expect(f1.body).toContain("opazil še, da vaša spletna stran teče na WordPress 4.9.");
+    expect(f1.body).toContain("https://www.inzenirji.si/demo");
     const f2 = composeFollowUp2(base, "Spletna stran za Salon Ana");
     expect(f2.body).toContain("zadnje sporočilo");
     for (const b of [f1.body, f2.body]) expect(b.endsWith(OPT_OUT_LINE)).toBe(true);
@@ -74,10 +82,11 @@ describe("follow-ups", () => {
 
 describe("toHtml", () => {
   it("escapes, links our site with friendly text, keeps paragraphs", () => {
-    const h = toHtml("A <b>\n\nSem iz inženirji.si (https://www.inzenirji.si)\n\nTukaj: https://www.inzenirji.si/urejevalnik");
+    const h = toHtml("A <b>\n\nSem iz inženirji.si (https://www.inzenirji.si)\n\nTukaj: https://www.inzenirji.si/urejevalnik\n\nDemo: https://www.inzenirji.si/demo");
     expect(h).toContain("A &lt;b&gt;");
     expect(h).toContain('<a href="https://www.inzenirji.si">inženirji.si</a>');
     expect(h).toContain('<a href="https://www.inzenirji.si/urejevalnik">inzenirji.si/urejevalnik</a>');
+    expect(h).toContain('<a href="https://www.inzenirji.si/demo">inzenirji.si/demo</a>');
     expect(h).not.toContain("(https://");
   });
 });

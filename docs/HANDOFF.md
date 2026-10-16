@@ -21,6 +21,7 @@ Conversation with the owner in Slovenian; code and docs in English.
 - 2026-10-15: repo created by the owner; docs foundation (manifest, product spec, architecture, ADR-001…010,
   task list) from the business plan `inzenirji.si/docs/nacrt-rasti.md`.
 
+- 2026-10-16: First e-mail and day-3 follow-up now lead with the AI editor (edit by chatting, send a picture) and link the public demo `inzenirji.si/demo` (owner: "naš paradni konj").
 - 2026-10-16: TASK-037 Google pregled with Gemini (ADR-039). Owner: aistudio.google.com/apikey → Create API key → Nastavitve → Google pregled (Gemini) → Shrani; then company page → "Google pregled".
 - 2026-10-16: TASK-036 nightly Claude researcher over MCP (ADR-038) built. Owner: Nastavitve → Nočna raziskava → create URL →
   claude.ai Settings → Connectors → Add custom connector; then the agent creates the scheduled task.
