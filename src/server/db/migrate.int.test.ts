@@ -37,6 +37,7 @@ describe("migrations", () => {
       "google_accounts",
       "inbound_messages",
       "mailbox_state",
+      "proposals",
       "session",
       "settings",
       "user",

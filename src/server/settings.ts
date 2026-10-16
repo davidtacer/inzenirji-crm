@@ -22,12 +22,21 @@ export type Settings = {
   placesDailyCap: number;
   /** Research also searches the web (Claude web search) for site, profiles, directories, e-mails (TASK-031). */
   webSearchEnabled: boolean;
+  /** Seller on proposals and payment details (TASK-013). */
+  sellerName: string;
+  sellerStreet: string;
+  sellerCity: string;
+  sellerTaxId: string;
+  vatPayer: boolean;
+  iban: string;
+  proposalValidDays: number;
 };
 
 export const LIMITS = {
   dailySendCap: { min: 0, max: 50 },
   aiDailyBudgetUsd: { min: 0, max: 20 },
   placesDailyCap: { min: 0, max: 1000 },
+  proposalValidDays: { min: 1, max: 90 },
 };
 
 export function defaultSettings(env: Record<string, string | undefined> = process.env): Settings {
@@ -39,6 +48,13 @@ export function defaultSettings(env: Record<string, string | undefined> = proces
     aiDailyBudgetUsd: Number(env.AI_DAILY_BUDGET_USD ?? 2) || 2,
     placesDailyCap: Number(env.PLACES_DAILY_CALL_CAP ?? 100) || 100,
     webSearchEnabled: true,
+    sellerName: "",
+    sellerStreet: "",
+    sellerCity: "",
+    sellerTaxId: "",
+    vatPayer: true,
+    iban: "",
+    proposalValidDays: 14,
   };
 }
 
@@ -63,6 +79,8 @@ export function validateSettings(input: Partial<SettingsInput>): { ok: true; val
   try {
     const bookingUrl = String(input.bookingUrl ?? "").trim();
     if (bookingUrl && !/^https:\/\/[^\s]+\.[^\s]+$/i.test(bookingUrl)) throw new Error("Povezava za termin se mora začeti s https://");
+    const ibanRaw = String(input.iban ?? "").trim();
+    if (ibanRaw && !validIban(normalizeIban(ibanRaw))) throw new Error("IBAN ni veljaven (npr. SI56 0201 0001 2345 678).");
     const ownerPhone = String(input.ownerPhone ?? "").trim();
     if (ownerPhone && !/^[+\d][\d\s/-]{5,20}$/.test(ownerPhone)) throw new Error("Telefon: samo številke, presledki, + in -.");
     return {
@@ -75,11 +93,35 @@ export function validateSettings(input: Partial<SettingsInput>): { ok: true; val
         aiDailyBudgetUsd: num("aiDailyBudgetUsd", "AI omejitev"),
         placesDailyCap: num("placesDailyCap", "Google klici na dan"),
         webSearchEnabled: input.webSearchEnabled === true || input.webSearchEnabled === "on",
+        sellerName: String(input.sellerName ?? "").trim().slice(0, 120),
+        sellerStreet: String(input.sellerStreet ?? "").trim().slice(0, 120),
+        sellerCity: String(input.sellerCity ?? "").trim().slice(0, 120),
+        sellerTaxId: String(input.sellerTaxId ?? "").trim().slice(0, 20),
+        vatPayer: input.vatPayer === true || input.vatPayer === "on",
+        iban: normalizeIban(String(input.iban ?? "")),
+        proposalValidDays: num("proposalValidDays", "Veljavnost ponudbe"),
       },
     };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : "Neveljavne nastavitve." };
   }
+}
+
+export function normalizeIban(v: string): string {
+  return v.replace(/\s+/g, "").toUpperCase();
+}
+
+/** ISO 13616 mod-97 check. */
+export function validIban(iban: string): boolean {
+  if (!/^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(iban)) return false;
+  const moved = (iban.slice(4) + iban.slice(0, 4)).replace(/[A-Z]/g, (ch) => String(ch.charCodeAt(0) - 55));
+  let rem = 0;
+  for (const d of moved) rem = (rem * 10 + Number(d)) % 97;
+  return rem === 1;
+}
+
+export function sellerComplete(s: Settings): boolean {
+  return !!(s.sellerName && s.sellerStreet && s.sellerCity && s.iban);
 }
 
 export async function saveSettings(db: Db, value: Settings, now = new Date()): Promise<void> {

@@ -3,11 +3,11 @@ import { defaultSettings, validateSettings } from "./settings";
 import { lockReason, outreachConfig } from "./outreach/send";
 import { aiConfig } from "./ai/remark";
 
-const ok = { sendingEnabled: "on", dailySendCap: "10", bookingUrl: "", ownerPhone: "041 123 456", aiDailyBudgetUsd: "2,5", placesDailyCap: "100", webSearchEnabled: "on" };
+const ok = { sendingEnabled: "on", dailySendCap: "10", bookingUrl: "", ownerPhone: "041 123 456", aiDailyBudgetUsd: "2,5", placesDailyCap: "100", webSearchEnabled: "on", proposalValidDays: "14", iban: "SI56 2633 0001 2039 086" };
 
 describe("settings", () => {
   it("defaults keep the old environment values until something is saved", () => {
-    expect(defaultSettings({ OUTREACH_ENABLED: "1", AI_DAILY_BUDGET_USD: "2", PLACES_DAILY_CALL_CAP: "100" })).toEqual({
+    expect(defaultSettings({ OUTREACH_ENABLED: "1", AI_DAILY_BUDGET_USD: "2", PLACES_DAILY_CALL_CAP: "100" })).toMatchObject({
       sendingEnabled: true,
       dailySendCap: 10,
       bookingUrl: "",
@@ -18,7 +18,8 @@ describe("settings", () => {
     });
   });
   it("validates numbers in range, https link, phone", () => {
-    expect(validateSettings(ok)).toEqual({ ok: true, value: { sendingEnabled: true, dailySendCap: 10, bookingUrl: "", ownerPhone: "041 123 456", aiDailyBudgetUsd: 2.5, placesDailyCap: 100, webSearchEnabled: true } });
+    expect(validateSettings(ok)).toMatchObject({ ok: true, value: { sendingEnabled: true, dailySendCap: 10, ownerPhone: "041 123 456", aiDailyBudgetUsd: 2.5, placesDailyCap: 100, webSearchEnabled: true, iban: "SI56263300012039086", proposalValidDays: 14 } });
+    expect(validateSettings({ ...ok, iban: "SI56 1111" })).toMatchObject({ ok: false, message: expect.stringMatching(/IBAN/) });
     expect(validateSettings({ ...ok, dailySendCap: "500" })).toEqual({ ok: false, message: "Omejitev e-mailov na dan: vpiši število od 0 do 50." });
     expect(validateSettings({ ...ok, bookingUrl: "calendar.google.com/x" })).toMatchObject({ ok: false });
     expect(validateSettings({ ...ok, ownerPhone: "pokliči" })).toMatchObject({ ok: false });
