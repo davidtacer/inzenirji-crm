@@ -6,6 +6,10 @@ import { getSettings } from "@/server/settings";
 import { aiConfig } from "@/server/ai/remark";
 import { researchBatch, runAudit } from "@/server/research/run";
 import { runningJob, startJob } from "@/server/jobs";
+import { runOverview } from "@/server/research/overview";
+import { companies, companyLinks } from "@/server/db/schema";
+import { domainOf } from "@/server/contact/normalize";
+import { eq } from "drizzle-orm";
 
 /** Research options from Nastavitve: Google Places cap, AI web search (TASK-031). */
 async function researchDeps() {
@@ -71,4 +75,43 @@ export async function deepenAction(_prev: ActionState): Promise<ActionState> {
   });
   revalidatePath("/");
   return { ok: true, message: RUNNING };
+}
+
+/* ---------------- Google pregled (TASK-037) ---------------- */
+
+export async function googleOverviewAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  if (!(await getCurrentUser())) return { ok: false, message: "Prijava je potekla. Osveži stran." };
+  const id = String(form.get("id") ?? "");
+  if (!/^[0-9a-f-]{36}$/.test(id)) return { ok: false, message: "Neveljavno podjetje." };
+  const db = getDb();
+  if (await runningJob(db, ["google_overview"], id)) return { ok: true, message: "Google pregled teče …" };
+  await startJob(db, { kind: "google_overview", companyId: id }, () => runOverview(db, id));
+  revalidatePath(`/podjetja/${id}`);
+  return { ok: true, message: "Google pregled teče …" };
+}
+
+/** Owner confirmed a link from the Google overview (TASK-037). */
+export async function addLinkAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  if (!(await getCurrentUser())) return { ok: false, message: "Prijava je potekla." };
+  const id = String(form.get("companyId") ?? "");
+  const url = String(form.get("url") ?? "").trim();
+  if (!/^[0-9a-f-]{36}$/.test(id) || !/^https?:\/\/\S{3,990}$/.test(url)) return { ok: false, message: "Neveljavna povezava." };
+  const kind = String(form.get("kind") ?? "other").slice(0, 20);
+  await getDb()
+    .insert(companyLinks)
+    .values({ companyId: id, url, kind, source: "owner", verified: true, note: "Google pregled (potrdil lastnik)" })
+    .onConflictDoUpdate({ target: [companyLinks.companyId, companyLinks.url], set: { verified: true, kind } });
+  revalidatePath(`/podjetja/${id}`);
+  return { ok: true, message: "Dodano." };
+}
+
+/** Owner confirmed the company's website from the Google overview (TASK-037). */
+export async function setWebsiteAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  if (!(await getCurrentUser())) return { ok: false, message: "Prijava je potekla." };
+  const id = String(form.get("companyId") ?? "");
+  const url = String(form.get("url") ?? "").trim();
+  if (!/^[0-9a-f-]{36}$/.test(id) || !/^https?:\/\/\S{3,990}$/.test(url)) return { ok: false, message: "Neveljavna povezava." };
+  await getDb().update(companies).set({ website: url, websiteDomain: domainOf(url), updatedAt: new Date() }).where(eq(companies.id, id));
+  revalidatePath(`/podjetja/${id}`);
+  return { ok: true, message: "Nastavljeno. Klikni »Raziskuj znova«, da CRM pregleda stran." };
 }
