@@ -5,7 +5,7 @@ import { getCurrentUser } from "@/server/auth/session";
 import { getDb } from "@/server/db/client";
 import { getSettings } from "@/server/settings";
 import { createProposal, proposalEmail, updateProposal } from "@/server/proposals/proposals";
-import { setStage } from "@/server/calls/calls";
+import { startProject } from "@/server/projects/projects";
 
 export type ActionState = { ok: boolean; message: string } | null;
 const isId = (v: unknown): v is string => typeof v === "string" && /^[0-9a-f-]{36}$/.test(v);
@@ -53,7 +53,9 @@ export async function paidAction(_prev: ActionState, form: FormData): Promise<Ac
   if (!(await getCurrentUser())) return { ok: false, message: "Prijava je potekla." };
   const companyId = form.get("companyId");
   if (!isId(companyId)) return { ok: false, message: "Neveljavno podjetje." };
-  const err = await setStage(getDb(), companyId, { stage: "won" });
-  for (const p of ["/ponudbe", "/klici", "/", `/podjetja/${companyId}`]) revalidatePath(p);
-  return err ? { ok: false, message: err } : { ok: true, message: "Označeno kot stranka (predplačilo prejeto)." };
+  const db = getDb();
+  const r = await startProject(db, companyId, await getSettings(db));
+  for (const p of ["/ponudbe", "/klici", "/", "/projekti", `/podjetja/${companyId}`]) revalidatePath(p);
+  if (!r.ok) return r;
+  redirect(`/projekti/${r.id}`);
 }

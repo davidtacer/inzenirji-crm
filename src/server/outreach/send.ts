@@ -7,6 +7,7 @@ import { localDay } from "../places/quota";
 import { toHtml } from "./compose";
 import { unsubscribeToken } from "./unsubscribe";
 import type { Settings } from "../settings";
+import { onDraftSent } from "../projects/projects";
 
 /*
  * The one choke point for outbound e-mail (architecture "Safety", ADR-004, ADR-007, ADR-013).
@@ -135,6 +136,8 @@ export async function sendApprovedDraft(
       return { ok: false as const, error: "SEND_FAILED" as const };
     }
     await tx.update(drafts).set({ status: "sent", sentAt: now, messageId: messageIdFor(id) }).where(eq(drafts.id, id));
+    // Sending some drafts triggers more (TASK-014): the project confirmation starts the guarantee clock.
+    await onDraftSent(tx as unknown as Db, d.draft, now);
     const days = NEXT_STEP_DAYS[d.draft.kind];
     const early = d.stage === "found" || d.stage === "researched";
     if (cold) {

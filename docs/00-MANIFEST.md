@@ -40,7 +40,7 @@ pg-boss jobs · Better Auth magic link · Kamal 2 on the shared Hetzner VM (ADR-
 
 ## Shared server — hard rules (ADR-011)
 The VM `91.99.191.8` also runs asisto, Postaja dev + prod and later volil.si. Only ever add or change **our own**
-things: the `inzenirji-crm` Kamal service, the `db` accessory (container `inzenirji-crm-db`), the `inzenirji-crm-db-data` volume and
+things: the `inzenirji-crm` Kamal service, the `db` accessory (container `inzenirji-crm-db`), the `inzenirji-crm-db-data` and `inzenirji-crm-uploads` volumes and
 `ops/nginx/crm.inzenirji.si.conf`. Never edit other nginx server blocks, the kamal-proxy boot config, other
 containers/volumes, the firewall or system packages. Every resource we run has a memory limit.
 

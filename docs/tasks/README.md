@@ -16,8 +16,8 @@ Phases follow the business plan (`inzenirji.si` → `docs/nacrt-rasti.md` §7.5)
 | TASK-010 | Mockup module (on demand, owner-started) | 006, ADR-005 | C2 | Planned |
 | TASK-011 | Inbound leads: website form, Meta lead forms, demo sign-ups, site-audit requests | 003 | C2 | Planned |
 | TASK-012 | Google Calendar bookings + pre-call brief + call notes → proposal draft | 009, ADR-008, ADR-027 | C3 · 2026-12-05 | Part 1 Live (PR #45); part 2 Google Calendar sync (ADR-029) Live, owner connected his calendar 2026-10-16 (booking moved the deal to call_booked) |
-| TASK-013 | Proposals (PDF), Stripe prepayment, payment status, invoices | 012, ADR-031 | C3 | Part 1 Live (PR #55; fix: proposal e-mail after an already sent reply); Stripe + invoices later |
-| TASK-014 | Projects: materials checklist, client uploads, reminders, guarantee clock | 013, ADR-010 | C3 | Planned |
+| TASK-013 | Proposals (PDF), Stripe prepayment, payment status, invoices | 012, ADR-031 | C3 | Part 1 Live, owner-tested 2026-10-16 (proposal sent, client accepted, UPN QR via upnqr works); Stripe + invoices later |
+| TASK-014 | Projects: materials checklist, client uploads, reminders, guarantee clock | 013, ADR-010, ADR-033 | C3 | Built — PR open |
 | TASK-015 | Meta Ads metrics + GA4 + Search Console daily snapshots | 003 | C4 · 2026-12-19 | Planned |
 | TASK-016 | Weekly report (Monday 08:00) + KPI dashboard | 015 | C4 | Planned |
 | TASK-017 | Postaja feed for the Inženirji.si brand from finished projects | 014, ADR-006 | C5 · 2027-01 | Planned |
