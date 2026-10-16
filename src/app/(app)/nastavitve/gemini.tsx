@@ -15,7 +15,7 @@ export function GeminiCard({ set, model }: { set: boolean; model: string }) {
       </p>
       <label className="flex flex-col gap-1">
         <span className="font-mono text-[10px] uppercase tracking-widest">{set ? "Nov ključ (pusti prazno, da ostane star)" : "Gemini API ključ"}</span>
-        <input name="apiKey" type="password" autoComplete="off" placeholder="AIza…" className={field} />
+        <input name="apiKey" type="password" autoComplete="off" placeholder="AIza… ali AQ.…" className={field} />
       </label>
       <label className="flex flex-col gap-1">
         <span className="font-mono text-[10px] uppercase tracking-widest">Model</span>
