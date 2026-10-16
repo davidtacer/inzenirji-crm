@@ -99,8 +99,40 @@ const URL_RE = /https?:\/\/[^\s)\]>"'`]+/g;
 /** E-mails and URLs written in the answer, for the owner's one-click buttons. */
 export function mentioned(text: string): { emails: string[]; urls: string[] } {
   const emails = [...new Set((text.match(EMAIL) ?? []).map((e) => e.toLowerCase().replace(/\.$/, "")))];
-  const urls = [...new Set((text.match(URL_RE) ?? []).map((u) => u.replace(/[.,;:]+$/, "")))].filter((u) => !/vertexaisearch|google\.com\/search/.test(u));
+  const seen = new Set<string>();
+  const urls = (text.match(URL_RE) ?? [])
+    .map((u) => u.replace(/[.,;:)]+$/, ""))
+    .filter((u) => !/vertexaisearch|google\.com\/search/.test(u))
+    .filter((u) => {
+      const k = urlKey(u);
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
   return { emails, urls };
+}
+
+/** Same page regardless of http/https, www, trailing slash, letter case of the host, or a #fragment. */
+export function urlKey(u: string): string {
+  try {
+    const x = new URL(u);
+    return `${x.hostname.toLowerCase().replace(/^www\./, "")}${x.pathname.replace(/\/+$/, "")}${x.search}`;
+  } catch {
+    return u.toLowerCase();
+  }
+}
+
+/** Google's sources grouped by site, each link once: the site is shown once, extra pages of it as 2, 3 … */
+export function groupSources(sources: { title: string; uri: string }[]): { title: string; uris: string[] }[] {
+  const out = new Map<string, string[]>();
+  for (const s of sources) {
+    if (!s.uri) continue;
+    const t = (s.title || "vir").trim().toLowerCase().replace(/^www\./, "");
+    const list = out.get(t) ?? [];
+    if (!list.includes(s.uri)) list.push(s.uri);
+    out.set(t, list);
+  }
+  return [...out].map(([title, uris]) => ({ title, uris }));
 }
 
 export function linkKind(url: string): string {

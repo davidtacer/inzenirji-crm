@@ -19,7 +19,7 @@ import { AddCandidateEmail, CompanyOutreach } from "../../osnutki/forms";
 import { ResearchOneButton } from "../buttons";
 import { demoNotes } from "@/server/demo/demo";
 import { latestJob } from "@/server/jobs";
-import { latestOverview, linkKind, mentioned } from "@/server/research/overview";
+import { groupSources, latestOverview, linkKind, mentioned } from "@/server/research/overview";
 import { geminiStatus } from "@/server/google/gemini";
 import { AddLink, OverviewButton, PasteLink, SetWebsite } from "../overview";
 import { jobView } from "@/lib/jobs";
@@ -286,11 +286,21 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
                 <div className="mb-4 border-t border-border pt-3">
                   <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-text-secondary">Viri, ki jih je našel Google (te povezave delujejo)</p>
                   <ul className="flex flex-col gap-1">
-                    {overview.sources.map((s, i) => (
-                      <li key={`${i}-${s.uri}`} className="font-sans text-sm">
-                        <a href={s.uri} target="_blank" rel="noopener noreferrer" className="text-text-primary underline decoration-border underline-offset-4 hover:text-accent">
-                          {s.title || "vir"} ↗
+                    {groupSources(overview.sources).map((g) => (
+                      <li key={g.title} className="flex flex-wrap items-baseline gap-x-2 font-sans text-sm">
+                        <a href={g.uris[0]} target="_blank" rel="noopener noreferrer" className="text-text-primary underline decoration-border underline-offset-4 hover:text-accent">
+                          {g.title} ↗
                         </a>
+                        {g.uris.length > 1 ? (
+                          <span className="font-mono text-[10px] text-text-secondary">
+                            še:{" "}
+                            {g.uris.slice(1).map((u, i) => (
+                              <a key={u} href={u} target="_blank" rel="noopener noreferrer" className="mr-1 underline underline-offset-2 hover:text-accent">
+                                {i + 2}
+                              </a>
+                            ))}
+                          </span>
+                        ) : null}
                       </li>
                     ))}
                   </ul>
