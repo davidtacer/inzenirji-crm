@@ -10,7 +10,7 @@ const btn =
 export type JobView = { status: string; message: string | null; done: number; total: number; failed: number } | null;
 
 /** Shows a running job (with progress) and refreshes the page every 5 s until it ends; then its final message. */
-export function JobLine({ job }: { job: JobView }) {
+export function JobLine({ job, label = "Raziskava teče v ozadju" }: { job: JobView; label?: string }) {
   const router = useRouter();
   const running = job?.status === "running";
   useEffect(() => {
@@ -22,7 +22,7 @@ export function JobLine({ job }: { job: JobView }) {
   if (running)
     return (
       <p role="status" className="font-mono text-xs text-[#F0B429]">
-        &gt; Raziskava teče v ozadju{job.total ? ` · ${job.done + job.failed}/${job.total}` : ""} … stran se osveži sama.
+        &gt; {label}{job.total ? ` · ${job.done + job.failed}/${job.total}` : ""} … stran se osveži sama.
       </p>
     );
   return job.message ? <p role="status" className={`font-mono text-xs ${job.status === "done" ? "text-accent" : "text-danger-text"}`}>&gt; {job.message}</p> : null;

@@ -35,7 +35,7 @@ const GROUPS: Group[] = [
   { title: "Izvedba", items: [{ href: "/projekti", label: "Projekti", icon: FolderKanban }] },
   {
     title: "Analitika",
-    items: [{ href: "/porocila", label: "Poročila", icon: BarChart3, soon: true }],
+    items: [{ href: "/porocila", label: "Poročila", icon: BarChart3 }],
   },
   {
     title: "Nastavitve",

@@ -571,3 +571,18 @@ export const jobs = pgTable(
   },
   (t) => [index("jobs_status_idx").on(t.status, t.startedAt), index("jobs_company_idx").on(t.companyId)],
 );
+
+/**
+ * Weekly report snapshots (TASK-016, ADR-040): one row per week (Monday, Europe/Ljubljana). data = the numbers as
+ * they were when the report was made; suggestions = 3 proposals for the coming week (AI or rules).
+ */
+export const weeklyReports = pgTable("weekly_reports", {
+  weekStart: date("week_start").primaryKey(),
+  data: jsonb("data").notNull(),
+  suggestions: jsonb("suggestions").notNull().default([]),
+  /** "rules" or the AI model id. */
+  suggestionsBy: text("suggestions_by").notNull().default("rules"),
+  generatedAt: timestamp("generated_at", { withTimezone: true }).notNull().defaultNow(),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  sendError: text("send_error"),
+});

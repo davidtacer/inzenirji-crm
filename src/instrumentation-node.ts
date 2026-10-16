@@ -15,3 +15,12 @@ export async function runStartupMigrations() {
     process.exit(1);
   }
 }
+
+// Monday 08:00 weekly report e-mail (TASK-016). Only where WEEKLY_REPORT=1 (prod).
+export async function startSchedulers() {
+  if (process.env.WEEKLY_REPORT !== "1" || !process.env.DATABASE_URL) return;
+  const { getDb } = await import("./server/db/client");
+  const { startWeeklyReports } = await import("./server/reports/schedule");
+  startWeeklyReports(getDb());
+  console.log("[weekly] scheduler on");
+}
