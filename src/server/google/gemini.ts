@@ -63,13 +63,36 @@ export type Grounded = {
   outputTokens: number;
 };
 
-export async function groundedSearch(cfg: GeminiConfig, prompt: string, fetchImpl: typeof fetch = fetch, timeoutMs = 60_000): Promise<Grounded> {
-  const res = await fetchImpl(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(cfg.model)}:generateContent`, {
+/** Grounded answers take longer than plain ones (search + reading); this runs as a background job, so a long wait is fine. */
+export const GEMINI_TIMEOUT_MS = 180_000;
+
+/** Gemini 3 models think by default, which makes grounded answers slow; "low" is enough for a lookup. Older models do not know thinkingLevel. */
+export const usesThinkingLevel = (model: string) => !/gemini-(1\.|2\.)/.test(model);
+
+export async function groundedSearch(cfg: GeminiConfig, prompt: string, fetchImpl: typeof fetch = fetch, timeoutMs = GEMINI_TIMEOUT_MS): Promise<Grounded> {
+  const signal = AbortSignal.timeout(timeoutMs);
+  let res = await callGemini(cfg, prompt, fetchImpl, signal, usesThinkingLevel(cfg.model));
+  if (res.status === 400 && usesThinkingLevel(cfg.model)) {
+    const body = await res.clone().text().catch(() => "");
+    if (/thinking/i.test(body)) res = await callGemini(cfg, prompt, fetchImpl, signal, false);
+  }
+  return readGrounded(res);
+}
+
+function callGemini(cfg: GeminiConfig, prompt: string, fetchImpl: typeof fetch, signal: AbortSignal, lowThinking: boolean) {
+  return fetchImpl(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(cfg.model)}:generateContent`, {
     method: "POST",
     headers: { "content-type": "application/json", "x-goog-api-key": cfg.apiKey },
-    body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], tools: [{ google_search: {} }] }),
-    signal: AbortSignal.timeout(timeoutMs),
+    body: JSON.stringify({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      tools: [{ google_search: {} }],
+      ...(lowThinking ? { generationConfig: { thinkingConfig: { thinkingLevel: "low" } } } : {}),
+    }),
+    signal,
   });
+}
+
+async function readGrounded(res: Response): Promise<Grounded> {
   if (!res.ok) {
     let detail: string | null = null;
     try {

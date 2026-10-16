@@ -3,7 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createDb } from "../db/client";
 import { runMigrations } from "../db/migrate";
 import { companies, deals } from "../db/schema";
-import { geminiConfig, geminiStatus, saveGemini } from "../google/gemini";
+import { geminiConfig, geminiStatus, saveGemini, usesThinkingLevel } from "../google/gemini";
 import { latestOverview, linkKind, mentioned, runOverview } from "./overview";
 
 const url = process.env.TEST_DATABASE_URL!;
@@ -64,6 +64,7 @@ describe("Google pregled (TASK-037)", () => {
     expect(sent!.url).toContain("/models/gemini-flash-latest:generateContent");
     expect(sent!.key).toBe("AIzaSyTESTKEY0123456789abcdefghij");
     expect(sent!.body.tools).toEqual([{ google_search: {} }]);
+    expect(sent!.body.generationConfig).toEqual({ thinkingConfig: { thinkingLevel: "low" } });
     const o = (await latestOverview(db, c.id))!;
     expect(o).toMatchObject({ text: ANSWER, searchHtml: "<div class='chips'>…</div>", queries: ["Frizerski salon Pri Slavici Celje", "Pri Slavici facebook"] });
     expect((await admin`select job, cost_micro_usd from ai_usage`)[0]).toEqual({ job: "google_overview", cost_micro_usd: 28000 });
@@ -81,6 +82,23 @@ describe("Google pregled (TASK-037)", () => {
     expect(await runOverview(db, c.id, unauth)).toMatch(/ni sprejel ključa.*401/);
     const quota = (async () => Response.json({ error: { status: "RESOURCE_EXHAUSTED", message: "quota" } }, { status: 429 })) as unknown as typeof fetch;
     expect(await runOverview(db, c.id, quota)).toMatch(/Set up billing/);
+  });
+
+  it("retries without thinkingLevel when the model rejects it; older models never get it", async () => {
+    const [c] = await db.insert(companies).values({ name: "Y" }).returning();
+    await db.insert(deals).values({ companyId: c.id, source: "places_search" });
+    await saveGemini(db, { apiKey: "AQ.Ab8RNTESTKEY0123456789abcdefghij" });
+    const bodies: Record<string, unknown>[] = [];
+    const f = (async (_u: string, init: RequestInit) => {
+      const b = JSON.parse(String(init.body));
+      bodies.push(b);
+      if (b.generationConfig) return Response.json({ error: { status: "INVALID_ARGUMENT", message: "Thinking level is not supported for this model." } }, { status: 400 });
+      return Response.json({ candidates: [{ content: { parts: [{ text: "ok" }] } }] });
+    }) as unknown as typeof fetch;
+    expect(await runOverview(db, c.id, f)).toBe("Google pregled je pripravljen.");
+    expect(bodies.map((b) => !!b.generationConfig)).toEqual([true, false]);
+    expect(usesThinkingLevel("gemini-2.5-flash")).toBe(false);
+    expect(usesThinkingLevel("gemini-flash-latest")).toBe(true);
   });
 
   it("finds e-mails and links in the answer for the buttons", () => {
