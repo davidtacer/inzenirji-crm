@@ -21,7 +21,9 @@ Conversation with the owner in Slovenian; code and docs in English.
 - 2026-10-15: repo created by the owner; docs foundation (manifest, product spec, architecture, ADR-001…010,
   task list) from the business plan `inzenirji.si/docs/nacrt-rasti.md`.
 
-- 2026-10-16: TASK-033 website inquiries (ADR-035) built: inzenirji.si form → `/api/leads/website` → company, Pogovor,
+- 2026-10-16: TASK-034 AI researcher (ADR-036) built; failure reason now visible on the company page. If it says web
+  search is not enabled: Anthropic Console → Settings → Privacy (organization) → enable web search.
+- 2026-10-16: TASK-033 website inquiries (ADR-035) Live: inzenirji.si form → `/api/leads/website` → company, Pogovor,
   reply draft, owner e-mail. Owner: put the same key into Vercel env `CRM_LEADS_TOKEN` (Nastavitve card has steps).
 - 2026-10-16: TASK-032 editor demo leads (ADR-034) built: `POST /api/leads/demo`, key at Nastavitve → Demo
   urejevalnika, Danes funnel, company card. Owner: create the key and paste it into the editor Worker secret
@@ -87,4 +89,4 @@ throwaway database. In the cloud sandbox: `initdb` as user postgres in `/var/tmp
 ## Next
 TASK-001 scaffold (Next.js + Tailwind + Drizzle + Postgres in Docker locally, CI), TASK-002 Kamal deploy skeleton, then the C1 phase (prospecting, research, scoring) — target 2026-11-07.
 
-Latest TASK: 033 · latest ADR: 035. Next candidates: reports (TASK-015/016), after launch (TASK-018), win/loss (TASK-019), rest of TASK-011 inbound leads. Local Postgres for int tests may stop when the sandbox restarts — restart with `pg_ctl` (see above).
+Latest TASK: 034 · latest ADR: 036. Next candidates: reports (TASK-015/016), after launch (TASK-018), win/loss (TASK-019), rest of TASK-011 inbound leads. Local Postgres for int tests may stop when the sandbox restarts — restart with `pg_ctl` (see above).

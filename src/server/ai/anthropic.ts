@@ -1,6 +1,6 @@
 /*
  * Minimal Anthropic Messages API client (TASK-024). No SDK: one POST, so no new dependency.
- * Errors carry the HTTP status only — never the key or the response body.
+ * Errors carry the HTTP status and Anthropic's short error message (never the key).
  */
 
 export const ANTHROPIC_ENDPOINT = "https://api.anthropic.com/v1/messages";
@@ -12,8 +12,23 @@ export const PRICES: Record<string, { input: number; output: number }> = {
 };
 
 export class AiError extends Error {
-  constructor(public status: number) {
+  constructor(
+    public status: number,
+    /** Anthropic's error type and message, e.g. "invalid_request_error: web search is not enabled …" (≤ 300 chars). */
+    public detail: string | null = null,
+  ) {
     super(`AI_HTTP_${status}`);
+  }
+}
+
+/** Reads `{error: {type, message}}` from a failed response; never throws. */
+export async function errorDetail(res: Response): Promise<string | null> {
+  try {
+    const j = (await res.json()) as { error?: { type?: string; message?: string } };
+    const t = [j.error?.type, j.error?.message].filter(Boolean).join(": ");
+    return t ? t.slice(0, 300) : null;
+  } catch {
+    return null;
   }
 }
 
@@ -42,7 +57,7 @@ export async function callClaude(
         messages: [{ role: "user", content: req.user }],
       }),
     });
-    if (!res.ok) throw new AiError(res.status);
+    if (!res.ok) throw new AiError(res.status, await errorDetail(res));
     const d = (await res.json()) as { content?: { type: string; text?: string }[]; usage?: { input_tokens?: number; output_tokens?: number } };
     const text = (d.content ?? []).filter((c) => c.type === "text").map((c) => c.text ?? "").join("").trim();
     const inputTokens = d.usage?.input_tokens ?? 0;
@@ -56,10 +71,10 @@ export async function callClaude(
 /** USD per web search (platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool, checked 2026-10-16). */
 export const WEB_SEARCH_MICRO_USD = 10_000;
 
-export type SearchResult = { text: string; urls: { url: string; title: string }[]; searches: number; inputTokens: number; outputTokens: number; costMicroUsd: number };
+export type SearchResult = { text: string; urls: { url: string; title: string }[]; searches: number; inputTokens: number; outputTokens: number; costMicroUsd: number; stopReason: string | null };
 
 /**
- * One request with Anthropic's server-side web search tool (TASK-031). Continues once on `pause_turn`.
+ * One request with Anthropic's server-side web search tool (TASK-031). Continues on `pause_turn` (up to 5 requests).
  * Returns Claude's final text, every result URL it saw, and the cost (tokens + searches).
  */
 export async function callClaudeWithSearch(
@@ -68,10 +83,10 @@ export async function callClaudeWithSearch(
 ): Promise<SearchResult> {
   type Block = { type: string; text?: string; content?: unknown };
   const messages: { role: string; content: unknown }[] = [{ role: "user", content: req.user }];
-  const out: SearchResult = { text: "", urls: [], searches: 0, inputTokens: 0, outputTokens: 0, costMicroUsd: 0 };
-  for (let turn = 0; turn < 2; turn++) {
+  const out: SearchResult = { text: "", urls: [], searches: 0, inputTokens: 0, outputTokens: 0, costMicroUsd: 0, stopReason: null };
+  for (let turn = 0; turn < 5; turn++) {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), deps.timeoutMs ?? 90_000);
+    const timer = setTimeout(() => controller.abort(), deps.timeoutMs ?? 120_000);
     let d: { content?: Block[]; stop_reason?: string; usage?: { input_tokens?: number; output_tokens?: number; server_tool_use?: { web_search_requests?: number } } };
     try {
       const res = await (deps.fetchImpl ?? fetch)(ANTHROPIC_ENDPOINT, {
@@ -93,7 +108,7 @@ export async function callClaudeWithSearch(
           ],
         }),
       });
-      if (!res.ok) throw new AiError(res.status);
+      if (!res.ok) throw new AiError(res.status, await errorDetail(res));
       d = await res.json();
     } finally {
       clearTimeout(timer);
@@ -112,6 +127,7 @@ export async function callClaudeWithSearch(
     out.outputTokens += ot;
     out.searches += s;
     out.costMicroUsd += costMicroUsd(req.model, it, ot) + s * WEB_SEARCH_MICRO_USD;
+    out.stopReason = d.stop_reason ?? null;
     if (d.stop_reason !== "pause_turn") break;
     messages.push({ role: "assistant", content: blocks });
   }
