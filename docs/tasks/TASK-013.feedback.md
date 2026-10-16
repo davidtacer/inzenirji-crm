@@ -19,3 +19,8 @@ Draft visible to clients → `expected { p: … } to be null` → restored.
 
 ## NOT RUN
 Scanning the UPN QR with a real Slovenian banking app — owner checks with his bank app before the first real proposal.
+
+## Fix 2026-10-16 (owner report)
+"Pripravi e-mail s ponudbo" answered "Osnutek odgovora … že obstaja" with nothing in Osnutki: the one-reply-per-message
+index counted the already **sent** reply. Index now covers only open drafts (pending/approved), migration 0014.
+Regression test added (sent reply to the same message, proposal e-mail still created); with the old predicate it fails.
