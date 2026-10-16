@@ -17,7 +17,7 @@ Phases follow the business plan (`inzenirji.si` → `docs/nacrt-rasti.md` §7.5)
 | TASK-011 | Inbound leads: website form, Meta lead forms, demo sign-ups, site-audit requests | 003 | C2 | Planned |
 | TASK-012 | Google Calendar bookings + pre-call brief + call notes → proposal draft | 009, ADR-008, ADR-027 | C3 · 2026-12-05 | Part 1 Live (PR #45); part 2 Google Calendar sync (ADR-029) Live, owner connected his calendar 2026-10-16 (booking moved the deal to call_booked) |
 | TASK-013 | Proposals (PDF), Stripe prepayment, payment status, invoices | 012, ADR-031 | C3 | Part 1 Live, owner-tested 2026-10-16 (proposal sent, client accepted, UPN QR via upnqr works); Stripe + invoices later |
-| TASK-014 | Projects: materials checklist, client uploads, reminders, guarantee clock | 013, ADR-010, ADR-033 | C3 | Built — PR open |
+| TASK-014 | Projects: materials checklist, client uploads, reminders, guarantee clock | 013, ADR-010, ADR-033 | C3 | Done — Live (PR #61) |
 | TASK-015 | Meta Ads metrics + GA4 + Search Console daily snapshots | 003 | C4 · 2026-12-19 | Planned |
 | TASK-016 | Weekly report (Monday 08:00) + KPI dashboard | 015 | C4 | Planned |
 | TASK-017 | Postaja feed for the Inženirji.si brand from finished projects | 014, ADR-006 | C5 · 2027-01 | Planned |
@@ -35,4 +35,5 @@ Phases follow the business plan (`inzenirji.si` → `docs/nacrt-rasti.md` §7.5)
 | TASK-030 | Companies list: search (name, city, category, address, domain, phone, e-mail), filters (stage, group, city, e-mail, own site, good business, min score), sort, presets, total | 005 | C2 | Done — Live (PR #51) |
 | TASK-031 | Web search in research (Claude web search) + own verification, all links stored, e-mail candidates | 023, ADR-030 | C1 | Done — Live (PR #53) |
 | TASK-032 | Editor demo leads (first part of TASK-011): POST /api/leads/demo with a key from Nastavitve, company + contact + deal (source editor_demo) + note with the requests, Danes funnel (visits → first edit → e-mail → call), company card; companies filter "Vir" + preset "Iz demota" + DEMO tag | 011, ADR-034 | C2 | Live (PR #63) |
+| TASK-033 | Website inquiries (second part of TASK-011): inzenirji.si form → POST /api/leads/website (same key) → company/contact/deal `website_form`, stored as incoming message (Pogovor), deal replied, AI reply draft, owner e-mail | 011, 032, ADR-035 | C2 | Built (PR open) |
 | TASK-028 | Owner settings page `/nastavitve` (sending switch, caps, booking link, phone, AI budget); env only for secrets | ADR-026 | C2 | Done — Live, owner-tested 2026-10-16 (PR #43) |

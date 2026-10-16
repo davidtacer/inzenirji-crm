@@ -76,7 +76,11 @@ export type ProcessResult = { seen: number; stored: number; byClass: Partial<Rec
  * `effects: false` (history import, TASK-029): only store and label; no do-not-contact, no reply drafts —
  * those mails may have been handled long ago.
  */
-export async function processInbound(db: Db, mails: InboundMail[], deps: { ai: AiConfig | null; now?: Date; contact?: ContactOptions; effects?: boolean }): Promise<ProcessResult> {
+export async function processInbound(
+  db: Db,
+  mails: InboundMail[],
+  deps: { ai: AiConfig | null; now?: Date; contact?: ContactOptions; effects?: boolean; forceClass?: ReplyClass },
+): Promise<ProcessResult> {
   const now = deps.now ?? new Date();
   const out: ProcessResult = { seen: mails.length, stored: 0, byClass: {} };
   for (const m of mails) {
@@ -85,7 +89,8 @@ export async function processInbound(db: Db, mails: InboundMail[], deps: { ai: A
     if (dup) continue;
     const match = await matchCompany(db, m);
     if (!match) continue;
-    const c = await classifyReply(m, deps.ai);
+    // A website inquiry is interest by definition; it must never be read as "no" (TASK-033).
+    const c = deps.forceClass ? { cls: deps.forceClass, by: "form", inputTokens: 0, outputTokens: 0, costMicroUsd: 0 } : await classifyReply(m, deps.ai);
     if (c.inputTokens) {
       await db.insert(aiUsage).values({ job: "classify", model: c.by, companyId: match.companyId, inputTokens: c.inputTokens, outputTokens: c.outputTokens, costMicroUsd: c.costMicroUsd, ok: c.by !== "default" });
     }

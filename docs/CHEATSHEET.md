@@ -18,7 +18,7 @@ Never values here — only names and where they live.
 
 ## Settings in the CRM (not env)
 Sending on/off, e-mails per day, booking link, phone, AI budget, Google calls per day: https://crm.inzenirji.si/nastavitve (ADR-026).
-Demo urejevalnika key (editor → CRM leads, ADR-034): Nastavitve → Demo urejevalnika → Ustvari ključ → paste into the editor Worker secret `CRM_LEADS_TOKEN` (Cloudflare → Workers & Pages → inzenirji-editor-dev → Settings → Variables and Secrets).
+Leads key (editor demo + inzenirji.si form → CRM, ADR-034/035): Nastavitve → Leadi s spleta → Ustvari ključ → paste into (1) the editor Worker secret `CRM_LEADS_TOKEN` (Cloudflare → Workers & Pages → inzenirji-editor-dev → Settings → Variables and Secrets) and (2) Vercel env `CRM_LEADS_TOKEN` of the inzenirji.si project, then redeploy.
 
 ## Secrets (names only)
 | Name | Used by | Lives in | Status |
