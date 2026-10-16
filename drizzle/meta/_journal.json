@@ -71,6 +71,13 @@
       "when": 1792138769029,
       "tag": "0009_calls",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792139554025,
+      "tag": "0010_sent_mail",
+      "breakpoints": true
     }
   ]
 }

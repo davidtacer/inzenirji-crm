@@ -11,6 +11,8 @@ export type ReplyClass = "interested" | "not_now" | "no" | "question" | "out_of_
 export type InboundMail = {
   messageId: string;
   from: string;
+  /** To + Cc addresses (used to match mail the owner sent from his own mail program). */
+  to?: string[];
   subject: string;
   text: string;
   date: Date;

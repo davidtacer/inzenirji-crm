@@ -15,7 +15,7 @@ Phases follow the business plan (`inzenirji.si` → `docs/nacrt-rasti.md` §7.5)
 | TASK-009 | Mailbox sync, reply matching and classification, reply drafts | 008, ADR-023 | C2 | Done — Live on prod (PR #37) |
 | TASK-010 | Mockup module (on demand, owner-started) | 006, ADR-005 | C2 | Planned |
 | TASK-011 | Inbound leads: website form, Meta lead forms, demo sign-ups, site-audit requests | 003 | C2 | Planned |
-| TASK-012 | Google Calendar bookings + pre-call brief + call notes → proposal draft | 009, ADR-008, ADR-027 | C3 · 2026-12-05 | Part 1 built — PR open (stages, brief, notes, Klici page); Calendar sync planned |
+| TASK-012 | Google Calendar bookings + pre-call brief + call notes → proposal draft | 009, ADR-008, ADR-027 | C3 · 2026-12-05 | Part 1 Live (PR #45: stages, brief, notes, Klici page); Calendar sync planned |
 | TASK-013 | Proposals (PDF), Stripe prepayment, payment status, invoices | 012 | C3 | Planned |
 | TASK-014 | Projects: materials checklist, client uploads, reminders, guarantee clock | 013, ADR-010 | C3 | Planned |
 | TASK-015 | Meta Ads metrics + GA4 + Search Console daily snapshots | 003 | C4 · 2026-12-19 | Planned |
@@ -31,4 +31,5 @@ Phases follow the business plan (`inzenirji.si` → `docs/nacrt-rasti.md` §7.5)
 | TASK-025 | E-mails from the public directory bizi.si by address, with source (AJPES, CompanyWall, social pages: not now) | 023, ADR-007, ADR-022 | C2 | Done — Live on prod (PR #35) |
 | TASK-026 | Manual company entry: paste a bizi.si or website URL → prefilled form → save + research | 005, ADR-024 | C2 | Done — Live, owner-tested 2026-10-16 (sent to himself, reply classified) |
 | TASK-027 | Contextual AI reply drafts with one concrete next step (booking link / phone / ask for number) | 009, ADR-025 | C2 | Done — Live (PR #41) |
+| TASK-029 | Full correspondence: Sent folder (owner's own e-mails), per-company history import, full-text conversation | 009, ADR-028 | C2 | Built — PR open |
 | TASK-028 | Owner settings page `/nastavitve` (sending switch, caps, booking link, phone, AI budget); env only for secrets | ADR-026 | C2 | Done — Live, owner-tested 2026-10-16 (PR #43) |
