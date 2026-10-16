@@ -18,7 +18,7 @@ import { composeReply, type ContactOptions } from "./reply";
  */
 
 const OUR_ID = /<([0-9a-f-]{36})@inzenirji\.si>/gi;
-const FREE_MAIL = /^(gmail|googlemail|yahoo|hotmail|outlook|live|icloud|me|aol|gmx|siol|t-2|amis|telemach|guest\.arnes|email|mail)\.[a-z.]+$/i;
+export const FREE_MAIL = /^(gmail|googlemail|yahoo|hotmail|outlook|live|icloud|me|aol|gmx|siol|t-2|amis|telemach|guest\.arnes|email|mail)\.[a-z.]+$/i;
 
 type Match = { companyId: string; dealId: string | null; draftId: string | null };
 
