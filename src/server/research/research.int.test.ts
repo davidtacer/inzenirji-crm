@@ -16,7 +16,7 @@ beforeAll(async () => {
   await runMigrations(url);
 });
 beforeEach(async () => {
-  await admin.unsafe("TRUNCATE companies, api_calls RESTART IDENTITY CASCADE");
+  await admin.unsafe("TRUNCATE companies, api_calls, ai_usage RESTART IDENTITY CASCADE");
 });
 afterAll(async () => {
   await admin.end({ timeout: 5 });
@@ -271,5 +271,77 @@ describe("company filters (TASK-030)", () => {
     expect(await names({ f: "good" })).toEqual(["Salon Fantazija"]);
     expect((await listCompanies(db, { limit: 1 })).total).toBe(3);
     expect(parseCompanyQuery({ stage: "x", group: "C", min: "500", sort: "evil" })).toEqual({});
+  });
+});
+
+describe("web search (TASK-031)", () => {
+  const answer = (text: string, searches = 2) =>
+    (async () =>
+      new Response(
+        JSON.stringify({
+          content: [
+            { type: "server_tool_use", id: "s1", name: "web_search", input: { query: "salon fantazija celje" } },
+            { type: "web_search_tool_result", tool_use_id: "s1", content: [{ type: "web_search_result", url: "https://www.instagram.com/salonfantazija", title: "Salon Fantazija" }] },
+            { type: "text", text },
+          ],
+          stop_reason: "end_turn",
+          usage: { input_tokens: 10000, output_tokens: 400, server_tool_use: { web_search_requests: searches } },
+        }),
+        { status: 200 },
+      )) as unknown as typeof fetch;
+  const SITE = `<html><head><meta name="viewport" content="width=device-width"></head><body><h1>Salon Fantazija</h1>
+<p>Miklošičeva 5, 3000 Celje · 031 241 241</p><a href="mailto:info@salonfantazija.si">info@salonfantazija.si</a></body></html>`;
+  const sites = (opened: string[]) =>
+    (async (u: string) => {
+      opened.push(new URL(String(u)).hostname);
+      if (String(u).includes("salonfantazija.si")) return new Response(SITE, { status: 200 });
+      if (String(u).includes("najdi.si")) return new Response("<p>SALON FANTAZIJA, Miklošičeva ulica 5, 3000 Celje</p>", { status: 200 });
+      return new Response("<p>nekaj drugega</p>", { status: 200 });
+    }) as unknown as typeof fetch;
+  const JSON_ANSWER = JSON.stringify({
+    website: "https://www.salonfantazija.si",
+    links: [
+      { url: "https://www.instagram.com/salonfantazija", kind: "instagram", note: "@salonfantazija" },
+      { url: "https://mikulickaja.wixsite.com/salon-fantazija", kind: "website", note: "stara Wix stran" },
+      { url: "https://zemljevid.najdi.si/salon-fantazija", kind: "directory", note: "najdi.si" },
+    ],
+    emails: [{ email: "info@salonfantazija.si", source_url: "https://zemljevid.najdi.si/salon-fantazija" }, { email: "ines@gmail.com", source_url: "https://www.facebook.com/x" }],
+    legal_name: "SALON FANTAZIJA, PTICA FANTAZIJE, D.O.O.",
+    summary: "Frizerski salon v središču Celja.",
+  });
+  const ai = (fetchImpl: typeof fetch, budget = 1e6) => ({ apiKey: "K", model: "claude-sonnet-5-5", dailyBudgetMicroUsd: budget, fetchImpl });
+
+  it("Google had no website: finds and verifies the real site, researches it, stores links, verified e-mail and a candidate", async () => {
+    const c = await company({ name: "Frizerski salon FANTAZIJA", address: "Miklošičeva ulica 5, 3000 Celje, Slovenija", phone: "031 241 241", ratingX10: 49, reviewCount: 260 });
+    const opened: string[] = [];
+    const r = await runAudit(db, c.id, { resolve, fetchImpl: sites(opened), webSearch: true, ai: ai(answer(`Tukaj: ${JSON_ANSWER}`)) });
+    expect(r.group).toBe("A");
+    expect(r.web).toMatchObject({ website: "https://www.salonfantazija.si", emails: 1, candidates: 1 });
+    const d = (await companyDetail(db, c.id))!;
+    expect(d.company.websiteDomain).toBe("salonfantazija.si");
+    expect(d.contacts.map((x) => x.email)).toEqual(["info@salonfantazija.si"]);
+    expect(opened).not.toContain("www.instagram.com");
+    const byKind = Object.fromEntries(d.links.map((l) => [l.url, [l.kind, l.source, l.verified]]));
+    expect(byKind["https://www.instagram.com/salonfantazija"]).toEqual(["instagram", "web_search", false]);
+    expect(byKind["https://zemljevid.najdi.si/salon-fantazija"]).toEqual(["directory", "web_search", true]);
+    expect(byKind["https://mikulickaja.wixsite.com/salon-fantazija"]).toEqual(["website", "web_search", false]);
+    expect(byKind["mailto:ines@gmail.com"]).toEqual(["email", "web_search", false]);
+    expect((d.audit!.data as { web: { legalName: string } }).web.legalName).toBe("SALON FANTAZIJA, PTICA FANTAZIJE, D.O.O.");
+    const [u] = await admin`select job, cost_micro_usd, ok from ai_usage`;
+    expect(u).toEqual({ job: "web_search", cost_micro_usd: 20000 + 24000, ok: true });
+  });
+
+  it("a site that does not belong to the company is not used; budget used up → no search", async () => {
+    const c = await company({ name: "Salon Drugi", address: "Glavni trg 1, 3000 Celje", phone: "041 000 000" });
+    const wrong = JSON.stringify({ website: "https://www.drug-salon.si", links: [], emails: [{ email: "x@drug-salon.si", source_url: "https://www.drug-salon.si" }], legal_name: null, summary: null });
+    await runAudit(db, c.id, { resolve, fetchImpl: sites([]), webSearch: true, ai: ai(answer(wrong)) });
+    const d = (await companyDetail(db, c.id))!;
+    expect(d.company.website).toBeNull();
+    expect(d.contacts).toEqual([]);
+    const spent = (await admin`select coalesce(sum(cost_micro_usd),0)::int s from ai_usage`)[0].s;
+    const boom = (async () => {
+      throw new Error("must not call");
+    }) as unknown as typeof fetch;
+    await runAudit(db, c.id, { resolve, fetchImpl: sites([]), webSearch: true, ai: ai(boom, spent) });
   });
 });

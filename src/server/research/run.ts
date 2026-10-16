@@ -2,13 +2,15 @@ import { and, desc, eq, inArray, isNotNull, ne, sql } from "drizzle-orm";
 import { domainOf, normalizeEmail } from "../contact/normalize";
 import { websiteKind } from "../contact/website";
 import type { Db } from "../db/client";
-import { audits, companies, competitorLinks, contacts, deals } from "../db/schema";
+import { aiUsage, audits, companies, companyLinks, competitorLinks, contacts, deals } from "../db/schema";
 import { analyzeHtml, contactLinks, findIssues, pageText, proposeGroup, rankEmails, summarize, type SiteFacts } from "./analyze";
 import { googleHours, hoursMismatch, parseSiteHours } from "./hours";
 import { PlacesError, placeProfile, type PlaceProfile, type PlaceReview } from "../places/client";
 import { QuotaError, reserveCall } from "../places/quota";
 import { PLACES_PROVIDER } from "../places/search";
 import { lookupBizi, type DirectoryResult } from "../directories/bizi";
+import { findOnWeb, type WebFindings } from "./websearch";
+import { spentTodayMicroUsd, type AiConfig } from "../ai/remark";
 import { safeFetch, type FetchedPage, type Resolver } from "./safe-fetch";
 import { findNearbyCompetitors, type Competitor, type PlacesDeps } from "./competitors";
 import { isGoodBusiness } from "../places/import";
@@ -22,10 +24,13 @@ export type AuditDeps = {
   places?: PlacesDeps;
   /** Look up e-mails in public directories when the site has none (TASK-025). */
   directories?: boolean;
+  /** Claude web search for site, profiles, directories, e-mails (TASK-031); needs `ai`. */
+  webSearch?: boolean;
+  ai?: AiConfig | null;
 };
 
-/** Audit format: 2 = deep research (TASK-023), 3 = + directories (TASK-025). Older audits can be re-run. */
-export const AUDIT_VERSION = 3;
+/** Audit format: 2 = deep research (TASK-023), 3 = + directories (TASK-025), 4 = + web search (TASK-031). Older audits can be re-run. */
+export const AUDIT_VERSION = 4;
 
 export type GoogleProfileData = {
   businessStatus: string | null;
@@ -43,6 +48,21 @@ export type GoogleProfileData = {
 export async function runAudit(db: Db, companyId: string, deps: AuditDeps = {}) {
   let [c] = await db.select().from(companies).where(eq(companies.id, companyId)).limit(1);
   if (!c) throw new Error("COMPANY_NOT_FOUND");
+  // Web search first when Google gave no own website: it may find the real one (TASK-031, ADR-030).
+  const canSearch = !!(deps.webSearch && deps.ai && (await spentTodayMicroUsd(db)) < deps.ai.dailyBudgetMicroUsd);
+  let web: WebFindings | null = null;
+  const googleWebsite = c.website;
+  const forSearch = () => ({ name: c.name, category: c.category, address: c.address, city: c.city, phone: c.phone, website: c.website, country: c.country });
+  if (canSearch && websiteKind(c.websiteDomain) !== "own") {
+    web = await findOnWeb(forSearch(), deps.ai!, deps);
+    if (web.website) {
+      [c] = await db
+        .update(companies)
+        .set({ website: web.website, websiteDomain: domainOf(web.website), updatedAt: new Date() })
+        .where(eq(companies.id, c.id))
+        .returning();
+    }
+  }
   const kind = websiteKind(c.websiteDomain);
   let page: FetchedPage | null = null;
   let facts: SiteFacts | null = null;
@@ -110,6 +130,14 @@ export async function runAudit(db: Db, companyId: string, deps: AuditDeps = {}) 
     }
   }
 
+  // Still no e-mail after site + directory: search the web for one (once per research).
+  if (canSearch && !web && emailSource.size === 0 && !(directory?.match && directory.emails.length)) {
+    web = await findOnWeb(forSearch(), deps.ai!, deps);
+  }
+  if (web && web.inputTokens) {
+    await db.insert(aiUsage).values({ job: "web_search", model: deps.ai!.model, companyId: c.id, inputTokens: web.inputTokens, outputTokens: web.outputTokens, costMicroUsd: web.costMicroUsd, ok: web.ok });
+  }
+
   const reachable = !!facts;
   const nowYear = (deps.now ?? new Date()).getFullYear();
   const siteHours = siteText ? parseSiteHours(siteText) : null;
@@ -155,6 +183,7 @@ export async function runAudit(db: Db, companyId: string, deps: AuditDeps = {}) 
       data: {
         v: AUDIT_VERSION,
         directory,
+        web: web ? { summary: web.summary, legalName: web.legalName, searches: web.searches, website: web.website, ok: web.ok } : null,
         competitorSource,
         kind,
         page: page ? { finalUrl: page.finalUrl, status: page.status, ms: page.ms, https: page.https, redirects: page.redirects } : null,
@@ -176,6 +205,25 @@ export async function runAudit(db: Db, companyId: string, deps: AuditDeps = {}) 
       // Published by the business on its own site (ADR-007); the page is the source.
       await tx.insert(contacts).values({ companyId: c.id, email, emailSource: emailSource.get(raw) ?? page!.finalUrl }).onConflictDoNothing();
     }
+    for (const e of web?.emails ?? []) {
+      const email = normalizeEmail(e.email);
+      // Seen on a page of the company that we opened ourselves (ADR-007, ADR-030).
+      if (email) await tx.insert(contacts).values({ companyId: c.id, email, emailSource: e.source }).onConflictDoNothing();
+    }
+    const links: { url: string; kind: string; source: string; verified: boolean; note: string | null }[] = [
+      ...(web?.links ?? []),
+      ...(web?.candidates ?? []).map((e) => ({ url: `mailto:${e.email}`, kind: "email", source: "web_search", verified: false, note: e.source || null })),
+      ...Object.entries(facts?.socials ?? {}).map(([k, url]) => ({ url, kind: k, source: "site", verified: true, note: null })),
+      ...(c.website ? [{ url: c.website, kind: websiteKind(c.websiteDomain) === "own" ? "website" : "other", source: web?.website === c.website ? "web_search" : "google", verified: reachable, note: null }] : []),
+      ...(directory?.match ? [{ url: directory.match.url, kind: "directory", source: "directory", verified: true, note: directory.match.legalName }] : []),
+      ...(googleWebsite && googleWebsite !== c.website ? [{ url: googleWebsite, kind: websiteKind(domainOf(googleWebsite)) === "own" ? "website" : "other", source: "google", verified: false, note: "na Google profilu" }] : []),
+    ];
+    for (const l of links) {
+      await tx
+        .insert(companyLinks)
+        .values({ companyId: c.id, url: l.url.slice(0, 1000), kind: l.kind, source: l.source, verified: l.verified, note: l.note })
+        .onConflictDoUpdate({ target: [companyLinks.companyId, companyLinks.url], set: { verified: sql`${companyLinks.verified} or excluded.verified`, kind: l.kind } });
+    }
     for (const raw of directory?.match ? directory.emails : []) {
       const email = normalizeEmail(raw);
       // Published in a public business directory (ADR-007); the directory page is the source.
@@ -191,7 +239,7 @@ export async function runAudit(db: Db, companyId: string, deps: AuditDeps = {}) 
     await tx.update(deals).set({ stage: "researched", updatedAt: new Date() }).where(and(eq(deals.companyId, c.id), eq(deals.stage, "found")));
   });
   const score = await rescoreCompany(db, c.id);
-  return { group, issues: issues.length, emails: (facts?.emails.length ?? 0) + (directory?.match ? directory.emails.length : 0), directoryEmails: directory?.match ? directory.emails.length : 0, competitors: competitors!.length, competitorSource, siteDomain, score: score?.total ?? null };
+  return { group, issues: issues.length, emails: (facts?.emails.length ?? 0) + (directory?.match ? directory.emails.length : 0) + (web?.emails.length ?? 0), directoryEmails: directory?.match ? directory.emails.length : 0, web: web ? { found: web.links.length, emails: web.emails.length, candidates: web.candidates.length, website: web.website } : null, competitors: competitors!.length, competitorSource, siteDomain, score: score?.total ?? null };
 }
 
 /** Researched companies whose latest audit is from before deep research (TASK-023). */
@@ -269,7 +317,8 @@ export async function companyDetail(db: Db, id: string) {
   const withDistance = rivals
     .map((r) => ({ ...r, distanceM: dist.get(r.id) ?? null }))
     .sort((a, b) => (a.distanceM ?? 1e9) - (b.distanceM ?? 1e9) || (b.ratingX10 ?? 0) - (a.ratingX10 ?? 0));
-  return { ...c, audit: audit ?? null, contacts: people, competitors: withDistance };
+  const webLinks = await db.select().from(companyLinks).where(eq(companyLinks.companyId, id)).orderBy(companyLinks.kind, companyLinks.url);
+  return { ...c, audit: audit ?? null, contacts: people, competitors: withDistance, links: webLinks };
 }
 
 export type CompanyFilter = "all" | "good" | "A" | "B" | "found" | "researched";
