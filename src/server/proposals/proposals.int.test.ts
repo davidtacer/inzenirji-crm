@@ -48,9 +48,12 @@ describe("proposals", () => {
     expect(await openProposal(db, p.token, { owner: true })).not.toBeNull();
 
     expect(await proposalEmail(db, p.id, defaultSettings({}), NOW)).toMatchObject({ ok: false, message: expect.stringMatching(/Nastavitvah/) });
+    // The owner already answered that message (sent reply): the proposal e-mail must still be possible.
+    const [deal] = await db.select().from(deals);
+    await admin`insert into drafts (deal_id, kind, to_email, subject, body, status, approved_at, sent_at, in_reply_to) values (${deal.id}, 'reply', 'info@ana.si', 's', 'b', 'sent', now(), now(), '<m1@ana.si>')`;
     const r = await proposalEmail(db, p.id, seller, NOW);
     expect(r.ok).toBe(true);
-    const [dr] = await admin`select kind, to_email, subject, in_reply_to, body from drafts`;
+    const [dr] = await admin`select kind, to_email, subject, in_reply_to, body from drafts where status = 'pending'`;
     expect(dr).toMatchObject({ kind: "reply", to_email: "info@ana.si", subject: "Re: Spletna stran", in_reply_to: "<m1@ana.si>" });
     expect(dr.body).toContain(`/ponudba/${p.token}`);
     expect(dr.body).toContain("719,80 €");

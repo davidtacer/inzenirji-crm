@@ -99,6 +99,13 @@
       "when": 1792144197924,
       "tag": "0013_proposals",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792145881233,
+      "tag": "0014_reply_index_open_only",
+      "breakpoints": true
     }
   ]
 }
