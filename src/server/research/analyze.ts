@@ -201,10 +201,17 @@ export function findIssues(
     /** Sentence from hoursMismatch() (TASK-023). */
     hoursMismatch?: string | null;
     closedPermanently?: boolean;
+    /** What the domain shows (siteState) and the domain, for the text. */
+    state?: SiteState;
+    domain?: string | null;
   },
 ): Issue[] {
   const out: Issue[] = [];
   if (ctx.closedPermanently) return [{ code: "closed", severity: "high", text: "Na Googlu je podjetje označeno kot trajno zaprto." }];
+  if (ctx.state === "under_construction")
+    return [{ code: "site_under_construction", severity: "high", text: `Na domeni ${ctx.domain ?? ""} piše, da je stran v izdelavi — prave strani še nimajo.`.replace("  ", " ") }];
+  if (ctx.state === "parked")
+    return [{ code: "site_parked", severity: "high", text: `Domena ${ctx.domain ?? ""} nima prave strani (parkirana ali privzeta stran gostitelja).`.replace("  ", " ") }];
   if (ctx.kind === "none") return [{ code: "no_website", severity: "high", text: "Podjetje nima spletne strani." }];
   if (ctx.kind === "social") return [{ code: "social_only", severity: "high", text: "Namesto spletne strani ima samo profil na družbenem omrežju." }];
   if (ctx.kind === "link") return [{ code: "link_only", severity: "high", text: "Namesto spletne strani ima samo stran s povezavami (link-in-bio)." }];
@@ -223,6 +230,22 @@ export function findIssues(
   if (f.h1Count === 0) out.push({ code: "no_h1", severity: "low", text: "Stran nima glavnega naslova (H1)." });
   if (!f.hasJsonLd) out.push({ code: "no_structured_data", severity: "low", text: "Stran nima strukturiranih podatkov, ki jih berejo Google in ChatGPT." });
   return out;
+}
+
+export type SiteState = "live" | "under_construction" | "parked";
+
+const UNDER_CONSTRUCTION = /(stran je v izdelavi|v izdelavi|spletna stran v pripravi|v pripravi|kmalu na voljo|kmalu prihajamo|pride kmalu|under construction|coming soon|website is coming|launching soon|maintenance mode|we'?ll be back soon|site is under maintenance|baustelle|in bearbeitung)/i;
+const PARKED = /(domain (is )?for sale|this domain (is|has been) (registered|parked)|domena je naprodaj|domena je registrirana|parked (free|domain)|buy this domain|domain parking|sedo|default web ?page|it works!|welcome to nginx|apache2? (ubuntu )?default page|index of \/|cpanel|plesk|hosting za to domeno|ta domena je)/i;
+
+/**
+ * What a domain actually shows (TASK-034): a real site, a "v izdelavi / coming soon" page, or a parked/default
+ * page. Only short pages count as under construction or parked, so a real site that mentions "v pripravi" stays live.
+ */
+export function siteState(html: string): SiteState {
+  const text = pageText(html);
+  if (text.length < 1500 && UNDER_CONSTRUCTION.test(text)) return "under_construction";
+  if (text.length < 2500 && PARKED.test(`${text} ${html.slice(0, 3000)}`)) return "parked";
+  return "live";
 }
 
 /** Group A = has an own site that we can move to our framework; B = needs a (new) site. */
