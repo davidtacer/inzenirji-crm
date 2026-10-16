@@ -333,11 +333,65 @@ describe("web search (TASK-031)", () => {
     const byKind = Object.fromEntries(d.links.map((l) => [l.url, [l.kind, l.source, l.verified]]));
     expect(byKind["https://www.instagram.com/salonfantazija"]).toEqual(["instagram", "web_search", false]);
     expect(byKind["https://zemljevid.najdi.si/salon-fantazija"]).toEqual(["directory", "web_search", true]);
-    expect(byKind["https://mikulickaja.wixsite.com/salon-fantazija"]).toEqual(["website", "web_search", false]);
+    expect(byKind["https://mikulickaja.wixsite.com/salon-fantazija"]).toEqual(["other", "web_search", false]);
     expect(byKind["mailto:ines@gmail.com"]).toEqual(["email", "web_search", false]);
     expect((d.audit!.data as { web: { legalName: string } }).web.legalName).toBe("SALON FANTAZIJA, PTICA FANTAZIJE, D.O.O.");
     const [u] = await admin`select job, cost_micro_usd, ok from ai_usage`;
     expect(u).toEqual({ job: "web_search", cost_micro_usd: 20000 + 24000, ok: true });
+  });
+
+  it("AI researcher (TASK-034): domain from the Instagram bio shows »v izdelavi« → website kept, group B, profile, old Wix site, entity, facts", async () => {
+    const c = await company({ name: "Frizerski salon FANTAZIJA", address: "Miklošičeva ulica 5, 3000 Celje, Slovenija", phone: "031 241 241", ratingX10: 49, reviewCount: 260 });
+    const answerJson = JSON.stringify({
+      website: null,
+      website_from: null,
+      other_sites: [{ url: "https://mikulickaja.wixsite.com/salon-fantazijaa", note: "stara stran na Wixu" }],
+      profiles: [
+        { kind: "instagram", url: "https://www.instagram.com/salonfantazija/", handle: "salonfantazija", followers: "2.888", bio: "Fantazija sredi Celja. Frizerski salon, ki uresničuje vaše fantazije.", website: "www.salonfantazija.si" },
+      ],
+      links: [{ url: "https://zemljevid.najdi.si/podjetje/salon-fantazija", kind: "directory", note: "najdi.si" }],
+      entities: [{ name: "SALON FANTAZIJA, PTICA FANTAZIJE, D.O.O.", address: "Miklošičeva ulica 5, 3000 Celje", tax_id: null, source: "https://zemljevid.najdi.si/podjetje/salon-fantazija" }],
+      emails: [{ email: "info@salonfantazija.si", source_url: "https://zemljevid.najdi.si/podjetje/salon-fantazija" }],
+      phones: ["031 241 241"],
+      people: [{ name: "Ines", role: "frizerka" }],
+      services: ["striženje", "barvanje", "solna soba"],
+      facts: ["osmo leto v Celju", "solna soba in aromaterapija"],
+      summary: "Frizerski salon v središču Celja z 2.888 sledilci na Instagramu; domena salonfantazija.si je v izdelavi.",
+    });
+    const fetchSites = (async (u: string) => {
+      const s = String(u);
+      if (s.includes("salonfantazija.si")) return new Response("<html><body><h1>Stran je v izdelavi</h1><p>Kmalu.</p></body></html>", { status: 200 });
+      if (s.includes("wixsite.com")) return new Response("<h1>O NAS | Salon Fantazija 1</h1><p>Celje</p>", { status: 200 });
+      if (s.includes("najdi.si")) return new Response("<p>SALON FANTAZIJA, PTICA FANTAZIJE, D.O.O. Miklošičeva ulica 5, 3000 Celje 031 241 241 info@salonfantazija.si</p>", { status: 200 });
+      return new Response("<p>nekaj drugega</p>", { status: 200 });
+    }) as unknown as typeof fetch;
+    const r = await runAudit(db, c.id, { resolve, fetchImpl: fetchSites, webSearch: true, ai: ai(answer(answerJson, 6)) });
+    expect(r.group).toBe("B");
+    const d = (await companyDetail(db, c.id))!;
+    expect(d.company.website).toBe("https://www.salonfantazija.si");
+    expect(d.contacts.map((x) => [x.email, x.emailSource])).toEqual([["info@salonfantazija.si", "https://zemljevid.najdi.si/podjetje/salon-fantazija"]]);
+    expect(d.audit!.issues).toEqual([expect.objectContaining({ code: "site_under_construction", severity: "high" })]);
+    const web = (d.audit!.data as { web: Record<string, unknown> }).web;
+    expect(web).toMatchObject({
+      ok: true,
+      error: null,
+      website: "https://www.salonfantazija.si",
+      websiteState: "under_construction",
+      websiteFrom: "instagram",
+      legalName: "SALON FANTAZIJA, PTICA FANTAZIJE, D.O.O.",
+      facts: ["osmo leto v Celju", "solna soba in aromaterapija"],
+    });
+    expect(web.profiles).toEqual([expect.objectContaining({ kind: "instagram", followers: 2888, handle: "salonfantazija" })]);
+    expect(web.otherSites).toEqual([expect.objectContaining({ url: "https://mikulickaja.wixsite.com/salon-fantazijaa", note: "stara stran na Wixu" })]);
+  });
+
+  it("a failed search says why (Anthropic error message), nothing else breaks", async () => {
+    const c = await company({ name: "Salon Tretji", address: "Glavni trg 2, 3000 Celje", phone: "041 222 333" });
+    const fail = (async () =>
+      new Response(JSON.stringify({ type: "error", error: { type: "invalid_request_error", message: "Web search is not enabled for this organization." } }), { status: 400 })) as unknown as typeof fetch;
+    await runAudit(db, c.id, { resolve, fetchImpl: sites([]), webSearch: true, ai: ai(fail) });
+    const d = (await companyDetail(db, c.id))!;
+    expect((d.audit!.data as { web: { ok: boolean; error: string } }).web).toMatchObject({ ok: false, error: expect.stringContaining("Anthropic Console") });
   });
 
   it("a site that does not belong to the company is not used; budget used up → no search", async () => {

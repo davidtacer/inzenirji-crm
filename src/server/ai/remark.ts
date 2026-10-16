@@ -39,6 +39,14 @@ Odgovori samo z JSON: {"remark": "...", "basis": "katero dejstvo si uporabil, 3-
 
 type AuditData = {
   siteText?: string | null;
+  web?: {
+    summary?: string | null;
+    facts?: string[];
+    services?: string[];
+    profiles?: { kind: string; followers: number | null; bio: string | null }[];
+    websiteState?: string | null;
+    website?: string | null;
+  } | null;
   google?: { summary?: string | null; reviews?: { rating: number | null; text: string }[] } | null;
 };
 
@@ -56,6 +64,12 @@ export function buildPrompt(c: { name: string; category: string | null; city: st
   if (data.google?.summary) lines.push("", `Googlov opis: ${data.google.summary}`);
   const reviews = (data.google?.reviews ?? []).filter((r) => r.text).slice(0, 5);
   if (reviews.length) lines.push("", "Zadnja Google mnenja:", ...reviews.map((r) => `- (${r.rating ?? "?"}★) ${r.text.slice(0, 400)}`));
+  const w = data.web;
+  if (w?.summary) lines.push("", `S spleta: ${w.summary}`);
+  if (w?.websiteState === "under_construction" && w.website) lines.push(`Njihova domena ${w.website} kaže stran »v izdelavi«.`);
+  if (w?.facts?.length) lines.push("Zanimiva dejstva:", ...w.facts.slice(0, 6).map((f) => `- ${f}`));
+  if (w?.services?.length) lines.push(`Storitve: ${w.services.slice(0, 10).join(", ")}`);
+  for (const p of (w?.profiles ?? []).slice(0, 3)) if (p.bio) lines.push(`${p.kind}${p.followers ? ` (${p.followers} sledilcev)` : ""}: ${p.bio}`);
   if (data.siteText) lines.push("", "Besedilo z njihove spletne strani (izsek):", data.siteText.slice(0, 3500));
   return `PODATKI\n${lines.filter((l) => l !== null).join("\n")}`;
 }

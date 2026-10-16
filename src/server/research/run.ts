@@ -3,13 +3,13 @@ import { domainOf, normalizeEmail } from "../contact/normalize";
 import { websiteKind } from "../contact/website";
 import type { Db } from "../db/client";
 import { aiUsage, audits, companies, companyLinks, competitorLinks, contacts, deals } from "../db/schema";
-import { analyzeHtml, contactLinks, findIssues, pageText, proposeGroup, rankEmails, summarize, type SiteFacts } from "./analyze";
+import { analyzeHtml, contactLinks, findIssues, pageText, proposeGroup, rankEmails, siteState, summarize, type SiteFacts } from "./analyze";
 import { googleHours, hoursMismatch, parseSiteHours } from "./hours";
 import { PlacesError, placeProfile, type PlaceProfile, type PlaceReview } from "../places/client";
 import { QuotaError, reserveCall } from "../places/quota";
 import { PLACES_PROVIDER } from "../places/search";
 import { lookupBizi, type DirectoryResult } from "../directories/bizi";
-import { findOnWeb, type WebFindings } from "./websearch";
+import { emptyFindings, findOnWeb, isBuilderSite, type WebFindings } from "./websearch";
 import { spentTodayMicroUsd, type AiConfig } from "../ai/remark";
 import { safeFetch, type FetchedPage, type Resolver } from "./safe-fetch";
 import { findNearbyCompetitors, type Competitor, type PlacesDeps } from "./competitors";
@@ -29,8 +29,8 @@ export type AuditDeps = {
   ai?: AiConfig | null;
 };
 
-/** Audit format: 2 = deep research (TASK-023), 3 = + directories (TASK-025), 4 = + web search (TASK-031). Older audits can be re-run. */
-export const AUDIT_VERSION = 4;
+/** Audit format: 2 = deep research (TASK-023), 3 = + directories (TASK-025), 4 = + web search (TASK-031), 5 = AI researcher (TASK-034). Older audits can be re-run. */
+export const AUDIT_VERSION = 5;
 
 export type GoogleProfileData = {
   businessStatus: string | null;
@@ -53,9 +53,13 @@ export async function runAudit(db: Db, companyId: string, deps: AuditDeps = {}) 
   let web: WebFindings | null = null;
   const googleWebsite = c.website;
   const forSearch = () => ({ name: c.name, category: c.category, address: c.address, city: c.city, phone: c.phone, website: c.website, country: c.country });
-  if (canSearch && websiteKind(c.websiteDomain) !== "own") {
+  // Always, when allowed (TASK-034): profiles, legal entity, people and facts matter also when Google knows the site.
+  if (deps.webSearch && deps.ai && !canSearch) {
+    web = { ...emptyFindings(), error: "Preskočeno: dnevni proračun za AI je porabljen (Nastavitve → AI na dan)." };
+  }
+  if (canSearch) {
     web = await findOnWeb(forSearch(), deps.ai!, deps);
-    if (web.website) {
+    if (web.website && (websiteKind(c.websiteDomain) !== "own" || isBuilderSite(c.website ?? ""))) {
       [c] = await db
         .update(companies)
         .set({ website: web.website, websiteDomain: domainOf(web.website), updatedAt: new Date() })
@@ -130,15 +134,13 @@ export async function runAudit(db: Db, companyId: string, deps: AuditDeps = {}) 
     }
   }
 
-  // Still no e-mail after site + directory: search the web for one (once per research).
-  if (canSearch && !web && emailSource.size === 0 && !(directory?.match && directory.emails.length)) {
-    web = await findOnWeb(forSearch(), deps.ai!, deps);
-  }
   if (web && web.inputTokens) {
     await db.insert(aiUsage).values({ job: "web_search", model: deps.ai!.model, companyId: c.id, inputTokens: web.inputTokens, outputTokens: web.outputTokens, costMicroUsd: web.costMicroUsd, ok: web.ok });
   }
 
-  const reachable = !!facts;
+  // What the domain shows: a "v izdelavi" or parked page is not a site (group B, strong lead).
+  const state = page && page.status < 400 ? siteState(page.html) : null;
+  const reachable = !!facts && state !== "under_construction" && state !== "parked";
   const nowYear = (deps.now ?? new Date()).getFullYear();
   const siteHours = siteText ? parseSiteHours(siteText) : null;
   const issues = findIssues(facts, {
@@ -150,6 +152,8 @@ export async function runAudit(db: Db, companyId: string, deps: AuditDeps = {}) 
     nowYear,
     hoursMismatch: hoursMismatch(siteHours, googleHours(google?.periods)),
     closedPermanently: google?.businessStatus === "CLOSED_PERMANENTLY",
+    state: state ?? undefined,
+    domain: domainOf(page?.finalUrl ?? c.website),
   });
   const group = proposeGroup(kind, reachable);
   const summary = summarize(issues, group);
@@ -183,7 +187,26 @@ export async function runAudit(db: Db, companyId: string, deps: AuditDeps = {}) 
       data: {
         v: AUDIT_VERSION,
         directory,
-        web: web ? { summary: web.summary, legalName: web.legalName, searches: web.searches, website: web.website, ok: web.ok } : null,
+        siteState: state,
+        web: web
+          ? {
+              ok: web.ok,
+              error: web.error,
+              summary: web.summary,
+              legalName: web.legalName,
+              searches: web.searches,
+              website: web.website,
+              websiteState: web.websiteState,
+              websiteFrom: web.websiteFrom,
+              profiles: web.profiles,
+              otherSites: web.otherSites,
+              entities: web.entities,
+              people: web.people,
+              services: web.services,
+              facts: web.facts,
+              phones: web.phones,
+            }
+          : null,
         competitorSource,
         kind,
         page: page ? { finalUrl: page.finalUrl, status: page.status, ms: page.ms, https: page.https, redirects: page.redirects } : null,

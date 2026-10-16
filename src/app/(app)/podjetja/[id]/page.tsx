@@ -79,7 +79,24 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
     scanned?: { url: string; status: number }[];
     google?: GoogleProfileData | null;
     directory?: DirectoryResult | null;
-    web?: { summary: string | null; legalName: string | null; searches: number; website: string | null; ok: boolean } | null;
+    siteState?: "live" | "under_construction" | "parked" | null;
+    web?: {
+      summary: string | null;
+      legalName: string | null;
+      searches: number;
+      website: string | null;
+      ok: boolean;
+      error?: string | null;
+      websiteState?: "live" | "under_construction" | "parked" | null;
+      websiteFrom?: string | null;
+      profiles?: { kind: string; url: string; handle: string | null; followers: number | null; bio: string | null; website: string | null }[];
+      otherSites?: { url: string; note: string | null; state: string | null }[];
+      entities?: { name: string; address: string | null; taxId: string | null; source: string | null }[];
+      people?: { name: string; role: string | null }[];
+      services?: string[];
+      facts?: string[];
+      phones?: string[];
+    } | null;
   };
   const google = data.google ?? null;
   const talk = await conversation(getDb(), c.id);
@@ -240,9 +257,66 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
 
         {d.links.length || data.web ? (
           <Box title="Na spletu">
-            {data.web?.summary ? <p className="mb-3 font-sans text-sm text-text-primary">{data.web.summary}</p> : null}
-            {data.web?.legalName ? <p className="mb-3 font-mono text-xs text-text-secondary">Uradno ime: {data.web.legalName}</p> : null}
-            {data.web && !data.web.ok ? <p className="mb-3 font-mono text-xs text-danger-text">&gt; Iskanje po spletu ni uspelo — poskusi »Raziskuj znova«.</p> : null}
+            {data.web && !data.web.ok ? (
+              <p className="mb-3 font-mono text-xs text-danger-text">&gt; Iskanje po spletu ni uspelo: {data.web.error ?? "neznan razlog"} Poskusi »Raziskuj znova«.</p>
+            ) : null}
+            {data.web?.summary ? <p className="mb-4 font-sans text-sm text-text-primary">{data.web.summary}</p> : null}
+            {data.web?.website ? (
+              <p className="mb-3 flex flex-wrap items-baseline gap-x-3 font-sans text-sm">
+                <span className="w-24 shrink-0 font-mono text-[10px] uppercase tracking-widest text-text-secondary">Domena</span>
+                {ext(data.web.website, data.web.website.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, ""))}
+                {data.web.websiteState === "under_construction" ? <span className="font-mono text-[10px] uppercase tracking-widest text-[#F0B429]">v izdelavi</span> : null}
+                {data.web.websiteState === "parked" ? <span className="font-mono text-[10px] uppercase tracking-widest text-[#F0B429]">parkirana</span> : null}
+                {data.web.websiteFrom ? <span className="font-mono text-[10px] text-text-secondary">vir: {data.web.websiteFrom}</span> : null}
+              </p>
+            ) : null}
+            {(data.web?.profiles ?? []).map((p) => (
+              <div key={p.url} className="mb-3">
+                <p className="flex flex-wrap items-baseline gap-x-3 font-sans text-sm">
+                  <span className="w-24 shrink-0 font-mono text-[10px] uppercase tracking-widest text-text-secondary">{LINK_KIND[p.kind] ?? p.kind}</span>
+                  {ext(p.url, p.handle ? `@${p.handle.replace(/^@/, "")}` : p.url.replace(/^https?:\/\/(www\.)?/, "").slice(0, 50))}
+                  {p.followers ? <span className="font-mono text-[10px] text-text-secondary">{String(p.followers).replace(/\B(?=(\d{3})+(?!\d))/g, ".")} sledilcev</span> : null}
+                </p>
+                {p.bio ? <p className="ml-[108px] font-sans text-xs text-text-secondary">{p.bio}</p> : null}
+              </div>
+            ))}
+            {(data.web?.otherSites ?? []).map((o) => (
+              <p key={o.url} className="mb-3 flex flex-wrap items-baseline gap-x-3 font-sans text-sm">
+                <span className="w-24 shrink-0 font-mono text-[10px] uppercase tracking-widest text-text-secondary">Druga stran</span>
+                {ext(o.url, o.url.replace(/^https?:\/\/(www\.)?/, "").slice(0, 60))}
+                {o.note ? <span className="font-mono text-[10px] text-text-secondary">{o.note}</span> : null}
+              </p>
+            ))}
+            {(data.web?.entities ?? []).map((e) => (
+              <p key={e.name} className="mb-3 flex flex-wrap items-baseline gap-x-3 font-sans text-sm">
+                <span className="w-24 shrink-0 font-mono text-[10px] uppercase tracking-widest text-text-secondary">Pravna oseba</span>
+                <span className="text-text-primary">{e.name}</span>
+                <span className="font-mono text-[10px] text-text-secondary">{[e.address, e.taxId ? `DŠ ${e.taxId}` : null].filter(Boolean).join(" · ")}</span>
+              </p>
+            ))}
+            {data.web?.people?.length ? (
+              <p className="mb-3 flex flex-wrap items-baseline gap-x-3 font-sans text-sm">
+                <span className="w-24 shrink-0 font-mono text-[10px] uppercase tracking-widest text-text-secondary">Osebe</span>
+                <span className="text-text-primary">{data.web.people.map((p) => (p.role ? `${p.name} (${p.role})` : p.name)).join(", ")}</span>
+              </p>
+            ) : null}
+            {data.web?.services?.length ? (
+              <p className="mb-3 flex flex-wrap items-baseline gap-x-3 font-sans text-sm">
+                <span className="w-24 shrink-0 font-mono text-[10px] uppercase tracking-widest text-text-secondary">Storitve</span>
+                <span className="text-text-secondary">{data.web.services.join(" · ")}</span>
+              </p>
+            ) : null}
+            {data.web?.facts?.length ? (
+              <div className="mb-4">
+                <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-text-secondary">Za osebni e-mail</p>
+                <ul className="ml-4 list-disc font-sans text-sm text-text-primary">
+                  {data.web.facts.map((f) => (
+                    <li key={f}>{f}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {d.links.length ? <p className="mb-2 mt-2 font-mono text-[10px] uppercase tracking-widest text-text-secondary">Vse povezave in e-naslovi</p> : null}
             <ul className="flex flex-col gap-2">
               {d.links.map((l) => (
                 <li key={l.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border pb-2 last:border-b-0">
