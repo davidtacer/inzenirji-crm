@@ -47,6 +47,8 @@ export type WebFindings = {
   ok: boolean;
   /** Why the search failed, in words the owner can act on. */
   error: string | null;
+  /** Who researched: the CRM's own Claude API call, or the nightly Claude researcher over MCP (TASK-036). */
+  by?: "api" | "agent";
 };
 
 const SYSTEM = `Si raziskovalec za prodajo spletnih strani. Za eno lokalno podjetje v Sloveniji na spletu zberi VSE, kar bi o njem v 5 minutah našel izkušen prodajalec z Googlom. Naredi več iskanj, na primer:
@@ -229,6 +231,23 @@ export async function findOnWeb(
     console.error("[research] web search: no JSON", r.stopReason, r.text.slice(0, 200));
     return { ...out, error: r.stopReason === "max_tokens" ? "Odgovor AI je bil predolg; poskusi znova." : "AI ni vrnil podatkov v pričakovani obliki; poskusi znova." };
   }
+  return verifyFindings(c, p, out, deps);
+}
+
+export type ParsedResearch = NonNullable<ReturnType<typeof parseResearch>>;
+
+/**
+ * Checks parsed findings against the web (TASK-034) and fills WebFindings: opens the candidate pages, accepts the
+ * website and e-mails only with evidence. Used for the CRM's own search and for findings sent by the nightly Claude
+ * researcher over MCP (TASK-036).
+ */
+export async function verifyFindings(
+  c: CompanyForSearch,
+  p: ParsedResearch,
+  base: WebFindings,
+  deps: { fetchImpl?: typeof fetch; resolve?: Resolver },
+): Promise<WebFindings> {
+  const out: WebFindings = { ...base };
   out.ok = true;
   out.summary = p.summary;
   out.legalName = p.entities[0]?.name ?? p.legalName;
@@ -296,6 +315,12 @@ export async function findOnWeb(
   // E-mails: verified only when we saw them on a page that belongs to the company.
   const onPages = new Map<string, string>();
   for (const [u, pg] of pages) if (pg.html && pageMatches(pg.html, c)) for (const e of extractEmails(pg.html)) if (!IGNORE_EMAIL.test(e) && !onPages.has(e)) onPages.set(e, u);
+  // Also published on the very page the researcher named as its source (e.g. a directory entry), which we opened.
+  for (const e of p.emails) {
+    const em = normalizeEmail(e.email);
+    const src = e.source ? pages.get(e.source) : undefined;
+    if (em && !IGNORE_EMAIL.test(em) && !onPages.has(em) && src?.html && extractEmails(src.html).includes(em)) onPages.set(em, e.source);
+  }
   for (const [e, u] of onPages) out.emails.push({ email: e, source: u });
   for (const e of p.emails) {
     const em = normalizeEmail(e.email);

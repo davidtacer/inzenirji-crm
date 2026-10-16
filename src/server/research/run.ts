@@ -9,7 +9,7 @@ import { PlacesError, placeProfile, type PlaceProfile, type PlaceReview } from "
 import { QuotaError, reserveCall } from "../places/quota";
 import { PLACES_PROVIDER } from "../places/search";
 import { lookupBizi, type DirectoryResult } from "../directories/bizi";
-import { emptyFindings, findOnWeb, isBuilderSite, type WebFindings } from "./websearch";
+import { emptyFindings, findOnWeb, isBuilderSite, type ParsedResearch, verifyFindings, type WebFindings } from "./websearch";
 import { spentTodayMicroUsd, type AiConfig } from "../ai/remark";
 import { safeFetch, type FetchedPage, type Resolver } from "./safe-fetch";
 import { findNearbyCompetitors, type Competitor, type PlacesDeps } from "./competitors";
@@ -26,6 +26,8 @@ export type AuditDeps = {
   directories?: boolean;
   /** Claude web search for site, profiles, directories, e-mails (TASK-031); needs `ai`. */
   webSearch?: boolean;
+  /** Findings from the nightly Claude researcher (MCP, TASK-036): used instead of the CRM's own web search. */
+  agentFindings?: ParsedResearch;
   ai?: AiConfig | null;
 };
 
@@ -54,11 +56,16 @@ export async function runAudit(db: Db, companyId: string, deps: AuditDeps = {}) 
   const googleWebsite = c.website;
   const forSearch = () => ({ name: c.name, category: c.category, address: c.address, city: c.city, phone: c.phone, website: c.website, country: c.country });
   // Always, when allowed (TASK-034): profiles, legal entity, people and facts matter also when Google knows the site.
-  if (deps.webSearch && deps.ai && !canSearch) {
+  if (deps.agentFindings) {
+    web = await verifyFindings(forSearch(), deps.agentFindings, { ...emptyFindings(), by: "agent" }, deps);
+    if (web.website && (websiteKind(c.websiteDomain) !== "own" || isBuilderSite(c.website ?? ""))) {
+      [c] = await db.update(companies).set({ website: web.website, websiteDomain: domainOf(web.website), updatedAt: new Date() }).where(eq(companies.id, c.id)).returning();
+    }
+  } else if (deps.webSearch && deps.ai && !canSearch) {
     web = { ...emptyFindings(), error: "Preskočeno: dnevni proračun za AI je porabljen (Nastavitve → AI na dan)." };
   }
-  if (canSearch) {
-    web = await findOnWeb(forSearch(), deps.ai!, deps);
+  if (canSearch && !deps.agentFindings) {
+    web = { ...(await findOnWeb(forSearch(), deps.ai!, deps)), by: "api" };
     if (web.website && (websiteKind(c.websiteDomain) !== "own" || isBuilderSite(c.website ?? ""))) {
       [c] = await db
         .update(companies)
@@ -191,6 +198,7 @@ export async function runAudit(db: Db, companyId: string, deps: AuditDeps = {}) 
         web: web
           ? {
               ok: web.ok,
+              by: web.by ?? "api",
               error: web.error,
               summary: web.summary,
               legalName: web.legalName,

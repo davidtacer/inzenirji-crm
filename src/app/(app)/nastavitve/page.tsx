@@ -7,6 +7,8 @@ import { oauthConfigFromEnv } from "@/server/google/oauth";
 import { formatLj } from "@/lib/time";
 import { DisconnectGoogle } from "./google";
 import { DemoLeadsCard } from "./demo";
+import { McpCard } from "./mcp";
+import { mcpTokenInfo } from "@/server/mcp/mcp";
 import { demoTokenInfo } from "@/server/demo/demo";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +33,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const s = await getSettings(db);
   const acc = await getAccount(db);
   const demo = await demoTokenInfo(db);
+  const mcp = await mcpTokenInfo(db);
   const ready = !!oauthConfigFromEnv();
   const g = GOOGLE_MSG[(await searchParams).google ?? ""];
   return (
@@ -67,6 +70,10 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               )}
             </div>
           )}
+        </aside>
+        <aside className="h-fit border border-border bg-surface p-5">
+          <h2 className="mb-3 font-mono text-[10px] uppercase tracking-[0.3em] text-accent">{"// Nočna raziskava (Claude)"}</h2>
+          <McpCard createdAt={mcp ? formatLj(mcp.createdAt, false) : null} />
         </aside>
         <aside className="h-fit border border-border bg-surface p-5">
           <h2 className="mb-3 font-mono text-[10px] uppercase tracking-[0.3em] text-accent">{"// Leadi s spleta (demo + obrazec)"}</h2>
