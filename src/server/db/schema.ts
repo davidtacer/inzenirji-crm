@@ -551,3 +551,23 @@ export const projectFiles = pgTable(
   },
   (t) => [index("project_files_project_idx").on(t.projectId)],
 );
+
+/** Long work started from the UI (research of one company, batches) that runs in the background (TASK-035). */
+export const jobs = pgTable(
+  "jobs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** "research_one" | "research_batch" | "research_deepen" */
+    kind: text("kind").notNull(),
+    companyId: uuid("company_id").references(() => companies.id, { onDelete: "cascade" }),
+    /** "running" | "done" | "failed" */
+    status: text("status").notNull().default("running"),
+    total: integer("total").notNull().default(0),
+    done: integer("done").notNull().default(0),
+    failed: integer("failed").notNull().default(0),
+    message: text("message"),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+  },
+  (t) => [index("jobs_status_idx").on(t.status, t.startedAt), index("jobs_company_idx").on(t.companyId)],
+);

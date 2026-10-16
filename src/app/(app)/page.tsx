@@ -14,6 +14,8 @@ import { shallowCount } from "@/server/research/run";
 import { callsBoard } from "@/server/calls/calls";
 import { listProjects } from "@/server/projects/projects";
 import { formatLj, within } from "@/lib/time";
+import { latestJob } from "@/server/jobs";
+import { jobView } from "@/lib/jobs";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +24,7 @@ export default async function HomePage() {
   // Companies researched before scoring existed get their score once, here.
   await rescoreMissing(db, 200);
   const [c, top, pending, shallow, calls, projs] = await Promise.all([companyCounts(db), topLeads(db, 10), pendingDraftCount(db), shallowCount(db), callsBoard(db), listProjects(db)]);
+  const deepenJob = await latestJob(db, ["research_deepen"]);
   const active = projs.filter((p) => !p.p.launchedAt);
   const soon = calls.booked.filter((b) => within(b.callAt, 36));
   const stats: [string, number][] = [
@@ -128,7 +131,7 @@ export default async function HomePage() {
         )}
         {top.length ? (
           <div className="flex flex-wrap items-center gap-4 border-t border-border px-5 py-4">
-            {shallow > 0 ? <DeepenButton count={shallow} /> : null}
+            {shallow > 0 || deepenJob ? <DeepenButton count={shallow} job={jobView(deepenJob)} /> : null}
             <DraftTopButton />
             <Link href="/osnutki" className="font-mono text-xs text-accent hover:underline">
               &gt; Osnutki za odobritev: {pending} →
