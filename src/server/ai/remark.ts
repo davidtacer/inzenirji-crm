@@ -85,7 +85,7 @@ export function cleanRemark(text: string): { remark: string; basis: string } | n
     return null;
   }
   if (typeof parsed.remark !== "string") return null;
-  let r = parsed.remark.trim().replace(/[—–]/g, "-").replace(/^["»„]|["«“]$/g, "").replace(/^opazil sem,? da\s+/i, "").replace(/\.+$/, "");
+  let r = parsed.remark.trim().replace(/[—–]/g, "-").replace(/^["»„]|["«“]$/g, "").replace(/^opazil sem,? da\s+/i, "").replace(/^da\s+/i, "").replace(/\.+$/, "");
   if (!r) return null;
   r = r.charAt(0).toLowerCase() + r.slice(1);
   const words = r.split(/\s+/).length;
