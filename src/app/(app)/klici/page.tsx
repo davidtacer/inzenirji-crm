@@ -4,6 +4,7 @@ import { GROUP_LABEL } from "@/lib/labels";
 import { formatLj, isPast } from "@/lib/time";
 import { getDb } from "@/server/db/client";
 import { callsBoard, type CallSummary } from "@/server/calls/calls";
+import { syncCalendar, unmatchedBookings } from "@/server/google/calendar";
 
 export const dynamic = "force-dynamic";
 
@@ -45,10 +46,34 @@ function Section({ title, rows, empty, extra }: { title: string; rows: Row[]; em
 }
 
 export default async function CallsPage() {
-  const b = await callsBoard(getDb());
+  const db = getDb();
+  // Read the calendar when the page opens, at most every 2 minutes.
+  const cal = await syncCalendar(db, { minAgeMs: 120_000 });
+  const [b, unknown] = await Promise.all([callsBoard(db), unmatchedBookings(db)]);
   return (
     <>
-      <PageHeader title="Klici" description="Od odgovora do ponudbe. Fazo in čas klica spremeniš na strani podjetja." />
+      <PageHeader title="Klici" description="Od odgovora do ponudbe. Rezervacije iz Google Koledarja se vpišejo same; ročno spremeniš fazo na strani podjetja." />
+      {cal.ok === false ? <p className="mb-4 font-mono text-xs text-danger-text">&gt; {cal.message}</p> : null}
+      {unknown.length ? (
+        <section className="mb-8">
+          <h2 className="mb-3 font-mono text-[10px] uppercase tracking-[0.3em] text-[#F0B429]">{`// Rezervacije oseb, ki jih ni v CRM (${unknown.length})`}</h2>
+          <ul className="border border-border">
+            {unknown.map((e) => (
+              <li key={e.eventId} className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-border bg-surface px-5 py-3 last:border-b-0">
+                <span className="font-mono text-xs text-accent">{formatLj(e.startAt)}</span>
+                <span className="font-sans text-sm text-text-primary">{e.summary || "(brez naslova)"}</span>
+                <span className="font-mono text-xs text-text-secondary">{e.attendees}</span>
+                <Link
+                  href={`/podjetja/novo?email=${encodeURIComponent(e.attendees.split(",")[0].trim())}`}
+                  className="ml-auto font-mono text-xs text-accent hover:underline"
+                >
+                  + dodaj podjetje
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       <Section
         title="Dogovorjeni klici"
         rows={b.booked}

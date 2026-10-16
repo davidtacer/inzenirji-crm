@@ -24,10 +24,10 @@ function Msg({ s }: { s: { ok: boolean; message: string } | null }) {
   return s ? <p role="status" className={`font-mono text-xs ${s.ok ? "text-accent" : "text-danger-text"}`}>&gt; {s.message}</p> : null;
 }
 
-export function NewCompanyForm() {
+export function NewCompanyForm({ email = "" }: { email?: string }) {
   const [read, readFn, reading] = useActionState<ReadState, FormData>(readAction, null);
   const [save, saveFn, saving] = useActionState<SaveState, FormData>(saveAction, null);
-  const p = read?.prefill ?? EMPTY_PREFILL;
+  const p = read?.prefill ?? { ...EMPTY_PREFILL, email };
   return (
     <div className="flex flex-col gap-6">
       <form action={readFn} className="flex flex-col gap-2 border border-border bg-surface p-5">

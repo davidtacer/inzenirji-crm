@@ -2,7 +2,8 @@ import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { NewCompanyForm } from "./form";
 
-export default function NewCompanyPage() {
+export default async function NewCompanyPage({ searchParams }: { searchParams: Promise<{ email?: string }> }) {
+  const { email } = await searchParams;
   return (
     <>
       <p className="mb-3 font-mono text-[10px] uppercase tracking-widest text-text-secondary">
@@ -11,7 +12,7 @@ export default function NewCompanyPage() {
         </Link>
       </p>
       <PageHeader title="Dodaj podjetje" description="Ročni vnos: podjetje, ki ga ni na Googlu, priporočilo, ali tvoj testni naslov." />
-      <NewCompanyForm />
+      <NewCompanyForm email={email ?? ""} />
     </>
   );
 }
