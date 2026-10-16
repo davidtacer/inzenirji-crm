@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { DemoFunnel } from "@/components/DemoFunnel";
 import { PageHeader } from "@/components/PageHeader";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import { GROUP_HELP, GROUP_LABEL } from "@/lib/labels";
@@ -80,6 +82,10 @@ export default async function HomePage() {
           </ul>
         </section>
       ) : null}
+
+      <Suspense fallback={null}>
+        <DemoFunnel />
+      </Suspense>
 
       <section className="mt-6 border border-border bg-surface">
         <h2 className="border-b border-border px-5 py-3 font-mono text-[10px] uppercase tracking-[0.3em] text-accent">

@@ -6,6 +6,8 @@ import { getAccount } from "@/server/google/calendar";
 import { oauthConfigFromEnv } from "@/server/google/oauth";
 import { formatLj } from "@/lib/time";
 import { DisconnectGoogle } from "./google";
+import { DemoLeadsCard } from "./demo";
+import { demoTokenInfo } from "@/server/demo/demo";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +30,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const db = getDb();
   const s = await getSettings(db);
   const acc = await getAccount(db);
+  const demo = await demoTokenInfo(db);
   const ready = !!oauthConfigFromEnv();
   const g = GOOGLE_MSG[(await searchParams).google ?? ""];
   return (
@@ -64,6 +67,10 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               )}
             </div>
           )}
+        </aside>
+        <aside className="h-fit border border-border bg-surface p-5">
+          <h2 className="mb-3 font-mono text-[10px] uppercase tracking-[0.3em] text-accent">{"// Demo urejevalnika"}</h2>
+          <DemoLeadsCard createdAt={demo ? formatLj(demo.createdAt, false) : null} />
         </aside>
         <aside className="h-fit border border-border bg-surface p-5">
           <h2 className="mb-3 font-mono text-[10px] uppercase tracking-[0.3em] text-accent">{"// Ključi in gesla"}</h2>
