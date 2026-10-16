@@ -227,7 +227,8 @@ export const drafts = pgTable(
     // Replies are exempt (a conversation has many).
     uniqueIndex("drafts_deal_kind_live_uq").on(t.dealId, t.kind).where(sql`${t.status} <> 'discarded' and ${t.kind} <> 'reply'`),
     // One reply draft per incoming message (follow-ups also thread to the first e-mail, so only replies).
-    uniqueIndex("drafts_in_reply_to_uq").on(t.inReplyTo).where(sql`${t.inReplyTo} is not null and ${t.status} <> 'discarded' and ${t.kind} = 'reply'`),
+    // Only open drafts count: after a reply is sent, a new one (e.g. the proposal) may answer the same message.
+    uniqueIndex("drafts_in_reply_to_uq").on(t.inReplyTo).where(sql`${t.inReplyTo} is not null and ${t.status} in ('pending', 'approved') and ${t.kind} = 'reply'`),
     check("drafts_to_lowercase", sql`${t.toEmail} = lower(${t.toEmail})`),
     // A sent draft must have been approved first (ADR-004), enforced by the database too.
     check("drafts_sent_requires_approval", sql`${t.status} <> 'sent' or (${t.approvedAt} is not null and ${t.sentAt} is not null)`),

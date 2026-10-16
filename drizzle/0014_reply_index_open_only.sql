@@ -1,0 +1,2 @@
+DROP INDEX "drafts_in_reply_to_uq";--> statement-breakpoint
+CREATE UNIQUE INDEX "drafts_in_reply_to_uq" ON "drafts" USING btree ("in_reply_to") WHERE "drafts"."in_reply_to" is not null and "drafts"."status" in ('pending', 'approved') and "drafts"."kind" = 'reply';
