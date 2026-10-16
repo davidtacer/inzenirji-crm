@@ -1,7 +1,9 @@
 import { eq } from "drizzle-orm";
 import type { Db } from "../db/client";
 import { mailboxState } from "../db/schema";
-import { aiConfigFromEnv } from "../ai/remark";
+import { aiConfig } from "../ai/remark";
+import { getSettings } from "../settings";
+import { contactOptions } from "./reply";
 import { fetchNewMail, imapConfigFromEnv } from "./imap";
 import { processInbound, type ProcessResult } from "./process";
 
@@ -20,7 +22,8 @@ export async function syncMailbox(db: Db, opts: { minAgeMs?: number } = {}): Pro
   if (opts.minAgeMs && at && Date.now() - at.getTime() < opts.minAgeMs) return { ok: null, at };
   try {
     const mails = await fetchNewMail(db, cfg);
-    const result = await processInbound(db, mails, { ai: aiConfigFromEnv() });
+    const st = await getSettings(db);
+    const result = await processInbound(db, mails, { ai: aiConfig(st), contact: contactOptions(st) });
     return { ok: true, result, at: new Date() };
   } catch (e) {
     console.error("[mailbox] sync failed:", e instanceof Error ? e.message : "unknown");

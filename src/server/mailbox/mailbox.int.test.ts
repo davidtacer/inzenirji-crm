@@ -157,15 +157,11 @@ describe("contextual reply (TASK-027)", () => {
       const text = body.model === "claude-haiku-5-5" ? '{"class":"interested"}' : "Pozdravljeni,\n\nodlično, kar dogovoriva se. Pokličite me na 041 111 222 ali mi pošljite svojo številko in vas pokličem jaz.\n\nLp, David";
       return new Response(JSON.stringify({ content: [{ type: "text", text }], usage: { input_tokens: 500, output_tokens: 60 } }), { status: 200 });
     }) as unknown as typeof fetch;
-    process.env.OWNER_PHONE = "041 111 222";
-    try {
-      await processInbound(db, [mail({ from: "info@hana.si", inReplyTo: ourId, text: "Kdaj se lahko dogovorimo za klic? Me zanima." })], {
-        ai: { apiKey: "K", model: "claude-sonnet-5-5", dailyBudgetMicroUsd: 1e6, fetchImpl },
-        now: day(1),
-      });
-    } finally {
-      delete process.env.OWNER_PHONE;
-    }
+    await processInbound(db, [mail({ from: "info@hana.si", inReplyTo: ourId, text: "Kdaj se lahko dogovorimo za klic? Me zanima." })], {
+      ai: { apiKey: "K", model: "claude-sonnet-5-5", dailyBudgetMicroUsd: 1e6, fetchImpl },
+      now: day(1),
+      contact: { bookingUrl: null, phone: "041 111 222" },
+    });
     const d = (await listDrafts(db)).pending.find((x) => x.companyId === c.id)!;
     expect(d.body).toBe("Pozdravljeni,\n\nodlično, kar dogovoriva se. Pokličite me na 041 111 222 ali mi pošljite svojo številko in vas pokličem jaz.\n\nLp,\nDavid\ninženirji.si");
     const replyPrompt = prompts.find((p) => p.includes("Njihov odgovor"))!;

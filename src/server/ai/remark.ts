@@ -3,6 +3,7 @@ import type { Db } from "../db/client";
 import { aiUsage, audits, companies } from "../db/schema";
 import type { Issue } from "../research/analyze";
 import { AiError, callClaude } from "./anthropic";
+import type { Settings } from "../settings";
 
 /*
  * AI personal remark for the first e-mail (TASK-024, ADR-021). Claude reads only what research already stored
@@ -12,12 +13,13 @@ import { AiError, callClaude } from "./anthropic";
 
 export type AiConfig = { apiKey: string; model: string; dailyBudgetMicroUsd: number; fetchImpl?: typeof fetch };
 
-export function aiConfigFromEnv(env: Record<string, string | undefined> = process.env): AiConfig | null {
-  if (!env.ANTHROPIC_API_KEY) return null;
+/** AI is on when the key is set (GitHub secret); the daily budget comes from Nastavitve (TASK-028). */
+export function aiConfig(st: Pick<Settings, "aiDailyBudgetUsd">, env: Record<string, string | undefined> = process.env): AiConfig | null {
+  if (!env.ANTHROPIC_API_KEY || st.aiDailyBudgetUsd <= 0) return null;
   return {
     apiKey: env.ANTHROPIC_API_KEY,
     model: env.AI_MODEL || "claude-sonnet-5-5",
-    dailyBudgetMicroUsd: Math.round(Number(env.AI_DAILY_BUDGET_USD ?? 2) * 1_000_000),
+    dailyBudgetMicroUsd: Math.round(st.aiDailyBudgetUsd * 1_000_000),
   };
 }
 

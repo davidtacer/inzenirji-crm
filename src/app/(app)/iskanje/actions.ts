@@ -1,6 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { getDb } from "@/server/db/client";
+import { getSettings } from "@/server/settings";
 import { getCurrentUser } from "@/server/auth/session";
 import { PlacesError } from "@/server/places/client";
 import { runPlacesSearch, validateSearch } from "@/server/places/search";
@@ -13,7 +14,7 @@ export async function searchAction(_prev: SearchState, form: FormData): Promise<
   if (!input) return { ok: false, message: "Vpiši iskanje (3–100 znakov) in 1–3 strani." };
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
   if (!apiKey) return { ok: false, message: "Ključ GOOGLE_PLACES_API_KEY ni nastavljen na strežniku." };
-  const dailyCap = Number(process.env.PLACES_DAILY_CALL_CAP ?? 100);
+  const dailyCap = (await getSettings(getDb())).placesDailyCap;
   try {
     const r = await runPlacesSearch(getDb(), input, { apiKey, dailyCap });
     revalidatePath("/iskanje");

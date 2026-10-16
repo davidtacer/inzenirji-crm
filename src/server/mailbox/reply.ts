@@ -4,6 +4,7 @@ import { aiUsage, companies, deals, drafts } from "../db/schema";
 import { callClaude, AiError } from "../ai/anthropic";
 import type { AiConfig } from "../ai/remark";
 import { ownText, type InboundMail, type ReplyClass } from "./classify";
+import type { Settings } from "../settings";
 
 /*
  * Reply drafts (TASK-009, made contextual in TASK-027 / ADR-025). Claude reads our last e-mail and their answer and
@@ -19,8 +20,8 @@ const subjectRe = (s: string) => (/^\s*re:/i.test(s) ? s.trim() : `Re: ${s.trim(
 
 export type ContactOptions = { bookingUrl: string | null; phone: string | null };
 
-export function contactOptionsFromEnv(env: Record<string, string | undefined> = process.env): ContactOptions {
-  return { bookingUrl: env.BOOKING_URL?.trim() || null, phone: env.OWNER_PHONE?.trim() || null };
+export function contactOptions(st: Pick<Settings, "bookingUrl" | "ownerPhone">): ContactOptions {
+  return { bookingUrl: st.bookingUrl.trim() || null, phone: st.ownerPhone.trim() || null };
 }
 
 /** The concrete next step, in priority: booking link, then phone + "send me yours", then ask for their number. */
@@ -91,7 +92,7 @@ export async function composeReply(
   m: InboundMail,
   cls: ReplyClass,
   ai: AiConfig | null,
-  contact: ContactOptions = contactOptionsFromEnv(),
+  contact: ContactOptions = { bookingUrl: null, phone: null },
 ): Promise<{ subject: string; body: string } | null> {
   const subject = subjectRe(m.subject || "Spletna stran");
   const template = templateReply(cls, contact);

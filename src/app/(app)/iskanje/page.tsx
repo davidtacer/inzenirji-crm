@@ -1,6 +1,7 @@
 import { CompanyTable } from "@/components/CompanyTable";
 import { PageHeader } from "@/components/PageHeader";
 import { getDb } from "@/server/db/client";
+import { getSettings } from "@/server/settings";
 import { latestCompanies } from "@/server/places/list";
 import { callsToday } from "@/server/places/quota";
 import { PLACES_PROVIDER } from "@/server/places/search";
@@ -10,8 +11,8 @@ export const dynamic = "force-dynamic";
 
 export default async function SearchPage() {
   const db = getDb();
-  const [rows, used] = await Promise.all([latestCompanies(db), callsToday(db, PLACES_PROVIDER)]);
-  const cap = Number(process.env.PLACES_DAILY_CALL_CAP ?? 100);
+  const [rows, used, st] = await Promise.all([latestCompanies(db), callsToday(db, PLACES_PROVIDER), getSettings(db)]);
+  const cap = st.placesDailyCap;
   return (
     <>
       <PageHeader
