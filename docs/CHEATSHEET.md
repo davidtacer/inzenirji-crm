@@ -32,7 +32,7 @@ Leads key (editor demo + inzenirji.si form → CRM, ADR-034/035): Nastavitve →
 | `PROD_HOST` | Kamal server address (`91.99.191.8`) | GitHub env `prod` variable | Planned |
 | `BETTER_AUTH_SECRET` | sessions | GitHub env `prod` secret | Planned |
 | `DEPLOY_SSH_KEY`, `PROD_SSH_KNOWN_HOSTS` | CI → server (dedicated key) | GitHub env `prod` secret | Planned |
-| `OWNER_EMAILS` | login allowlist (comma-separated) | GitHub env `prod` variable | Planned |
+| `OWNER_EMAILS` | login allowlist (comma-separated); the first address also gets the Monday weekly report (TASK-016) | GitHub env `prod` variable | Planned |
 | `META_ACCESS_TOKEN` | Meta Ads metrics + lead forms | hosting secret store | Planned |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | prepayments | hosting secret store | Planned |
 
