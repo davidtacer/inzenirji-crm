@@ -393,3 +393,30 @@ export const settings = pgTable("settings", {
   value: jsonb("value").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** Connected Google account for Calendar (TASK-012b, ADR-029). The refresh token is stored encrypted. */
+export const googleAccounts = pgTable("google_accounts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  email: text("email").notNull().unique(),
+  refreshTokenEnc: text("refresh_token_enc").notNull(),
+  scope: text("scope").notNull(),
+  connectedAt: timestamp("connected_at", { withTimezone: true }).notNull().defaultNow(),
+  lastSyncAt: timestamp("last_sync_at", { withTimezone: true }),
+  lastError: text("last_error"),
+});
+
+/** Calendar events with other people (bookings), kept to match them to companies. */
+export const calendarEvents = pgTable(
+  "calendar_events",
+  {
+    eventId: text("event_id").primaryKey(),
+    summary: text("summary").notNull().default(""),
+    startAt: timestamp("start_at", { withTimezone: true }).notNull(),
+    status: text("status").notNull(),
+    attendees: text("attendees").notNull().default(""),
+    companyId: uuid("company_id").references(() => companies.id, { onDelete: "set null" }),
+    htmlLink: text("html_link"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("calendar_events_start_idx").on(t.startAt)],
+);

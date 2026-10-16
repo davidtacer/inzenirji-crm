@@ -24,7 +24,7 @@ Sending on/off, e-mails per day, booking link, phone, AI budget, Google calls pe
 |---|---|---|---|
 | `ANTHROPIC_API_KEY` | AI remark (TASK-024) and later agents | GitHub env `prod` secret | Set by owner 2026-10-15 |
 | `GOOGLE_PLACES_API_KEY` | prospecting (restricted to IP 91.99.191.8 + Places API) | GitHub env `prod` secret | Set by owner 2026-10-15 |
-| `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` | Calendar, GA4, Search Console, Gmail | hosting secret store | Planned |
+| `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | Google sign-in for Calendar (later GA4, Search Console); the refresh token is stored encrypted in the DB after "Poveži Google Koledar" (ADR-029) | GitHub env `prod` secrets | To be set by owner |
 | `SMTP_PASSWORD` | `hello@inzenirji.si` — login e-mails (ADR-015) | GitHub env `prod` secret | Set by owner 2026-10-15 |
 | `OUTREACH_SMTP_PASSWORD` | `david@inzenirji.si` SMTP send (TASK-008) and IMAP read (TASK-009) | GitHub env `prod` secret | Set by owner 2026-10-15 |
 | `POSTGRES_PASSWORD` | Postgres accessory; `DATABASE_URL` is built from it in `.kamal/secrets` | GitHub env `prod` secret | Planned |
@@ -34,3 +34,10 @@ Sending on/off, e-mails per day, booking link, phone, AI budget, Google calls pe
 | `OWNER_EMAILS` | login allowlist (comma-separated) | GitHub env `prod` variable | Planned |
 | `META_ACCESS_TOKEN` | Meta Ads metrics + lead forms | hosting secret store | Planned |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | prepayments | hosting secret store | Planned |
+
+## Google OAuth client (Calendar, ADR-029)
+Google Cloud Console → project → APIs & Services: enable **Google Calendar API**; **OAuth consent screen**: External,
+app name "Inženirji CRM", support e-mail, test user = the owner's Google account; **Credentials → Create credentials →
+OAuth client ID → Web application**, authorised redirect URI `https://crm.inzenirji.si/api/google/callback`. Put the
+client ID and secret into GitHub env `prod` as `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET`, redeploy, then
+Nastavitve → "Poveži Google Koledar".
