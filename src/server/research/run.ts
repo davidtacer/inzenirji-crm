@@ -333,9 +333,13 @@ export type CompanyQuery = {
   site?: "own" | "none";
   good?: boolean;
   minScore?: number;
+  /** Deal source; "editor_demo" also matches companies that already existed and later tried the demo. */
+  source?: string;
   sort?: "score" | "rating" | "reviews" | "name" | "new";
   limit?: number;
 };
+
+export const SOURCE_VALUES = ["places_search", "editor_demo", "manual", "outreach_reply", "website_form", "meta_lead_form", "google_ads", "site_audit", "referral", "partner"];
 
 const STAGE_VALUES = ["found", "researched", "contacted", "replied", "call_booked", "call_done", "proposal_sent", "won", "lost", "nurture"];
 
@@ -349,6 +353,7 @@ export function parseCompanyQuery(p: Record<string, string | undefined>): Compan
   if (p.email === "yes" || p.email === "no") q.email = p.email;
   if (p.site === "own" || p.site === "none") q.site = p.site;
   if (p.good === "1") q.good = true;
+  if (p.source && SOURCE_VALUES.includes(p.source)) q.source = p.source;
   const min = Number(p.min);
   if (Number.isFinite(min) && min > 0 && min <= 100) q.minScore = Math.round(min);
   if (p.sort === "rating" || p.sort === "reviews" || p.sort === "name" || p.sort === "new" || p.sort === "score") q.sort = p.sort;
@@ -377,6 +382,10 @@ export async function listCompanies(db: Db, query: CompanyQuery | CompanyFilter 
   if (qy.city) conds.push(sql`${companies.city} ilike ${qy.city}`);
   if (qy.good) conds.push(and(sql`${companies.ratingX10} >= 43`, sql`${companies.reviewCount} >= 30`));
   if (qy.minScore) conds.push(sql`${companies.score} >= ${qy.minScore}`);
+  // A company "tried the demo" when its deal came from the demo or a demo note was added later (existing company).
+  const triedDemo = sql<boolean>`(${deals.source} = 'editor_demo' or exists (select 1 from activities a where a.deal_id = ${deals.id} and a.type = 'note' and a.payload->>'kind' = 'editor_demo'))`;
+  if (qy.source === "editor_demo") conds.push(triedDemo);
+  else if (qy.source) conds.push(sql`${deals.source} = ${qy.source}`);
   const hasEmail = sql`exists (select 1 from ${contacts} ct where ct.company_id = ${companies.id} and ct.email is not null)`;
   if (qy.email === "yes") conds.push(hasEmail);
   if (qy.email === "no") conds.push(sql`not ${hasEmail}`);
@@ -407,6 +416,8 @@ export async function listCompanies(db: Db, query: CompanyQuery | CompanyFilter 
       group: companies.group,
       score: companies.score,
       stage: deals.stage,
+      source: deals.source,
+      triedDemo,
     })
     .from(companies)
     .leftJoin(deals, eq(deals.companyId, companies.id))

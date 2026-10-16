@@ -270,7 +270,16 @@ describe("company filters (TASK-030)", () => {
     expect(await names({ sort: "name" })).toEqual(["Frizoteka", "Mesar", "Salon Fantazija"]);
     expect(await names({ f: "good" })).toEqual(["Salon Fantazija"]);
     expect((await listCompanies(db, { limit: 1 })).total).toBe(3);
-    expect(parseCompanyQuery({ stage: "x", group: "C", min: "500", sort: "evil" })).toEqual({});
+    expect(parseCompanyQuery({ stage: "x", group: "C", min: "500", sort: "evil", source: "x" })).toEqual({});
+    // Source: own demo deal, and an existing company that tried the demo later (note on its places_search deal).
+    const demo = await db.insert(companies).values({ name: "primer.si" }).returning();
+    await db.insert(deals).values({ companyId: demo[0]!.id, source: "editor_demo" });
+    const [bd] = await admin`select id from deals where company_id = ${b.id}`;
+    await admin`insert into activities (deal_id, type, payload) values (${bd!.id}, 'note', ${admin.json({ kind: "editor_demo", ref: "abc12345" })})`;
+    expect((await names({ source: "editor_demo" })).sort()).toEqual(["Frizoteka", "primer.si"]);
+    expect(await names({ source: "places_search", sort: "name" })).toEqual(["Frizoteka", "Mesar", "Salon Fantazija"]);
+    const rows = await listCompanies(db, parseCompanyQuery({ sort: "name" }));
+    expect(Object.fromEntries(rows.map((r) => [r.name, r.triedDemo]))).toEqual({ Frizoteka: true, Mesar: false, "primer.si": true, "Salon Fantazija": false });
   });
 });
 
