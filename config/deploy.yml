@@ -62,6 +62,8 @@ env:
     AI_DAILY_BUDGET_USD: "2"
     # Google Calendar appointment schedule link for reply drafts (ADR-008); empty until the owner creates it.
     BOOKING_URL: "<%= ENV.fetch("BOOKING_URL", "") %>"
+    # Owner's phone offered in reply drafts (TASK-027); empty = ask the prospect for theirs.
+    OWNER_PHONE: "<%= ENV.fetch("OWNER_PHONE", "") %>"
   secret:
     - DATABASE_URL
     - BETTER_AUTH_SECRET

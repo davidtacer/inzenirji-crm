@@ -119,7 +119,9 @@ describe("mailbox processing", () => {
     expect(dren.stage).toBe("nurture");
     expect(new Date(dren.next_action_at).getTime()).toBe(day(91).getTime());
     expect((await stage(o.c.id)).stage).toBe("contacted");
-    expect((await admin`select job, model from ai_usage`)).toEqual([{ job: "classify", model: "claude-haiku-5-5" }]);
+    expect((await admin`select job, model from ai_usage where job = 'classify'`)).toEqual([{ job: "classify", model: "claude-haiku-5-5" }]);
+    // The fake model answered the reply with JSON → rejected, logged as not ok, template used.
+    expect((await admin`select ok from ai_usage where job = 'reply'`)).toEqual([{ ok: false }]);
   });
 
   it("bounce found by our Message-ID in the body → address blocked, sequence stopped; bounce rate stops cold sending", async () => {
@@ -142,5 +144,34 @@ describe("mailbox processing", () => {
     const { ourId } = await contacted("gaja");
     expect(await createDueFollowUps(db, day(3))).toBe(1);
     expect((await admin`select in_reply_to from drafts where kind = 'followup_1'`)[0].in_reply_to).toBe(ourId);
+  });
+});
+
+describe("contextual reply (TASK-027)", () => {
+  it("AI reads our e-mail and their answer and offers the next step instead of asking back", async () => {
+    const { c, ourId } = await contacted("hana");
+    const prompts: string[] = [];
+    const fetchImpl = (async (_u: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body)) as { system: string; messages: { content: string }[]; model: string };
+      prompts.push(`${body.system}\n---\n${body.messages[0].content}`);
+      const text = body.model === "claude-haiku-5-5" ? '{"class":"interested"}' : "Pozdravljeni,\n\nodlično, kar dogovoriva se. Pokličite me na 041 111 222 ali mi pošljite svojo številko in vas pokličem jaz.\n\nLp, David";
+      return new Response(JSON.stringify({ content: [{ type: "text", text }], usage: { input_tokens: 500, output_tokens: 60 } }), { status: 200 });
+    }) as unknown as typeof fetch;
+    process.env.OWNER_PHONE = "041 111 222";
+    try {
+      await processInbound(db, [mail({ from: "info@hana.si", inReplyTo: ourId, text: "Kdaj se lahko dogovorimo za klic? Me zanima." })], {
+        ai: { apiKey: "K", model: "claude-sonnet-5-5", dailyBudgetMicroUsd: 1e6, fetchImpl },
+        now: day(1),
+      });
+    } finally {
+      delete process.env.OWNER_PHONE;
+    }
+    const d = (await listDrafts(db)).pending.find((x) => x.companyId === c.id)!;
+    expect(d.body).toBe("Pozdravljeni,\n\nodlično, kar dogovoriva se. Pokličite me na 041 111 222 ali mi pošljite svojo številko in vas pokličem jaz.\n\nLp,\nDavid\ninženirji.si");
+    const replyPrompt = prompts.find((p) => p.includes("Njihov odgovor"))!;
+    expect(replyPrompt).toContain("Kdaj se lahko dogovorimo za klic?");
+    expect(replyPrompt).toContain("Tvoj zadnji e-mail njim:\nb");
+    expect(replyPrompt).toContain("NE sprašuj nazaj");
+    expect((await admin`select job from ai_usage order by job`).map((r) => r.job)).toEqual(["classify", "reply"]);
   });
 });
