@@ -120,6 +120,13 @@
       "when": 1792163536532,
       "tag": "0016_jobs",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792179132904,
+      "tag": "0017_weekly_reports",
+      "breakpoints": true
     }
   ]
 }

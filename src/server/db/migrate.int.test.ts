@@ -46,6 +46,7 @@ describe("migrations", () => {
       "settings",
       "user",
       "verification",
+      "weekly_reports",
     ]);
     const applied = await admin`select count(*)::int as n from drizzle.__drizzle_migrations`;
     expect(applied[0].n).toBe(MIGRATIONS);
