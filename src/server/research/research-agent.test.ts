@@ -31,3 +31,18 @@ describe("AI researcher helpers (TASK-034)", () => {
     expect(searchError(Object.assign(new Error("x"), { name: "AbortError" }))).toMatch(/predolgo/);
   });
 });
+
+describe("web search request", () => {
+  it("sends no user_location (the API rejects country SI)", async () => {
+    const { callClaudeWithSearch } = await import("../ai/anthropic");
+    let body: Record<string, unknown> = {};
+    const fetchImpl = (async (_u: string, init: RequestInit) => {
+      body = JSON.parse(String(init.body));
+      return new Response(JSON.stringify({ content: [{ type: "text", text: "{}" }], stop_reason: "end_turn", usage: {} }), { status: 200 });
+    }) as unknown as typeof fetch;
+    await callClaudeWithSearch({ model: "claude-sonnet-5-5", system: "s", user: "u", maxTokens: 10, maxSearches: 2, country: "SI", city: "Celje" }, { apiKey: "k", fetchImpl });
+    const tool = (body.tools as Record<string, unknown>[])[0]!;
+    expect(tool).toMatchObject({ type: "web_search_20250305", max_uses: 2 });
+    expect(tool).not.toHaveProperty("user_location");
+  });
+});
