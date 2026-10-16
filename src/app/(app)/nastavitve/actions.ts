@@ -15,6 +15,7 @@ export async function saveSettingsAction(_prev: SaveState, form: FormData): Prom
     ownerPhone: String(form.get("ownerPhone") ?? ""),
     aiDailyBudgetUsd: String(form.get("aiDailyBudgetUsd") ?? ""),
     placesDailyCap: String(form.get("placesDailyCap") ?? ""),
+    webSearchEnabled: form.get("webSearchEnabled") === "on",
   });
   if (!v.ok) return v;
   await saveSettings(getDb(), v.value);

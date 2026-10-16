@@ -3,7 +3,14 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/server/auth/session";
 import { getDb } from "@/server/db/client";
 import { getSettings } from "@/server/settings";
+import { aiConfig } from "@/server/ai/remark";
 import { researchBatch, runAudit } from "@/server/research/run";
+
+/** Research options from Nastavitve: Google Places cap, AI web search (TASK-031). */
+async function researchDeps() {
+  const st = await getSettings(getDb());
+  return { places: await placesDeps(), directories: DIRECTORIES, webSearch: st.webSearchEnabled, ai: aiConfig(st) };
+}
 
 async function placesDeps() {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
@@ -20,10 +27,10 @@ export async function researchOneAction(_prev: ActionState, form: FormData): Pro
   const id = String(form.get("id") ?? "");
   if (!/^[0-9a-f-]{36}$/.test(id)) return { ok: false, message: "Neveljavno podjetje." };
   try {
-    const r = await runAudit(getDb(), id, { places: await placesDeps(), directories: DIRECTORIES });
+    const r = await runAudit(getDb(), id, await researchDeps());
     revalidatePath(`/podjetja/${id}`);
     revalidatePath("/podjetja");
-    return { ok: true, message: `Raziskano: skupina ${r.group}, težav ${r.issues}, e-naslovov ${r.emails}${r.directoryEmails ? ` (${r.directoryEmails} iz bizi.si)` : ""}, konkurentov ${r.competitors}${r.competitorSource === "nearby" ? " (iz okolice)" : " (iz baze)"}.` };
+    return { ok: true, message: `Raziskano: skupina ${r.group}, težav ${r.issues}, e-naslovov ${r.emails}${r.directoryEmails ? ` (${r.directoryEmails} iz bizi.si)` : ""}${r.web ? `, splet: ${r.web.found} povezav${r.web.website ? " + spletna stran" : ""}${r.web.candidates ? `, ${r.web.candidates} e-naslovov za potrditev` : ""}` : ""}, konkurentov ${r.competitors}${r.competitorSource === "nearby" ? " (iz okolice)" : " (iz baze)"}.` };
   } catch (e) {
     console.error("[research] one failed:", e instanceof Error ? e.message : "unknown");
     return { ok: false, message: "Raziskava ni uspela. Poskusi znova." };
@@ -33,7 +40,7 @@ export async function researchOneAction(_prev: ActionState, form: FormData): Pro
 export async function researchBatchAction(_prev: ActionState): Promise<ActionState> {
   void _prev;
   if (!(await getCurrentUser())) return { ok: false, message: "Prijava je potekla. Osveži stran." };
-  const r = await researchBatch(getDb(), { limit: 20, concurrency: 3, places: await placesDeps(), directories: DIRECTORIES });
+  const r = await researchBatch(getDb(), { limit: 20, concurrency: 3, ...(await researchDeps()) });
   revalidatePath("/podjetja");
   revalidatePath("/");
   revalidatePath("/iskanje");
@@ -44,7 +51,7 @@ export async function researchBatchAction(_prev: ActionState): Promise<ActionSta
 export async function deepenAction(_prev: ActionState): Promise<ActionState> {
   void _prev;
   if (!(await getCurrentUser())) return { ok: false, message: "Prijava je potekla. Osveži stran." };
-  const r = await researchBatch(getDb(), { limit: 20, concurrency: 3, deepen: true, places: await placesDeps(), directories: DIRECTORIES });
+  const r = await researchBatch(getDb(), { limit: 20, concurrency: 3, deepen: true, ...(await researchDeps()) });
   revalidatePath("/podjetja");
   revalidatePath("/");
   if (r.done === 0 && r.failed === 0) return { ok: true, message: "Vsa raziskana podjetja so že poglobljeno raziskana." };

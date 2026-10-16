@@ -21,7 +21,8 @@ Conversation with the owner in Slovenian; code and docs in English.
 - 2026-10-15: repo created by the owner; docs foundation (manifest, product spec, architecture, ADR-001…010,
   task list) from the business plan `inzenirji.si/docs/nacrt-rasti.md`.
 
-- 2026-10-16: TASK-012 part 2 Google Calendar (ADR-029) built (PR open); owner must create the OAuth client (CHEATSHEET).
+- 2026-10-16: TASK-031 web search in research (ADR-030) built (PR open). TASK-030 filters Live.
+- 2026-10-16: TASK-012 part 2 Google Calendar (ADR-029) Live; owner must create the OAuth client (CHEATSHEET).
 - 2026-10-16: TASK-029 full correspondence (ADR-028) Live.
 - 2026-10-16: TASK-012 part 1 calls (ADR-027) Live.
 - 2026-10-16: TASK-028 settings page (ADR-026) Live, owner-tested.
@@ -79,4 +80,4 @@ throwaway database. In the cloud sandbox: `initdb` as user postgres in `/var/tmp
 ## Next
 TASK-001 scaffold (Next.js + Tailwind + Drizzle + Postgres in Docker locally, CI), TASK-002 Kamal deploy skeleton, then the C1 phase (prospecting, research, scoring) — target 2026-11-07.
 
-Latest TASK: 028 · latest ADR: 029. Next: TASK-013 proposals (PDF + prepayment), Google Calendar sync for TASK-012. Next candidates: "Za klic" list, public editor demo, TASK-010+ per plan. Next: TASK-009 mailbox sync (IMAP david@) + reply classification; it needs `OUTREACH_SMTP_PASSWORD` too. Local Postgres for int tests may stop when the sandbox restarts — restart with `pg_ctl` (see above).
+Latest TASK: 028 · latest ADR: 030. Next: TASK-013 proposals (PDF + prepayment), Google Calendar sync for TASK-012. Next candidates: "Za klic" list, public editor demo, TASK-010+ per plan. Next: TASK-009 mailbox sync (IMAP david@) + reply classification; it needs `OUTREACH_SMTP_PASSWORD` too. Local Postgres for int tests may stop when the sandbox restarts — restart with `pg_ctl` (see above).

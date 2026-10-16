@@ -28,6 +28,7 @@ describe("migrations", () => {
       "audits",
       "calendar_events",
       "companies",
+      "company_links",
       "competitor_links",
       "contacts",
       "deals",

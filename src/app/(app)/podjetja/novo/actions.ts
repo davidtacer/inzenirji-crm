@@ -5,6 +5,8 @@ import { getCurrentUser } from "@/server/auth/session";
 import { getDb } from "@/server/db/client";
 import { createManualCompany, EMPTY_PREFILL, prefillFromUrl, type Prefill } from "@/server/companies/manual";
 import { runAudit } from "@/server/research/run";
+import { getSettings } from "@/server/settings";
+import { aiConfig } from "@/server/ai/remark";
 import { importCompanyHistory } from "@/server/mailbox/sync";
 
 export type ReadState = { ok: boolean; message: string; prefill: Prefill; key: number } | null;
@@ -41,7 +43,8 @@ export async function saveAction(_prev: SaveState, form: FormData): Promise<Save
   if (!r.existed) {
     try {
       // Research right away so a draft can be prepared (directories on, no Google: no place id).
-      await runAudit(getDb(), r.id, { directories: true });
+      const st = await getSettings(getDb());
+      await runAudit(getDb(), r.id, { directories: true, webSearch: st.webSearchEnabled, ai: aiConfig(st) });
       // Earlier e-mails with this company (e.g. sent by hand before it was in the CRM).
       await importCompanyHistory(getDb(), r.id);
     } catch (e) {

@@ -48,6 +48,18 @@ export function SettingsForm({ s }: { s: Settings }) {
         <Field name="ownerPhone" title="Tvoj telefon" value={s.ownerPhone} placeholder="041 123 456" hint="Če ni povezave za termin, odgovor ponudi to številko. Prazno = stranko prosimo za njeno številko." />
       </Section>
 
+      <Section title="Raziskava">
+        <label className="flex items-start gap-3">
+          <input type="checkbox" name="webSearchEnabled" defaultChecked={s.webSearchEnabled} className="mt-1 h-4 w-4 accent-[#00FF41]" />
+          <span className="flex flex-col gap-1">
+            <span className="font-sans text-sm text-text-primary">Iskanje po spletu</span>
+            <span className={help}>
+              Raziskava poišče spletno stran, profile, imenike in e-naslove tudi na spletu (kot ko podjetje poguglaš). Vsako najdbo preverimo. Strošek ≈ 3–8 centov na podjetje, šteje v AI omejitev.
+            </span>
+          </span>
+        </label>
+      </Section>
+
       <Section title="Omejitve stroškov">
         <Field name="aiDailyBudgetUsd" title="AI na 24 ur (USD)" type="number" value={s.aiDailyBudgetUsd} hint="Opazke, razvrščanje in odgovori. 0 = AI izklopljen (uporabijo se pravila). Ena opazka ≈ 0,5–1 cent." />
         <Field name="placesDailyCap" title="Google Places klicev na dan" type="number" value={s.placesDailyCap} hint="Iskanje, profili in konkurenti. Ponastavi se ob polnoči." />

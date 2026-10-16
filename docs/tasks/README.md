@@ -32,5 +32,6 @@ Phases follow the business plan (`inzenirji.si` → `docs/nacrt-rasti.md` §7.5)
 | TASK-026 | Manual company entry: paste a bizi.si or website URL → prefilled form → save + research | 005, ADR-024 | C2 | Done — Live, owner-tested 2026-10-16 (sent to himself, reply classified) |
 | TASK-027 | Contextual AI reply drafts with one concrete next step (booking link / phone / ask for number) | 009, ADR-025 | C2 | Done — Live (PR #41) |
 | TASK-029 | Full correspondence: Sent folder (owner's own e-mails), per-company history import, full-text conversation | 009, ADR-028 | C2 | Done — Live (PR #47) |
-| TASK-030 | Companies list: search (name, city, category, address, domain, phone, e-mail), filters (stage, group, city, e-mail, own site, good business, min score), sort, presets, total | 005 | C2 | Built — PR open |
+| TASK-030 | Companies list: search (name, city, category, address, domain, phone, e-mail), filters (stage, group, city, e-mail, own site, good business, min score), sort, presets, total | 005 | C2 | Done — Live (PR #51) |
+| TASK-031 | Web search in research (Claude web search) + own verification, all links stored, e-mail candidates | 023, ADR-030 | C1 | Built — PR open |
 | TASK-028 | Owner settings page `/nastavitve` (sending switch, caps, booking link, phone, AI budget); env only for secrets | ADR-026 | C2 | Done — Live, owner-tested 2026-10-16 (PR #43) |

@@ -21,11 +21,11 @@ describe("settings in the database", () => {
   it("saved values win over the environment and can be changed again", async () => {
     const env = { OUTREACH_ENABLED: "1", PLACES_DAILY_CALL_CAP: "100" };
     expect((await getSettings(db, env)).sendingEnabled).toBe(true);
-    const s = { sendingEnabled: false, dailySendCap: 15, bookingUrl: "https://calendar.app.google/abc", ownerPhone: "041 123 456", aiDailyBudgetUsd: 3, placesDailyCap: 200 };
+    const s = { sendingEnabled: false, dailySendCap: 15, bookingUrl: "https://calendar.app.google/abc", ownerPhone: "041 123 456", aiDailyBudgetUsd: 3, placesDailyCap: 200, webSearchEnabled: true };
     await saveSettings(db, s);
     expect(await getSettings(db, env)).toEqual(s);
     await saveSettings(db, { ...s, sendingEnabled: true });
     expect((await getSettings(db, env)).sendingEnabled).toBe(true);
-    expect((await admin`select count(*)::int n from settings`)[0].n).toBe(6);
+    expect((await admin`select count(*)::int n from settings`)[0].n).toBe(7);
   });
 });
