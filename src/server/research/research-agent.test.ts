@@ -7,6 +7,7 @@ describe("AI researcher helpers (TASK-034)", () => {
   it("recognises »v izdelavi«, parked and real sites", () => {
     expect(siteState("<h1>Stran je v izdelavi</h1>")).toBe("under_construction");
     expect(siteState("<h1>Coming soon</h1><p>We are launching soon.</p>")).toBe("under_construction");
+    expect(siteState("<html><head><title>Salon Fantazija — Aplikacija je v izgradnji</title></head><body><div id=root></div></body></html>")).toBe("under_construction");
     expect(siteState("<p>This domain is parked free, courtesy of the registrar.</p>")).toBe("parked");
     expect(siteState(`<h1>Salon</h1><p>${"Naše storitve so v pripravi za novo sezono. ".repeat(60)}</p>`)).toBe("live");
   });

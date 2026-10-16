@@ -282,7 +282,10 @@ export async function shallowCount(db: Db): Promise<number> {
  * `deepen`: instead, re-researches already researched companies that only had the old homepage-only research,
  * highest score first (TASK-023).
  */
-export async function researchBatch(db: Db, opts: { limit?: number; concurrency?: number; deepen?: boolean } & AuditDeps = {}) {
+export async function researchBatch(
+  db: Db,
+  opts: { limit?: number; concurrency?: number; deepen?: boolean; onProgress?: (p: { done: number; failed: number; total: number }) => Promise<void> } & AuditDeps = {},
+) {
   const limit = Math.min(Math.max(opts.limit ?? 20, 1), 50);
   const rows = opts.deepen
     ? await db
@@ -300,8 +303,10 @@ export async function researchBatch(db: Db, opts: { limit?: number; concurrency?
         .orderBy(desc(sql`coalesce(${companies.ratingX10}, 0) * least(coalesce(${companies.reviewCount}, 0), 200)`))
         .limit(limit);
   const queue = rows.map((r) => r.id);
+  const total = queue.length;
   let done = 0;
   let failed = 0;
+  await opts.onProgress?.({ done, failed, total });
   const worker = async () => {
     for (let id = queue.shift(); id; id = queue.shift()) {
       try {
@@ -310,6 +315,7 @@ export async function researchBatch(db: Db, opts: { limit?: number; concurrency?
       } catch {
         failed++;
       }
+      await opts.onProgress?.({ done, failed, total });
     }
   };
   await Promise.all(Array.from({ length: Math.min(opts.concurrency ?? 3, queue.length || 1) }, worker));

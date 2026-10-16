@@ -18,6 +18,8 @@ import type { ScorePart } from "@/server/scoring/score";
 import { AddCandidateEmail, CompanyOutreach } from "../../osnutki/forms";
 import { ResearchOneButton } from "../buttons";
 import { demoNotes } from "@/server/demo/demo";
+import { latestJob } from "@/server/jobs";
+import { jobView } from "@/lib/jobs";
 import { formatLj } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
@@ -70,6 +72,7 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
   if (!d) notFound();
   const c = d.company;
   const demo = await demoNotes(getDb(), c.id);
+  const job = await latestJob(getDb(), ["research_one"], c.id);
   const audit = d.audit;
   const issues = (audit?.issues ?? []) as Issue[];
   const data = (audit?.data ?? {}) as {
@@ -118,7 +121,7 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
       <PageHeader
         title={c.name}
         description={[c.category, c.city].filter(Boolean).join(" · ")}
-        right={<ResearchOneButton id={c.id} again={!!audit} />}
+        right={<ResearchOneButton id={c.id} again={!!audit} job={jobView(job)} />}
       />
 
       {audit ? (

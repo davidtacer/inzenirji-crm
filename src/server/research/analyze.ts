@@ -234,7 +234,7 @@ export function findIssues(
 
 export type SiteState = "live" | "under_construction" | "parked";
 
-const UNDER_CONSTRUCTION = /(stran je v izdelavi|v izdelavi|spletna stran v pripravi|v pripravi|kmalu na voljo|kmalu prihajamo|pride kmalu|under construction|coming soon|website is coming|launching soon|maintenance mode|we'?ll be back soon|site is under maintenance|baustelle|in bearbeitung)/i;
+const UNDER_CONSTRUCTION = /(stran je v izdelavi|v izdelavi|v izgradnji|v gradnji|se gradi|v nastajanju|prenavljamo|prenova strani|under development|spletna stran v pripravi|v pripravi|kmalu na voljo|kmalu prihajamo|pride kmalu|under construction|coming soon|website is coming|launching soon|maintenance mode|we'?ll be back soon|site is under maintenance|baustelle|in bearbeitung)/i;
 const PARKED = /(domain (is )?for sale|this domain (is|has been) (registered|parked)|domena je naprodaj|domena je registrirana|parked (free|domain)|buy this domain|domain parking|sedo|default web ?page|it works!|welcome to nginx|apache2? (ubuntu )?default page|index of \/|cpanel|plesk|hosting za to domeno|ta domena je)/i;
 
 /**
@@ -242,7 +242,8 @@ const PARKED = /(domain (is )?for sale|this domain (is|has been) (registered|par
  * page. Only short pages count as under construction or parked, so a real site that mentions "v pripravi" stays live.
  */
 export function siteState(html: string): SiteState {
-  const text = pageText(html);
+  const title = /<title[^>]*>([^<]*)<\/title>/i.exec(html)?.[1] ?? "";
+  const text = `${title} ${pageText(html)}`.trim();
   if (text.length < 1500 && UNDER_CONSTRUCTION.test(text)) return "under_construction";
   if (text.length < 2500 && PARKED.test(`${text} ${html.slice(0, 3000)}`)) return "parked";
   return "live";
