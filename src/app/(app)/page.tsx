@@ -10,6 +10,7 @@ import { DraftTopButton } from "./osnutki/forms";
 import { DeepenButton } from "./podjetja/buttons";
 import { shallowCount } from "@/server/research/run";
 import { callsBoard } from "@/server/calls/calls";
+import { listProjects } from "@/server/projects/projects";
 import { formatLj, within } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +19,8 @@ export default async function HomePage() {
   const db = getDb();
   // Companies researched before scoring existed get their score once, here.
   await rescoreMissing(db, 200);
-  const [c, top, pending, shallow, calls] = await Promise.all([companyCounts(db), topLeads(db, 10), pendingDraftCount(db), shallowCount(db), callsBoard(db)]);
+  const [c, top, pending, shallow, calls, projs] = await Promise.all([companyCounts(db), topLeads(db, 10), pendingDraftCount(db), shallowCount(db), callsBoard(db), listProjects(db)]);
+  const active = projs.filter((p) => !p.p.launchedAt);
   const soon = calls.booked.filter((b) => within(b.callAt, 36));
   const stats: [string, number][] = [
     ["Podjetij v bazi", c.total],
@@ -36,6 +38,24 @@ export default async function HomePage() {
           </div>
         ))}
       </div>
+
+      {active.length ? (
+        <section className="mt-6 border border-accent/40 bg-surface">
+          <h2 className="border-b border-border px-5 py-3 font-mono text-[10px] uppercase tracking-[0.3em] text-accent">{"// Projekti v izdelavi"}</h2>
+          <ul>
+            {active.map((p) => (
+              <li key={p.p.id} className="flex flex-wrap gap-x-4 border-b border-border px-5 py-3 last:border-b-0">
+                <Link href={`/projekti/${p.p.id}`} className="font-sans text-sm text-text-primary hover:text-accent">
+                  {p.companyName}
+                </Link>
+                <span className={`ml-auto font-mono text-xs ${p.clock.started && !p.clock.paused && (p.clock.daysLeft ?? 9) <= 2 ? "text-danger-text" : "text-text-secondary"}`}>
+                  {p.clock.started ? (p.clock.paused ? "rok ustavljen" : `še ${p.clock.daysLeft} dni`) : "čaka materiale"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {soon.length || calls.replied.length ? (
         <section className="mt-6 border border-accent/40 bg-surface">

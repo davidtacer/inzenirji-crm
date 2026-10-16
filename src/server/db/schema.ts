@@ -219,6 +219,9 @@ export const drafts = pgTable(
     messageId: text("message_id"),
     /** For reply drafts: the prospect's Message-ID we answer (threading). */
     inReplyTo: text("in_reply_to"),
+    /** What sending this draft triggers (TASK-014): "project_confirm" starts the guarantee clock of `refId`. */
+    purpose: text("purpose"),
+    refId: uuid("ref_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -481,4 +484,70 @@ export const proposals = pgTable(
     check("proposals_deposit_range", sql`${t.depositPct} between 0 and 100`),
     check("proposals_accepted_has_name", sql`${t.status} <> 'accepted' or (${t.acceptedAt} is not null and ${t.acceptedName} is not null)`),
   ],
+);
+
+export const projectStatus = pgEnum("project_status", ["materials", "in_progress", "launched", "cancelled"]);
+
+/**
+ * Projects after the prepayment (TASK-014, ADR-033, spec §5.9 and §8). The client uploads materials at
+ * /projekt/<token>. The 7-day clock starts when the confirmation e-mail is SENT (confirmed_at), pauses while we wait
+ * for the client (project_pauses) and the deadline = confirmed_at + timeline_days + paused time.
+ * materials: [{ label, done, text, doneAt }]
+ */
+export const projects = pgTable(
+  "projects",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    dealId: uuid("deal_id")
+      .notNull()
+      .references(() => deals.id, { onDelete: "cascade" }),
+    proposalId: uuid("proposal_id").references(() => proposals.id, { onDelete: "set null" }),
+    token: text("token").notNull(),
+    status: projectStatus("status").notNull().default("materials"),
+    materials: jsonb("materials").notNull().default([]),
+    timelineDays: smallint("timeline_days").notNull().default(7),
+    depositCents: integer("deposit_cents"),
+    depositPaidAt: timestamp("deposit_paid_at", { withTimezone: true }),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+    launchedAt: timestamp("launched_at", { withTimezone: true }),
+    finalPaidAt: timestamp("final_paid_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("projects_token_uq").on(t.token), uniqueIndex("projects_deal_uq").on(t.dealId)],
+);
+
+export const projectPauses = pgTable(
+  "project_pauses",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    startAt: timestamp("start_at", { withTimezone: true }).notNull(),
+    endAt: timestamp("end_at", { withTimezone: true }),
+    reason: text("reason").notNull(),
+  },
+  (t) => [
+    index("project_pauses_project_idx").on(t.projectId),
+    // At most one open pause per project.
+    uniqueIndex("project_pauses_open_uq").on(t.projectId).where(sql`${t.endAt} is null`),
+  ],
+);
+
+/** Files the client uploaded (stored on the server volume, path relative to UPLOAD_DIR). */
+export const projectFiles = pgTable(
+  "project_files",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    itemIndex: smallint("item_index").notNull(),
+    name: text("name").notNull(),
+    mime: text("mime").notNull(),
+    size: integer("size").notNull(),
+    path: text("path").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("project_files_project_idx").on(t.projectId)],
 );

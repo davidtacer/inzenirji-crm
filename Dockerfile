@@ -23,7 +23,10 @@ ENV NODE_ENV=production \
     PORT=3000 \
     HOSTNAME=0.0.0.0 \
     GIT_SHA=${GIT_SHA}
-RUN groupadd --system --gid 1001 app && useradd --system --uid 1001 --gid app app
+RUN groupadd --system --gid 1001 app && useradd --system --uid 1001 --gid app app \
+  && mkdir -p /data/uploads && chown app:app /data/uploads
+# Client uploads (TASK-014): a named volume mounted here keeps the files across deploys.
+ENV UPLOAD_DIR=/data/uploads
 COPY --from=build --chown=app:app /app/.next/standalone ./
 COPY --from=build --chown=app:app /app/.next/static ./.next/static
 COPY --from=build --chown=app:app /app/public ./public

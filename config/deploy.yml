@@ -12,6 +12,10 @@ servers:
     options:
       memory: 768m
 
+# Client material uploads (TASK-014, ADR-033): our own named volume, kept across deploys.
+volumes:
+  - "inzenirji-crm-uploads:/data/uploads"
+
 registry:
   server: ghcr.io
   username:
