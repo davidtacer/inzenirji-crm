@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseItems, totals } from "./proposals";
+import { decode } from "upnqr";
 import { toLatin2, upnText } from "./upn";
 import { validIban } from "../settings";
 
@@ -19,16 +20,16 @@ describe("proposal money", () => {
 });
 
 describe("UPN QR", () => {
-  it("19 fields + checksum of the preceding length, amount in cents padded to 11", () => {
-    const t = upnText({ amountCents: 35_990, purpose: "Predplačilo 50% - Salon Ana", dueDate: new Date("2026-10-30T00:00:00Z"), iban: "SI56 2633 0001 2039 086", reference: "SI00 123", name: "David Tacer s.p.", street: "Ulica 1", city: "2000 Maribor" });
+  const input = { amountCents: 35_990, purpose: "Predplačilo 50% - Salon Ana", dueDate: new Date("2026-10-30T12:00:00Z"), iban: "SI56 2633 0001 2039 086", reference: "SI00 57308522", name: "David Tacer s.p.", street: "Ulica 1", city: "2000 Maribor" };
+  it("upnqr string decodes back with our values; reference without spaces; valid checksum", () => {
+    const t = upnText(input);
     const lines = t.split("\n");
-    expect(lines.length).toBe(21); // 20 lines + trailing empty after the last \n
     expect(lines[0]).toBe("UPNQR");
     expect(lines[8]).toBe("00000035990");
-    expect(lines[11]).toBe("OTHR");
-    expect(lines[13]).toBe("30.10.2026");
-    expect(lines[14]).toBe("SI56263300012039086");
-    expect(Number(lines[19])).toBe(lines.slice(0, 19).join("\n").length + 1);
+    expect(lines[15]).toBe("SI0057308522");
+    const back = decode(t);
+    expect(back).toMatchObject({ znesek: 359.9, koda_namena: "OTHR", namen_placila: "Predplačilo 50% - Salon Ana", IBAN_prejemnika: "SI56263300012039086", referenca_prejemnika: "SI0057308522", ime_prejemnika: "David Tacer s.p.", kraj_prejemnika: "2000 Maribor" });
+    expect(back.rok_placila?.getDate()).toBe(30);
     expect([...toLatin2("čšž")]).toEqual([0xe8, 0xb9, 0xbe]);
   });
   it("IBAN check", () => {
