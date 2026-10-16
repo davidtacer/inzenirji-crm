@@ -7,7 +7,7 @@ import { activities, aiUsage, companies, contacts, deals, drafts, inboundMessage
 import type { AiConfig } from "../ai/remark";
 import { blockCompany } from "../outreach/drafts";
 import { classifyReply, ownText, type InboundMail, type ReplyClass } from "./classify";
-import { composeReply } from "./reply";
+import { composeReply, type ContactOptions } from "./reply";
 
 /*
  * Handles mail from the outreach mailbox (TASK-009, ADR-023). Only mail that belongs to a company in our
@@ -68,7 +68,7 @@ async function dropOpenOutreach(db: Db, dealId: string) {
 
 export type ProcessResult = { seen: number; stored: number; byClass: Partial<Record<ReplyClass, number>> };
 
-export async function processInbound(db: Db, mails: InboundMail[], deps: { ai: AiConfig | null; now?: Date }): Promise<ProcessResult> {
+export async function processInbound(db: Db, mails: InboundMail[], deps: { ai: AiConfig | null; now?: Date; contact?: ContactOptions }): Promise<ProcessResult> {
   const now = deps.now ?? new Date();
   const out: ProcessResult = { seen: mails.length, stored: 0, byClass: {} };
   for (const m of mails) {
@@ -107,12 +107,12 @@ export async function processInbound(db: Db, mails: InboundMail[], deps: { ai: A
         payload: { inboundId: row.id, from: m.from, subject: m.subject, class: c.cls, snippet: ownText(m.text).slice(0, 300) },
       });
     }
-    await applyEffects(db, match, m, c.cls, deps.ai, now);
+    await applyEffects(db, match, m, c.cls, deps.ai, now, deps.contact);
   }
   return out;
 }
 
-async function applyEffects(db: Db, match: Match, m: InboundMail, cls: ReplyClass, ai: AiConfig | null, now: Date) {
+async function applyEffects(db: Db, match: Match, m: InboundMail, cls: ReplyClass, ai: AiConfig | null, now: Date, contact?: ContactOptions) {
   const dealId = match.dealId;
   if (cls === "out_of_office") return;
   if (cls === "bounce") {
@@ -139,7 +139,7 @@ async function applyEffects(db: Db, match: Match, m: InboundMail, cls: ReplyClas
     await db.update(deals).set({ stage: "replied", nextActionAt: null, updatedAt: now }).where(and(eq(deals.id, dealId), inArray(deals.stage, ["found", "researched", "contacted", "nurture"])));
   }
   // A reply draft for the owner (ADR-004: never sent without approval).
-  const draft = await composeReply(db, match.companyId, m, cls, ai);
+  const draft = await composeReply(db, match.companyId, m, cls, ai, contact);
   if (draft) {
     await db
       .insert(drafts)

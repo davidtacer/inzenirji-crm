@@ -17,6 +17,10 @@ Related repos:
 - Owner: David Tacer (product decisions, accounts, secrets, hosting, sending domains, prod).
 - CTO + implementer: AI agent; working mode in HANDOFF.
 
+## Configuration (ADR-026)
+Anything the owner may want to change (switches, limits, links, texts) is a setting in the CRM (`/nastavitve`, table `settings`).
+Environment variables only for secrets and infrastructure. Never ask the owner to set a GitHub variable for a business setting.
+
 ## Never
 - Never put a secret (Anthropic key, Google OAuth secrets, Places API key, Meta token, Stripe key, SMTP password)
   in the repo, chat, logs, fixtures or screenshots. Name the variable, the owner pastes the value.

@@ -4,9 +4,10 @@ import { ScoreBadge } from "@/components/ScoreBadge";
 import { GROUP_LABEL } from "@/lib/labels";
 import { getDb } from "@/server/db/client";
 import { createDueFollowUps, listDrafts } from "@/server/outreach/drafts";
-import { lockReason, outreachConfigFromEnv, sentToday } from "@/server/outreach/send";
+import { lockReason, outreachConfig, sentToday } from "@/server/outreach/send";
+import { getSettings } from "@/server/settings";
 import { ApprovedDraftActions, PendingDraftForm } from "./forms";
-import { aiConfigFromEnv, spentTodayMicroUsd } from "@/server/ai/remark";
+import { aiConfig, spentTodayMicroUsd } from "@/server/ai/remark";
 
 export const dynamic = "force-dynamic";
 
@@ -40,22 +41,28 @@ export default async function DraftsPage() {
   const db = getDb();
   await createDueFollowUps(db);
   const [d, today, aiSpent] = await Promise.all([listDrafts(db), sentToday(db), spentTodayMicroUsd(db)]);
-  const ai = aiConfigFromEnv();
-  const cfg = outreachConfigFromEnv();
-  const lock = lockReason();
+  const st = await getSettings(db);
+  const ai = aiConfig(st);
+  const cfg = outreachConfig(st);
+  const lock = lockReason(st);
   return (
     <>
       <PageHeader title="Osnutki" description="Nič ne gre ven brez tvoje odobritve. Uredi, odobri, nato pošlji." />
 
       <div className={`mb-8 border p-4 font-mono text-xs ${lock ? "border-[#F0B429]/60 text-[#F0B429]" : "border-accent/50 text-accent"}`}>
         {lock ? <p>&gt; {lock}</p> : <p>&gt; Pošiljanje je vklopljeno s david@inzenirji.si.</p>}
+        <p className="mt-1">
+          <Link href="/nastavitve" className="text-text-secondary underline hover:text-accent">
+            Spremeni v Nastavitvah →
+          </Link>
+        </p>
         <p className="mt-1 text-text-secondary">
           Danes poslanih: {today} / {cfg.dailyCap} · odjava je v vsakem e-mailu (stavek + glava List-Unsubscribe)
         </p>
         <p className="mt-1 text-text-secondary">
           {ai
             ? `AI opazka: vklopljena (${ai.model}) · zadnjih 24 h ${(aiSpent / 1e6).toFixed(2)} $ od ${(ai.dailyBudgetMicroUsd / 1e6).toFixed(2)} $`
-            : "AI opazka: izklopljena (ni ključa ANTHROPIC_API_KEY) — opazke so iz pravil"}
+            : "AI: izklopljen (ni ključa ANTHROPIC_API_KEY ali omejitev 0 $ v Nastavitvah) — besedila so iz pravil"}
         </p>
       </div>
 

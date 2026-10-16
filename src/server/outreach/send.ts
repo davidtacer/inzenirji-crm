@@ -6,6 +6,7 @@ import type { Mail, Mailer } from "../email/mailer";
 import { localDay } from "../places/quota";
 import { toHtml } from "./compose";
 import { unsubscribeToken } from "./unsubscribe";
+import type { Settings } from "../settings";
 
 /*
  * The one choke point for outbound e-mail (architecture "Safety", ADR-004, ADR-007, ADR-013).
@@ -23,10 +24,10 @@ export type OutreachConfig = {
   secret: string;
 };
 
-export function outreachConfigFromEnv(env: Record<string, string | undefined> = process.env): OutreachConfig {
+export function outreachConfig(st: Settings, env: Record<string, string | undefined> = process.env): OutreachConfig {
   return {
-    enabled: env.OUTREACH_ENABLED === "1" && !!env.OUTREACH_SMTP_PASSWORD,
-    dailyCap: Math.max(0, Number(env.OUTREACH_DAILY_CAP ?? 10) || 0),
+    enabled: st.sendingEnabled && !!env.OUTREACH_SMTP_PASSWORD,
+    dailyCap: st.dailySendCap,
     fromAddress: env.OUTREACH_SMTP_USER ?? "david@inzenirji.si",
     appUrl: env.APP_URL ?? "https://crm.inzenirji.si",
     secret: env.BETTER_AUTH_SECRET ?? "",
@@ -34,8 +35,8 @@ export function outreachConfigFromEnv(env: Record<string, string | undefined> = 
 }
 
 /** Why sending is off, in Slovenian, or null when it is on. */
-export function lockReason(env: Record<string, string | undefined> = process.env): string | null {
-  if (env.OUTREACH_ENABLED !== "1") return "Pošiljanje je izklopljeno, dokler pošta z david@inzenirji.si ni podpisana z DKIM (ADR-013).";
+export function lockReason(st: Settings, env: Record<string, string | undefined> = process.env): string | null {
+  if (!st.sendingEnabled) return "Pošiljanje je izklopljeno v Nastavitvah. Vklopi ga šele, ko pošta z david@inzenirji.si prestane DKIM (ADR-013).";
   if (!env.OUTREACH_SMTP_PASSWORD) return "Manjka geslo nabiralnika david@inzenirji.si (OUTREACH_SMTP_PASSWORD).";
   return null;
 }
