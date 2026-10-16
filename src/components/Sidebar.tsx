@@ -28,7 +28,7 @@ const GROUPS: Group[] = [
       { href: "/podjetja", label: "Podjetja", icon: Building2 },
       { href: "/osnutki", label: "Osnutki", icon: Mail },
       { href: "/odgovori", label: "Odgovori", icon: Inbox },
-      { href: "/klici", label: "Klici", icon: CalendarClock, soon: true },
+      { href: "/klici", label: "Klici", icon: CalendarClock },
       { href: "/ponudbe", label: "Ponudbe", icon: FileText, soon: true },
     ],
   },
