@@ -247,7 +247,7 @@ export async function researchBatch(db: Db, opts: { limit?: number; concurrency?
 
 export async function companyDetail(db: Db, id: string) {
   const [c] = await db
-    .select({ company: companies, stage: deals.stage, source: deals.source })
+    .select({ company: companies, stage: deals.stage, source: deals.source, deal: deals })
     .from(companies)
     .leftJoin(deals, eq(deals.companyId, companies.id))
     .where(eq(companies.id, id))
