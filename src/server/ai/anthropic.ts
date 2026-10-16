@@ -103,7 +103,8 @@ export async function callClaudeWithSearch(
               type: "web_search_20250305",
               name: "web_search",
               max_uses: req.maxSearches,
-              user_location: { type: "approximate", country: req.country ?? "SI", ...(req.city ? { city: req.city } : {}), timezone: "Europe/Ljubljana" },
+              // No user_location: the API rejects country "SI" ("Country code SI is not supported", 2026-10-16).
+              // The prompt names Slovenia, the city and the address instead.
             },
           ],
         }),
