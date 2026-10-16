@@ -77,6 +77,10 @@ describe("Google pregled (TASK-037)", () => {
     expect(await runOverview(db, c.id, nf)).toMatch(/gemini-nope ne obstaja/);
     const bad = (async () => Response.json({ error: { status: "INVALID_ARGUMENT", message: "API key not valid. Please pass a valid API key." } }, { status: 400 })) as unknown as typeof fetch;
     expect(await runOverview(db, c.id, bad)).toMatch(/ni veljaven/);
+    const unauth = (async () => Response.json({ error: { status: "UNAUTHENTICATED", message: "ACCESS_TOKEN_TYPE_UNSUPPORTED" } }, { status: 401 })) as unknown as typeof fetch;
+    expect(await runOverview(db, c.id, unauth)).toMatch(/ni sprejel ključa.*401/);
+    const quota = (async () => Response.json({ error: { status: "RESOURCE_EXHAUSTED", message: "quota" } }, { status: 429 })) as unknown as typeof fetch;
+    expect(await runOverview(db, c.id, quota)).toMatch(/Set up billing/);
   });
 
   it("finds e-mails and links in the answer for the buttons", () => {
