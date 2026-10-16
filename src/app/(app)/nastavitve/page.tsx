@@ -8,6 +8,8 @@ import { formatLj } from "@/lib/time";
 import { DisconnectGoogle } from "./google";
 import { DemoLeadsCard } from "./demo";
 import { McpCard } from "./mcp";
+import { GeminiCard } from "./gemini";
+import { geminiStatus } from "@/server/google/gemini";
 import { mcpTokenInfo } from "@/server/mcp/mcp";
 import { demoTokenInfo } from "@/server/demo/demo";
 
@@ -34,6 +36,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const acc = await getAccount(db);
   const demo = await demoTokenInfo(db);
   const mcp = await mcpTokenInfo(db);
+  const gemini = await geminiStatus(db);
   const ready = !!oauthConfigFromEnv();
   const g = GOOGLE_MSG[(await searchParams).google ?? ""];
   return (
@@ -70,6 +73,10 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               )}
             </div>
           )}
+        </aside>
+        <aside className="h-fit border border-border bg-surface p-5">
+          <h2 className="mb-3 font-mono text-[10px] uppercase tracking-[0.3em] text-accent">{"// Google pregled (Gemini)"}</h2>
+          <GeminiCard set={gemini.set} model={gemini.model} />
         </aside>
         <aside className="h-fit border border-border bg-surface p-5">
           <h2 className="mb-3 font-mono text-[10px] uppercase tracking-[0.3em] text-accent">{"// Nočna raziskava (Claude)"}</h2>

@@ -19,6 +19,9 @@ import { AddCandidateEmail, CompanyOutreach } from "../../osnutki/forms";
 import { ResearchOneButton } from "../buttons";
 import { demoNotes } from "@/server/demo/demo";
 import { latestJob } from "@/server/jobs";
+import { latestOverview, linkKind, mentioned } from "@/server/research/overview";
+import { geminiStatus } from "@/server/google/gemini";
+import { AddLink, OverviewButton, SetWebsite } from "../overview";
 import { jobView } from "@/lib/jobs";
 import { formatLj } from "@/lib/time";
 
@@ -73,6 +76,8 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
   const c = d.company;
   const demo = await demoNotes(getDb(), c.id);
   const job = await latestJob(getDb(), ["research_one"], c.id);
+  const [overview, overviewJob, gemini] = await Promise.all([latestOverview(getDb(), c.id), latestJob(getDb(), ["google_overview"], c.id), geminiStatus(getDb())]);
+  const found = overview ? mentioned(overview.text) : { emails: [], urls: [] };
   const audit = d.audit;
   const issues = (audit?.issues ?? []) as Issue[];
   const data = (audit?.data ?? {}) as {
@@ -257,6 +262,56 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
             <Row k="Faza" v={d.stage ? STAGE_LABEL[d.stage] : null} />
             <Row k="Vir" v={d.source ? SOURCE_LABEL[d.source] : null} />
           </dl>
+        </Box>
+
+        <Box title="Google pregled (Gemini)">
+          <div className="mb-4">
+            <OverviewButton id={c.id} job={jobView(overviewJob)} has={!!overview} configured={gemini.set} />
+          </div>
+          {overview ? (
+            <>
+              <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-text-secondary">
+                {formatLj(new Date(overview.at))} · {overview.model}
+              </p>
+              <div className="mb-4 whitespace-pre-wrap font-sans text-sm text-text-primary">{overview.text}</div>
+              {overview.searchHtml ? (
+                <iframe
+                  title="Google predlogi iskanja"
+                  srcDoc={overview.searchHtml}
+                  sandbox="allow-popups allow-popups-to-escape-sandbox"
+                  className="mb-4 h-[72px] w-full border-0 bg-transparent"
+                />
+              ) : null}
+              {found.emails.length || found.urls.length ? (
+                <div className="border-t border-border pt-3">
+                  <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-text-secondary">Shrani v CRM (samo kar je pravilno)</p>
+                  <ul className="flex flex-col gap-2">
+                    {found.emails.map((e) => (
+                      <li key={e} className="flex flex-wrap items-center gap-3 font-sans text-sm">
+                        <span className="w-24 shrink-0 font-mono text-[10px] uppercase tracking-widest text-text-secondary">E-naslov</span>
+                        <span className="text-text-primary">{e}</span>
+                        {d.contacts.some((p) => p.email === e) ? <span className="font-mono text-[10px] text-accent">✓ med kontakti</span> : <AddCandidateEmail companyId={c.id} email={e} source="Google pregled (Gemini), potrdil lastnik" />}
+                      </li>
+                    ))}
+                    {found.urls.map((u) => {
+                      const k = linkKind(u);
+                      const known = d.links.some((l) => l.url === u);
+                      return (
+                        <li key={u} className="flex flex-wrap items-center gap-3 font-sans text-sm">
+                          <span className="w-24 shrink-0 font-mono text-[10px] uppercase tracking-widest text-text-secondary">{LINK_KIND[k] ?? k}</span>
+                          <span className="min-w-0 break-all">{ext(u, u.replace(/^https?:\/\/(www\.)?/, "").slice(0, 60))}</span>
+                          {known ? <span className="font-mono text-[10px] text-accent">✓ shranjeno</span> : <AddLink companyId={c.id} url={u} kind={k} />}
+                          {k === "other" && c.website !== u ? <SetWebsite companyId={c.id} url={u} /> : null}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <p className="font-mono text-xs text-text-secondary">&gt; Gemini poišče podjetje na Googlu. Pokaže, kar najde, ti pa z enim klikom shraniš, kar je pravilno.</p>
+          )}
         </Box>
 
         {d.links.length || data.web ? (
