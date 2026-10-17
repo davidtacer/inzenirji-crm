@@ -1,7 +1,9 @@
 import { aiConfig } from "../ai/remark";
 import { parseEmailList } from "../auth/emails";
 import type { Db } from "../db/client";
+import { insights, metaConfig, metaMessage } from "../ads/meta";
 import { demoFunnel } from "../demo/demo";
+import { searchWeekFromAccount } from "../google/searchconsole";
 import { createMailerFromEnv } from "../email/mailer";
 import { syncMailbox } from "../mailbox/sync";
 import { getSettings } from "../settings";
@@ -27,12 +29,25 @@ export function reportDeps(db: Db, env: Record<string, string | undefined> = pro
       mailer,
       to: [...parseEmailList(env.OWNER_EMAILS)][0] ?? null,
       appUrl: env.APP_URL ?? "https://crm.inzenirji.si",
+      ads: (since: string, until: string) => adsFor(db, since, until),
+      search: (since: string, until: string) => searchWeekFromAccount(db, since, until),
       editorStats: async (days: number) => {
         const f = await demoFunnel(db, undefined, days);
         return { stats: f.editor, error: f.error };
       },
     };
   })();
+}
+
+/** Meta Ads for a date range; not connected = no data and no error. */
+export async function adsFor(db: Db, since: string, until: string) {
+  const cfg = await metaConfig(db);
+  if (!cfg) return { data: null, error: "Meta oglasi niso povezani (Nastavitve → Meta oglasi)." };
+  try {
+    return { data: await insights(cfg, since, until), error: null };
+  } catch (e) {
+    return { data: null, error: metaMessage(e) };
+  }
 }
 
 let running = false;
