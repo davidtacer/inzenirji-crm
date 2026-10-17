@@ -12,6 +12,7 @@ import {
   collectWeek,
   cplCents,
   eur,
+  fmtHours,
   nextWeek,
   pct,
   previousWeek,
@@ -120,7 +121,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         <Tile label={`Prodaje v mesecu (${d.monthLabel})`} value={String(d.monthSales)} target={`cilj ${TARGETS.salesPerMonth} na mesec`} good={d.monthSales >= TARGETS.salesPerMonth} />
         <Tile
           label="Čas do odgovora"
-          value={d.replyHoursMedian === null ? "-" : `${String(d.replyHoursMedian).replace(".", ",")} h`}
+          value={fmtHours(d.replyHoursMedian)}
           target="mediana, cilj pod 1 h"
           good={d.replyHoursMedian === null ? null : d.replyHoursMedian <= TARGETS.replyHours}
         />
@@ -137,6 +138,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
             <Line k="Opomniki" v={d.outreach.followups} prev={prev.outreach.followups} />
             <Line k="Odgovori" v={d.outreach.replies} prev={prev.outreach.replies} />
             <Line k="  od tega zainteresiranih" v={d.outreach.interested} prev={prev.outreach.interested} />
+            <Line k="Povpraševanja z obrazca" v={d.outreach.formLeads ?? 0} prev={prev.outreach.formLeads} />
             <Line k="Delež odgovorov" v={`${pct(d.outreach.replies, d.outreach.first)} % od prvih e-mailov`} />
             <Line k="Klici" v={d.calls} prev={prev.calls} />
             <Line k="Ponudbe poslane" v={d.proposals.sent} prev={prev.proposals.sent} />

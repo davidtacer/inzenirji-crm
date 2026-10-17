@@ -5,7 +5,7 @@ import { runMigrations } from "../db/migrate";
 import { calendarEvents, companies, deals, doNotContact, drafts, inboundMessages, projects, proposals, weeklyReports } from "../db/schema";
 import { createCaptureMailer } from "../email/mailer";
 import { tick } from "./schedule";
-import { collectWeek, dueWeek, isDue, makeReport, ruleSuggestions, weekBounds, weekLabel, weekStartOf } from "./weekly";
+import { collectWeek, dueWeek, fmtHours, isDue, makeReport, ruleSuggestions, weekBounds, weekLabel, weekStartOf } from "./weekly";
 
 const url = process.env.TEST_DATABASE_URL!;
 const admin = postgres(url, { max: 1, onnotice: () => {} });
@@ -60,6 +60,8 @@ describe("weekly report (TASK-016)", () => {
     await db.insert(inboundMessages).values({ messageId: "<r1@a>", companyId: a.c.id, dealId: a.d.id, fromEmail: "a@a.si", subject: "Re", receivedAt: at("2026-10-13T12:00:00+02:00"), classification: "interested", classifiedBy: "rule" });
     await db.insert(inboundMessages).values({ messageId: "<o1@a>", companyId: a.c.id, dealId: a.d.id, direction: "out", fromEmail: "david@inzenirji.si", subject: "Re", receivedAt: at("2026-10-13T12:30:00+02:00"), classifiedBy: "mailbox" });
     await db.insert(inboundMessages).values({ messageId: "<r2@b>", companyId: b.c.id, dealId: b.d.id, fromEmail: "b@b.si", subject: "Re", receivedAt: at("2026-10-14T08:00:00+02:00"), classification: "out_of_office", classifiedBy: "rule" });
+    // A website-form inquiry is a lead, not a reply to our e-mail.
+    await db.insert(inboundMessages).values({ messageId: "<form-1@inzenirji.si>", companyId: demo.c.id, dealId: demo.d.id, fromEmail: "d@demo.si", subject: "Povpraševanje", receivedAt: at("2026-10-14T11:00:00+02:00"), classification: "interested", classifiedBy: "form" });
     await db.insert(doNotContact).values({ kind: "email", value: "no@x.si", reason: "ne", createdAt: at("2026-10-15T08:00:00+02:00") });
     await db.insert(calendarEvents).values({ eventId: "e1", summary: "Klic", startAt: at("2026-10-15T10:00:00+02:00"), status: "confirmed", companyId: a.c.id });
     await db.insert(calendarEvents).values({ eventId: "e2", summary: "Odpovedan", startAt: at("2026-10-15T11:00:00+02:00"), status: "cancelled", companyId: b.c.id });
@@ -74,7 +76,7 @@ describe("weekly report (TASK-016)", () => {
     expect(d).toMatchObject({
       partial: false,
       leads: 3,
-      outreach: { first: 3, followups: 1, replies: 1, interested: 1, no: 0, bounces: 0, optOuts: 1 },
+      outreach: { first: 3, followups: 1, formLeads: 1, replies: 1, interested: 1, no: 0, bounces: 0, optOuts: 1 },
       calls: 1,
       proposals: { sent: 1, accepted: 1, acceptedNetCents: 59000 },
       paid: { count: 1, cents: 35990 },
@@ -87,6 +89,8 @@ describe("weekly report (TASK-016)", () => {
       { source: "places_search", leads: 2, contacted: 3, replies: 1, calls: 1, proposals: 1, won: 1 },
       { source: "editor_demo", leads: 1, contacted: 0, replies: 0, calls: 0, proposals: 0, won: 0 },
     ]);
+    expect(fmtHours(d.replyHoursMedian)).toBe("30 min");
+    expect(fmtHours(3.46)).toBe("3,5 h");
     expect(d.worked.categories).toEqual([{ label: "Frizerski salon", sent: 2, replies: 1 }, { label: "Avtomehanik", sent: 1, replies: 0 }]);
     expect(d.worked.groups).toEqual([{ label: "A", sent: 1, replies: 0 }, { label: "B", sent: 2, replies: 1 }]);
     void demo;

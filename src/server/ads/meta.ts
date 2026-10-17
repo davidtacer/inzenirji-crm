@@ -74,11 +74,14 @@ export type AdsWeek = { spendCents: number; currency: string; impressions: numbe
 
 type Action = { action_type?: string; value?: string };
 
-/** Leads Meta counts for a campaign: lead forms and pixel "Lead" events; the aggregate "lead" type wins. */
+/** Lead action types Meta reports (lead forms, website pixel "Lead", on-site leads); the aggregate "lead" type wins. */
+export const LEAD_TYPES = ["offsite_conversion.fb_pixel_lead", "onsite_conversion.lead_grouped", "onsite_web_lead", "leadgen_grouped", "onsite_conversion.lead"];
+
 export function leadsFrom(actions: Action[] | undefined): number {
   const by = new Map((actions ?? []).map((a) => [a.action_type ?? "", Number(a.value ?? 0) || 0]));
   if (by.has("lead")) return by.get("lead")!;
-  return (by.get("offsite_conversion.fb_pixel_lead") ?? 0) + (by.get("onsite_conversion.lead_grouped") ?? 0);
+  // Several of these can describe the same lead; take the largest rather than adding them up.
+  return Math.max(0, ...LEAD_TYPES.map((t) => by.get(t) ?? 0));
 }
 
 /** Spend, reach and leads per campaign for a date range (inclusive, account time zone). */

@@ -42,7 +42,7 @@ export type WeekData = {
   partial: boolean;
   leads: number;
   researched: number;
-  outreach: { first: number; followups: number; replies: number; interested: number; no: number; bounces: number; optOuts: number };
+  outreach: { first: number; followups: number; replies: number; /** Inquiries from the website form (not replies to our e-mails). */ formLeads?: number; interested: number; no: number; bounces: number; optOuts: number };
   calls: number;
   proposals: { sent: number; accepted: number; acceptedNetCents: number };
   paid: { count: number; cents: number };
@@ -113,10 +113,11 @@ export async function collectWeek(db: Db, ws: string, opts: { now?: Date } & Fet
       (select count(distinct company_id) from audits where created_at >= ${f} and created_at < ${t}) as researched,
       (select count(*) from drafts where status = 'sent' and kind = 'first' and sent_at >= ${f} and sent_at < ${t}) as first,
       (select count(*) from drafts where status = 'sent' and kind in ('followup_1','followup_2') and sent_at >= ${f} and sent_at < ${t}) as followups,
-      (select count(*) from inbound_messages where direction = 'in' and classification not in ('out_of_office','bounce') and received_at >= ${f} and received_at < ${t}) as replies,
-      (select count(*) from inbound_messages where direction = 'in' and classification = 'interested' and received_at >= ${f} and received_at < ${t}) as interested,
-      (select count(*) from inbound_messages where direction = 'in' and classification = 'no' and received_at >= ${f} and received_at < ${t}) as no,
-      (select count(*) from inbound_messages where direction = 'in' and classification = 'bounce' and received_at >= ${f} and received_at < ${t}) as bounces,
+      (select count(*) from inbound_messages where direction = 'in' and classified_by <> 'form' and classification not in ('out_of_office','bounce') and received_at >= ${f} and received_at < ${t}) as replies,
+      (select count(*) from inbound_messages where direction = 'in' and classified_by <> 'form' and classification = 'interested' and received_at >= ${f} and received_at < ${t}) as interested,
+      (select count(*) from inbound_messages where direction = 'in' and classified_by <> 'form' and classification = 'no' and received_at >= ${f} and received_at < ${t}) as no,
+      (select count(*) from inbound_messages where direction = 'in' and classified_by <> 'form' and classification = 'bounce' and received_at >= ${f} and received_at < ${t}) as bounces,
+      (select count(*) from inbound_messages where direction = 'in' and classified_by = 'form' and received_at >= ${f} and received_at < ${t}) as form_leads,
       (select count(*) from do_not_contact where created_at >= ${f} and created_at < ${t}) as opt_outs,
       (select count(*) from proposals where sent_at >= ${f} and sent_at < ${t}) as p_sent,
       (select count(*) from proposals where status = 'accepted' and accepted_at >= ${f} and accepted_at < ${t}) as p_acc,
@@ -168,7 +169,7 @@ export async function collectWeek(db: Db, ws: string, opts: { now?: Date } & Fet
         ) x
       ) as answered
       from inbound_messages m
-      where m.direction = 'in' and m.classification in ('interested','question','not_now') and m.received_at >= ${f} and m.received_at < ${t}
+      where m.direction = 'in' and m.classified_by <> 'form' and m.classification in ('interested','question','not_now') and m.received_at >= ${f} and m.received_at < ${t}
     ) r where r.answered is not null`);
 
   const ai = await run<{ job: string; c: unknown }>(sql`select job, coalesce(sum(cost_micro_usd), 0) as c from ai_usage where created_at >= ${f} and created_at < ${t} group by job`);
@@ -177,7 +178,7 @@ export async function collectWeek(db: Db, ws: string, opts: { now?: Date } & Fet
     select d.source,
       count(*) filter (where d.created_at >= ${f} and d.created_at < ${t}) as leads,
       count(*) filter (where exists (select 1 from drafts x where x.deal_id = d.id and x.kind = 'first' and x.status = 'sent' and x.sent_at >= ${f} and x.sent_at < ${t})) as contacted,
-      count(*) filter (where exists (select 1 from inbound_messages x where x.company_id = d.company_id and x.direction = 'in' and x.classification not in ('out_of_office','bounce') and x.received_at >= ${f} and x.received_at < ${t})) as replies,
+      count(*) filter (where exists (select 1 from inbound_messages x where x.company_id = d.company_id and x.direction = 'in' and x.classified_by <> 'form' and x.classification not in ('out_of_office','bounce') and x.received_at >= ${f} and x.received_at < ${t})) as replies,
       count(*) filter (where exists (select 1 from calendar_events x where x.company_id = d.company_id and x.status <> 'cancelled' and x.start_at >= ${f} and x.start_at < ${t}) or (d.call_at >= ${f} and d.call_at < ${t})) as calls,
       count(*) filter (where exists (select 1 from proposals x where x.deal_id = d.id and x.sent_at >= ${f} and x.sent_at < ${t})) as proposals,
       count(*) filter (where exists (select 1 from proposals x where x.deal_id = d.id and x.status = 'accepted' and x.accepted_at >= ${f} and x.accepted_at < ${t})) as won
@@ -191,7 +192,7 @@ export async function collectWeek(db: Db, ws: string, opts: { now?: Date } & Fet
       from drafts d join deals dl on dl.id = d.deal_id join companies c on c.id = dl.company_id
       where d.kind = 'first' and d.status = 'sent' and d.sent_at >= ${wFrom} and d.sent_at < ${t}
     ), r as (
-      select s.*, exists (select 1 from inbound_messages m where m.company_id = s.company_id and m.direction = 'in' and m.classification not in ('out_of_office','bounce') and m.received_at > s.sent_at) as replied from sent s
+      select s.*, exists (select 1 from inbound_messages m where m.company_id = s.company_id and m.direction = 'in' and m.classified_by <> 'form' and m.classification not in ('out_of_office','bounce') and m.received_at > s.sent_at) as replied from sent s
     )
     select 'category' as kind, coalesce(category, 'brez kategorije') as label, count(*) as sent, count(*) filter (where replied) as replies from r group by 2
     union all
@@ -218,6 +219,7 @@ export async function collectWeek(db: Db, ws: string, opts: { now?: Date } & Fet
     outreach: {
       first: n(counts.first),
       followups: n(counts.followups),
+      formLeads: n(counts.form_leads),
       replies: n(counts.replies),
       interested: n(counts.interested),
       no: n(counts.no),
@@ -230,7 +232,7 @@ export async function collectWeek(db: Db, ws: string, opts: { now?: Date } & Fet
     launched: { count: n(launched?.count), onTime: n(launched?.on_time) },
     monthSales: n(month?.n),
     monthLabel: MONTHS[Number(monthEnd.slice(5, 7)) - 1] ?? "",
-    replyHoursMedian: speed?.h === null || speed?.h === undefined ? null : Math.round(n(speed.h) * 10) / 10,
+    replyHoursMedian: speed?.h === null || speed?.h === undefined ? null : Math.round(n(speed.h) * 100) / 100,
     ai: { microUsd: Object.values(byJob).reduce((a, b) => a + b, 0), byJob },
     placesCalls: n(counts.places_calls),
     demo: { stats: demo.stats, days, leads: n(counts.demo_leads), error: demo.error },
@@ -252,6 +254,9 @@ export const cacCents = (d: WeekData) => (d.ads?.data && d.proposals.accepted ? 
 /** Ad spend per Meta lead. */
 export const cplCents = (d: WeekData) => (d.ads?.data?.leads ? Math.round(d.ads.data.spendCents / d.ads.data.leads) : null);
 
+/** "25 min" under an hour, else "3,5 h". */
+export const fmtHours = (h: number | null) => (h === null ? "-" : h < 1 ? `${Math.max(1, Math.round(h * 60))} min` : `${String(Math.round(h * 10) / 10).replace(".", ",")} h`);
+
 export const rate = (r: { sent: number; replies: number }) => (r.sent ? r.replies / r.sent : 0);
 export const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0);
 export const eur = (cents: number) => `${(cents / 100).toLocaleString("sl-SI", { minimumFractionDigits: cents % 100 ? 2 : 0, maximumFractionDigits: 2 })} €`;
@@ -265,7 +270,7 @@ export function ruleSuggestions(d: WeekData): string[] {
   const best = d.worked.categories.find((c) => c.sent >= 3 && c.replies > 0);
   if (d.leads < TARGETS.leadsPerWeek) out.push(`Dodaj vsaj ${TARGETS.leadsPerWeek - d.leads} novih podjetij v Iskanju strank${best ? ` - najbolje odgovarja panoga »${best.label}«` : ""}.`);
   if (d.outreach.first < 25) out.push(`Pošlji več prvih e-mailov: ta teden ${d.outreach.first}. Cilj je okoli 30 na teden, da pridemo do 7 klicev.`);
-  if (d.outreach.replies && d.replyHoursMedian !== null && d.replyHoursMedian > TARGETS.replyHours) out.push(`Odgovarjaj hitreje: polovica odgovorov je čakala več kot ${String(d.replyHoursMedian).replace(".", ",")} h. Cilj je pod 1 h.`);
+  if (d.outreach.replies && d.replyHoursMedian !== null && d.replyHoursMedian > TARGETS.replyHours) out.push(`Odgovarjaj hitreje: polovica odgovorov je čakala več kot ${fmtHours(d.replyHoursMedian)}. Cilj je pod 1 h.`);
   if (d.calls < TARGETS.callsPerWeek) out.push(`Klicev je bilo ${d.calls}, cilj je ${TARGETS.callsPerWeek}. Zainteresiranim v odgovoru vedno ponudi termin za klic.`);
   if (d.demo.stats && d.demo.stats.visits >= 10 && pct(d.demo.stats.emails, d.demo.stats.visits) < TARGETS.demoEmailPct) out.push(`Demo je odprlo ${d.demo.stats.visits} ljudi, e-naslov jih je pustilo ${d.demo.stats.emails}. Preveri, ali je ponudba za e-naslov v demu dovolj jasna.`);
   if (d.ads?.data && d.ads.data.spendCents >= 2000 && d.ads.data.leads === 0) out.push(`Oglasi so porabili ${eur(d.ads.data.spendCents)} brez leadov. Preveri oglas in stran, kamor vodi (npr. demo).`);
@@ -364,7 +369,8 @@ export function renderEmail(d: WeekData, prev: WeekData | null, sug: string[], a
     ["Prvi e-maili", `${d.outreach.first}${delta(d.outreach.first, p?.outreach.first)}`],
     ["Opomniki", `${d.outreach.followups}`],
     ["Odgovori", `${d.outreach.replies}${delta(d.outreach.replies, p?.outreach.replies)} (${pct(d.outreach.replies, d.outreach.first)} % od prvih e-mailov), zainteresiranih ${d.outreach.interested}, »ne« ${d.outreach.no}`],
-    ["Čas do odgovora (mediana)", d.replyHoursMedian === null ? "-" : `${String(d.replyHoursMedian).replace(".", ",")} h / cilj pod ${TARGETS.replyHours} h`],
+    ["Čas do odgovora (mediana)", d.replyHoursMedian === null ? "-" : `${fmtHours(d.replyHoursMedian)} / cilj pod ${TARGETS.replyHours} h`],
+    ["Povpraševanja z obrazca", `${d.outreach.formLeads ?? 0}`],
     ["Klici", `${d.calls}${delta(d.calls, p?.calls)} / cilj ${TARGETS.callsPerWeek}`],
     ["Ponudbe poslane / potrjene", `${d.proposals.sent} / ${d.proposals.accepted} (${eur(d.proposals.acceptedNetCents)} brez DDV)`],
     [`Prodaje v mesecu (${d.monthLabel})`, `${d.monthSales} / cilj ${TARGETS.salesPerMonth}`],
