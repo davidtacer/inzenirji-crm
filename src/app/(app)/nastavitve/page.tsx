@@ -10,6 +10,9 @@ import { DemoLeadsCard } from "./demo";
 import { McpCard } from "./mcp";
 import { GeminiCard } from "./gemini";
 import { geminiStatus } from "@/server/google/gemini";
+import { MetaCard } from "./meta";
+import { metaStatus } from "@/server/ads/meta";
+import { GSC_SCOPE } from "@/server/google/searchconsole";
 import { mcpTokenInfo } from "@/server/mcp/mcp";
 import { demoTokenInfo } from "@/server/demo/demo";
 
@@ -37,6 +40,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const demo = await demoTokenInfo(db);
   const mcp = await mcpTokenInfo(db);
   const gemini = await geminiStatus(db);
+  const meta = await metaStatus(db);
   const ready = !!oauthConfigFromEnv();
   const g = GOOGLE_MSG[(await searchParams).google ?? ""];
   return (
@@ -46,7 +50,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         <SettingsForm s={s} />
         <div className="flex flex-col gap-6">
         <aside className="h-fit border border-border bg-surface p-5">
-          <h2 className="mb-3 font-mono text-[10px] uppercase tracking-[0.3em] text-accent">{"// Google Koledar"}</h2>
+          <h2 className="mb-3 font-mono text-[10px] uppercase tracking-[0.3em] text-accent">{"// Google (koledar, Search Console)"}</h2>
           {g ? <p className={`mb-3 font-mono text-xs ${g[0] ? "text-accent" : "text-danger-text"}`}>&gt; {g[1]}</p> : null}
           {acc ? (
             <div className="flex flex-col gap-2 font-sans text-xs text-text-secondary">
@@ -56,23 +60,36 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               <p>Zadnje branje: {formatLj(acc.lastSyncAt)}</p>
               {acc.lastError ? <p className="text-danger-text">{acc.lastError}</p> : null}
               <p>Rezervacije iz koledarja (npr. razpored terminov) se same vpišejo kot dogovorjen klic, če je udeleženec podjetje iz CRM.</p>
+              {acc.scope.includes(GSC_SCOPE) ? (
+                <p>
+                  Search Console: <span className="text-accent">✓ dovoljeno</span> (obiski z Googla v tedenskem poročilu)
+                </p>
+              ) : ready ? (
+                <a href="/api/google/connect" className="w-fit border border-accent px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-widest text-accent hover:bg-accent hover:text-black">
+                  &gt; Poveži znova (doda Search Console)
+                </a>
+              ) : null}
               <DisconnectGoogle />
             </div>
           ) : (
             <div className="flex flex-col gap-3 font-sans text-xs text-text-secondary">
-              <p>CRM bo samo bral koledar (rezervacije klicev). Ničesar ne spreminja.</p>
+              <p>CRM bo samo bral koledar (rezervacije klicev) in Search Console (obiski z Googla). Ničesar ne spreminja.</p>
               {ready ? (
                 <a
                   href="/api/google/connect"
                   className="w-fit border border-accent bg-accent px-4 py-2 font-mono text-xs font-bold uppercase tracking-widest text-black hover:bg-transparent hover:text-accent"
                 >
-                  &gt; Poveži Google Koledar
+                  &gt; Poveži Google
                 </a>
               ) : (
                 <p className="text-danger-text">Najprej dodaj GOOGLE_OAUTH_CLIENT_ID in GOOGLE_OAUTH_CLIENT_SECRET (navodila v klepetu / CHEATSHEET).</p>
               )}
             </div>
           )}
+        </aside>
+        <aside className="h-fit border border-border bg-surface p-5">
+          <h2 className="mb-3 font-mono text-[10px] uppercase tracking-[0.3em] text-accent">{"// Meta oglasi"}</h2>
+          <MetaCard token={meta.token} accountId={meta.accountId} />
         </aside>
         <aside className="h-fit border border-border bg-surface p-5">
           <h2 className="mb-3 font-mono text-[10px] uppercase tracking-[0.3em] text-accent">{"// Google pregled (Gemini)"}</h2>

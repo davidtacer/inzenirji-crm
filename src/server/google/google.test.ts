@@ -17,7 +17,7 @@ describe("google helpers", () => {
   });
   it("auth URL asks read-only calendar with offline access", () => {
     const u = new URL(authUrl({ clientId: "cid", clientSecret: "x", redirectUri: "https://crm.inzenirji.si/api/google/callback", secret: "s" }, "st"));
-    expect(u.searchParams.get("scope")).toBe("openid email https://www.googleapis.com/auth/calendar.readonly");
+    expect(u.searchParams.get("scope")).toBe("openid email https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/webmasters.readonly");
     expect(u.searchParams.get("access_type")).toBe("offline");
     expect(u.searchParams.get("redirect_uri")).toBe("https://crm.inzenirji.si/api/google/callback");
   });

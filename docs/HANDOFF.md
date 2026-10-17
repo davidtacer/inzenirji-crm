@@ -21,6 +21,7 @@ Conversation with the owner in Slovenian; code and docs in English.
 - 2026-10-15: repo created by the owner; docs foundation (manifest, product spec, architecture, ADR-001…010,
   task list) from the business plan `inzenirji.si/docs/nacrt-rasti.md`.
 
+- 2026-10-17: TASK-015 Meta Ads + Search Console in the weekly report (ADR-042). Owner: Nastavitve → Meta oglasi (token + act_ id); Nastavitve → Google → "Poveži znova" for Search Console (enable the Search Console API in Google Cloud first).
 - 2026-10-16: TASK-016 weekly report (ADR-040): `/porocila` + Monday 08:00 e-mail (`WEEKLY_REPORT=1` in deploy.yml). Owner: no invoices in the CRM, e-racuni.si (ADR-041).
 - 2026-10-16: First e-mail and day-3 follow-up now lead with the AI editor (edit by chatting, send a picture) and link the public demo `inzenirji.si/demo` (owner: "naš paradni konj").
 - 2026-10-16: TASK-037 Google pregled with Gemini (ADR-039). Owner: aistudio.google.com/apikey → Create API key → Nastavitve → Google pregled (Gemini) → Shrani; then company page → "Google pregled".
@@ -95,4 +96,4 @@ throwaway database. In the cloud sandbox: `initdb` as user postgres in `/var/tmp
 ## Next
 TASK-001 scaffold (Next.js + Tailwind + Drizzle + Postgres in Docker locally, CI), TASK-002 Kamal deploy skeleton, then the C1 phase (prospecting, research, scoring) — target 2026-11-07.
 
-Latest TASK: 037 · latest ADR: 041. Next candidates: ads/GA4/GSC numbers (TASK-015) for the weekly report, Meta lead forms (rest of TASK-011, not a priority), after launch (TASK-018), win/loss (TASK-019), rest of TASK-011 inbound leads. Local Postgres for int tests may stop when the sandbox restarts — restart with `pg_ctl` (see above).
+Latest TASK: 037 · latest ADR: 042. Next candidates: Meta lead forms (rest of TASK-011, not a priority), after launch (TASK-018), win/loss (TASK-019), rest of TASK-011 inbound leads. Local Postgres for int tests may stop when the sandbox restarts — restart with `pg_ctl` (see above).

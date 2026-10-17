@@ -3,7 +3,9 @@ import { callClaude } from "../ai/anthropic";
 import { type AiConfig, spentTodayMicroUsd } from "../ai/remark";
 import type { Db } from "../db/client";
 import { aiUsage, weeklyReports } from "../db/schema";
+import type { AdsWeek } from "../ads/meta";
 import type { EditorStats } from "../demo/demo";
+import type { SearchWeek } from "../google/searchconsole";
 import type { Mailer } from "../email/mailer";
 import { fromLocalInput, toLocalInput } from "@/lib/time";
 
@@ -14,7 +16,7 @@ import { fromLocalInput, toLocalInput } from "@/lib/time";
  * TASK-015. A snapshot is stored per week and e-mailed to the owner on Monday at 08:00.
  */
 
-export const TARGETS = { leadsPerWeek: 30, callsPerWeek: 7, salesPerMonth: 10, replyHours: 1, demoEmailPct: 15 };
+export const TARGETS = { leadsPerWeek: 30, callsPerWeek: 7, salesPerMonth: 10, replyHours: 1, demoEmailPct: 15, cacCents: 15000 };
 
 export const SOURCE_LABEL: Record<string, string> = {
   places_search: "Iskanje strank",
@@ -51,6 +53,10 @@ export type WeekData = {
   ai: { microUsd: number; byJob: Record<string, number> };
   placesCalls: number;
   demo: { stats: EditorStats | null; days: number; leads: number; error: string | null };
+  /** Meta Ads for the week (TASK-015); absent in reports made before it, null data = not connected or failed. */
+  ads?: { data: AdsWeek | null; error: string | null };
+  /** Google Search Console for the week (TASK-015). */
+  search?: { data: SearchWeek | null; error: string | null };
   channels: ChannelRow[];
   worked: { categories: WorkedRow[]; groups: WorkedRow[] };
 };
@@ -86,11 +92,14 @@ const MONTHS = ["januar", "februar", "marec", "april", "maj", "junij", "julij", 
 
 const n = (v: unknown) => Number(v ?? 0) || 0;
 
-export async function collectWeek(
-  db: Db,
-  ws: string,
-  opts: { now?: Date; editorStats?: (days: number) => Promise<{ stats: EditorStats | null; error: string | null }> } = {},
-): Promise<WeekData> {
+export type Fetchers = {
+  editorStats?: (days: number) => Promise<{ stats: EditorStats | null; error: string | null }>;
+  /** Dates are inclusive YYYY-MM-DD (Ljubljana). */
+  ads?: (since: string, until: string) => Promise<{ data: AdsWeek | null; error: string | null }>;
+  search?: (since: string, until: string) => Promise<{ data: SearchWeek | null; error: string | null }>;
+};
+
+export async function collectWeek(db: Db, ws: string, opts: { now?: Date } & Fetchers = {}): Promise<WeekData> {
   const now = opts.now ?? new Date();
   const { from, to } = weekBounds(ws);
   const end = to < now ? to : now;
@@ -190,6 +199,11 @@ export async function collectWeek(
 
   const days = Math.max(1, Math.ceil((end.getTime() - from.getTime()) / DAY));
   const demo = opts.editorStats ? await opts.editorStats(days).catch(() => ({ stats: null, error: "Urejevalnik ni dosegljiv." })) : { stats: null, error: null };
+  const until = toLocalInput(new Date(end.getTime() - 1)).slice(0, 10);
+  const [ads, search] = await Promise.all([
+    opts.ads ? opts.ads(ws, until).catch(() => ({ data: null, error: "Branje Meta oglasov ni uspelo." })) : undefined,
+    opts.search ? opts.search(ws, until).catch(() => ({ data: null, error: "Branje Search Console ni uspelo." })) : undefined,
+  ]);
 
   const byJob = Object.fromEntries(ai.map((r) => [r.job, n(r.c)]));
   const toRow = (r: { label: string | null; sent: unknown; replies: unknown }) => ({ label: r.label ?? "?", sent: n(r.sent), replies: n(r.replies) });
@@ -220,6 +234,8 @@ export async function collectWeek(
     ai: { microUsd: Object.values(byJob).reduce((a, b) => a + b, 0), byJob },
     placesCalls: n(counts.places_calls),
     demo: { stats: demo.stats, days, leads: n(counts.demo_leads), error: demo.error },
+    ...(ads ? { ads } : {}),
+    ...(search ? { search } : {}),
     channels: channels
       .map((r) => ({ source: String(r.source), leads: n(r.leads), contacted: n(r.contacted), replies: n(r.replies), calls: n(r.calls), proposals: n(r.proposals), won: n(r.won) }))
       .filter((r) => r.leads + r.contacted + r.replies + r.calls + r.proposals + r.won > 0)
@@ -230,6 +246,11 @@ export async function collectWeek(
     },
   };
 }
+
+/** Ad spend per sale this week; null without ad data or sales. */
+export const cacCents = (d: WeekData) => (d.ads?.data && d.proposals.accepted ? Math.round(d.ads.data.spendCents / d.proposals.accepted) : null);
+/** Ad spend per Meta lead. */
+export const cplCents = (d: WeekData) => (d.ads?.data?.leads ? Math.round(d.ads.data.spendCents / d.ads.data.leads) : null);
 
 export const rate = (r: { sent: number; replies: number }) => (r.sent ? r.replies / r.sent : 0);
 export const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0);
@@ -247,6 +268,7 @@ export function ruleSuggestions(d: WeekData): string[] {
   if (d.outreach.replies && d.replyHoursMedian !== null && d.replyHoursMedian > TARGETS.replyHours) out.push(`Odgovarjaj hitreje: polovica odgovorov je čakala več kot ${String(d.replyHoursMedian).replace(".", ",")} h. Cilj je pod 1 h.`);
   if (d.calls < TARGETS.callsPerWeek) out.push(`Klicev je bilo ${d.calls}, cilj je ${TARGETS.callsPerWeek}. Zainteresiranim v odgovoru vedno ponudi termin za klic.`);
   if (d.demo.stats && d.demo.stats.visits >= 10 && pct(d.demo.stats.emails, d.demo.stats.visits) < TARGETS.demoEmailPct) out.push(`Demo je odprlo ${d.demo.stats.visits} ljudi, e-naslov jih je pustilo ${d.demo.stats.emails}. Preveri, ali je ponudba za e-naslov v demu dovolj jasna.`);
+  if (d.ads?.data && d.ads.data.spendCents >= 2000 && d.ads.data.leads === 0) out.push(`Oglasi so porabili ${eur(d.ads.data.spendCents)} brez leadov. Preveri oglas in stran, kamor vodi (npr. demo).`);
   if (d.proposals.sent > d.proposals.accepted) out.push("Pokliči tiste, ki so ponudbo dobili, a je še niso potrdili.");
   out.push("Za vsako zainteresirano podjetje naredi Google pregled in preveri, da imaš pravi e-naslov.");
   out.push("V e-mailih izpostavi AI urejevalnik in povezavo na demo.");
@@ -288,7 +310,9 @@ export async function storedReport(db: Db, ws: string): Promise<Report | null> {
 
 export type ReportDeps = {
   ai: AiConfig | null;
-  editorStats?: (days: number) => Promise<{ stats: EditorStats | null; error: string | null }>;
+  editorStats?: Fetchers["editorStats"];
+  ads?: Fetchers["ads"];
+  search?: Fetchers["search"];
   mailer: Mailer | null;
   to: string | null;
   appUrl: string;
@@ -298,7 +322,7 @@ export type ReportDeps = {
 /** Makes (or refreshes) the snapshot for a week and e-mails it. Suggestions are kept once made. */
 export async function makeReport(db: Db, ws: string, deps: ReportDeps, opts: { send: boolean } = { send: true }): Promise<Report> {
   const now = deps.now ?? new Date();
-  const data = await collectWeek(db, ws, { now, editorStats: deps.editorStats });
+  const data = await collectWeek(db, ws, { now, editorStats: deps.editorStats, ads: deps.ads, search: deps.search });
   const old = await storedReport(db, ws);
   const prev = (await storedReport(db, previousWeek(ws)))?.data ?? (await collectWeek(db, previousWeek(ws), { now }));
   const sug = old && old.suggestionsBy !== "rules" && old.suggestions.length === 3 && !old.data.partial ? { list: old.suggestions, by: old.suggestionsBy } : await suggestions(db, data, prev, deps.ai);
@@ -347,6 +371,9 @@ export function renderEmail(d: WeekData, prev: WeekData | null, sug: string[], a
     ["Plačila (označena)", `${d.paid.count} (${eur(d.paid.cents)})`],
     ["Objavljene strani", `${d.launched.count}${d.launched.count ? `, v roku ${d.launched.onTime}` : ""}`],
     ["Demo urejevalnika", d.demo.stats ? `${d.demo.stats.visits} obiskov, ${d.demo.stats.edited} urejalo, ${d.demo.stats.emails} e-naslovov (${pct(d.demo.stats.emails, d.demo.stats.visits)} %), ${d.demo.leads} v CRM` : `${d.demo.leads} v CRM${d.demo.error ? ` (${d.demo.error})` : ""}`],
+    ["Meta oglasi", d.ads?.data ? `${eur(d.ads.data.spendCents)}, ${d.ads.data.clicks} klikov, ${d.ads.data.leads} leadov${cplCents(d) !== null ? ` (${eur(cplCents(d)!)} na lead)` : ""}` : (d.ads?.error ?? "ni povezano")],
+    ["CAC (oglasi na prodajo)", cacCents(d) !== null ? eur(cacCents(d)!) : "-"],
+    ["Google iskanje", d.search?.data ? `${d.search.data.clicks} klikov, ${d.search.data.impressions} prikazov${d.search.data.position ? `, povprečni položaj ${String(d.search.data.position).replace(".", ",")}` : ""}` : (d.search?.error ?? "ni povezano")],
     ["Stroški AI", usd(d.ai.microUsd)],
     ["Odjave / nedostavljeni", `${d.outreach.optOuts} / ${d.outreach.bounces}`],
   ];

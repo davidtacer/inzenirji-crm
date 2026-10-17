@@ -47,3 +47,15 @@ Nastavitve → "Poveži Google Koledar".
 aistudio.google.com/apikey → **Create API key** (key starts with `AIza` or, on newer accounts, `AQ.`; both work with the native endpoint and the `x-goog-api-key` header). Paste it in CRM → Nastavitve → "Google pregled
 (Gemini)" (stored encrypted in `settings`, not in env). Model default `gemini-flash-latest`, changeable there. If Gemini
 reports a quota error, enable billing on the key's project (first 5,000 grounded searches a month are free).
+
+## Meta Ads token (weekly report, ADR-042)
+business.facebook.com → Business settings → Users → **System users** → Add (role Employee) → **Assign assets** → the ad
+account, permission "View performance". Then **Generate new token** → pick the business app (create one at
+developers.facebook.com → My apps → Create app → type Business, if none) → permission **ads_read** → expiry "Never".
+Paste the token and the ad account id (`act_…`, Ads Manager URL `act=`) in CRM → Nastavitve → Meta oglasi → "Shrani in
+preveri". Stored encrypted in `settings`.
+
+## Search Console (weekly report, ADR-042)
+Google Cloud Console (same project as the Calendar OAuth client) → APIs & Services → Library → **Google Search Console
+API** → Enable. OAuth consent screen → add scope `webmasters.readonly`. Then CRM → Nastavitve → Google → "Poveži znova".
+The property must be verified in search.google.com/search-console (domain `inzenirji.si`).

@@ -5,8 +5,12 @@ import { formatLj } from "@/lib/time";
 import { getDb } from "@/server/db/client";
 import { demoFunnel } from "@/server/demo/demo";
 import { latestJob } from "@/server/jobs";
+import { adsFor } from "@/server/reports/schedule";
+import { searchWeekFromAccount } from "@/server/google/searchconsole";
 import {
+  cacCents,
   collectWeek,
+  cplCents,
   eur,
   nextWeek,
   pct,
@@ -76,7 +80,10 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const stored = await storedReport(db, ws);
   const live = ws === current || !stored;
   const editorStats = ws === current ? async (days: number) => ({ stats: (await demoFunnel(db, undefined, days)).editor, error: null }) : undefined;
-  const d: WeekData = live ? await collectWeek(db, ws, { now, editorStats }) : stored.data;
+  const fetchers = { editorStats, ads: (a: string, b: string) => adsFor(db, a, b), search: (a: string, b: string) => searchWeekFromAccount(db, a, b) };
+  const d: WeekData = live ? await collectWeek(db, ws, { now, ...fetchers }) : stored.data;
+  const cac = cacCents(d);
+  const cpl = cplCents(d);
   const prevStored = await storedReport(db, previousWeek(ws));
   const prev = prevStored?.data ?? (await collectWeek(db, previousWeek(ws), { now }));
   const job = jobView(await latestJob(db, ["weekly_report"]));
@@ -118,7 +125,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           good={d.replyHoursMedian === null ? null : d.replyHoursMedian <= TARGETS.replyHours}
         />
         <Tile label="Demo → e-naslov" value={demoPct === null ? "-" : `${demoPct} %`} target={`cilj nad ${TARGETS.demoEmailPct} %`} good={demoPct === null ? null : demoPct >= TARGETS.demoEmailPct} />
-        <Tile label="Stroški AI" value={usd(d.ai.microUsd)} target="CAC, ko bodo povezani oglasi" good={null} />
+        <Tile label="CAC (oglasi na prodajo)" value={cac === null ? "-" : eur(cac)} target={d.ads?.data ? "cilj pod 150 €" : "ko povežeš Meta oglase"} good={cac === null ? null : cac <= TARGETS.cacCents} />
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -232,6 +239,62 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           )}
         </Box>
 
+        <Box title="Meta oglasi">
+          {d.ads?.data ? (
+            <>
+              <dl className="mb-4">
+                <Line k="Poraba" v={eur(d.ads.data.spendCents)} />
+                <Line k="Prikazi / kliki" v={`${d.ads.data.impressions.toLocaleString("sl-SI")} / ${d.ads.data.clicks} (${d.ads.data.impressions ? ((d.ads.data.clicks / d.ads.data.impressions) * 100).toFixed(1).replace(".", ",") : 0} %)`} />
+                <Line k="Leadi (Meta)" v={cpl === null ? d.ads.data.leads : `${d.ads.data.leads} · ${eur(cpl)} na lead`} />
+              </dl>
+              {d.ads.data.campaigns.length ? (
+                <ul className="space-y-1 font-sans text-sm">
+                  {d.ads.data.campaigns.slice(0, 8).map((c) => (
+                    <li key={c.name} className="flex gap-3">
+                      <span className="min-w-0 flex-1 truncate text-text-primary">{c.name}</span>
+                      <span className="font-mono text-xs text-text-secondary">{eur(c.spendCents)}</span>
+                      <span className="w-16 text-right font-mono text-xs text-text-secondary">{c.leads} lead.</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="font-mono text-xs text-text-secondary">&gt; Ta teden ni bilo oglasov.</p>
+              )}
+            </>
+          ) : (
+            <p className="font-mono text-xs text-text-secondary">&gt; {d.ads?.error ?? "Meta oglasi niso povezani."} <Link href="/nastavitve" className="underline hover:text-accent">Nastavitve</Link></p>
+          )}
+        </Box>
+
+        <Box title="Google iskanje (Search Console)">
+          {d.search?.data ? (
+            <>
+              <dl className="mb-4">
+                <Line k="Kliki / prikazi" v={`${d.search.data.clicks} / ${d.search.data.impressions.toLocaleString("sl-SI")}`} />
+                <Line k="Povprečni položaj" v={d.search.data.position === null ? "-" : String(d.search.data.position).replace(".", ",")} />
+              </dl>
+              {d.search.data.queries.length ? (
+                <>
+                  <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-text-secondary">Iskalni nizi</p>
+                  <ul className="mb-4 space-y-1 font-sans text-sm">
+                    {d.search.data.queries.map((q) => (
+                      <li key={q.key} className="flex gap-3">
+                        <span className="min-w-0 flex-1 truncate text-text-primary">{q.key}</span>
+                        <span className="font-mono text-xs text-text-secondary">
+                          {q.clicks} / {q.impressions}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : null}
+              <p className="font-mono text-[10px] text-text-secondary">{d.search.data.site} · Googlovi podatki zamujajo 2-3 dni.</p>
+            </>
+          ) : (
+            <p className="font-mono text-xs text-text-secondary">&gt; {d.search?.error ?? "Search Console ni povezan."} <Link href="/nastavitve" className="underline hover:text-accent">Nastavitve</Link></p>
+          )}
+        </Box>
+
         <Box title="Stroški">
           <dl>
             {Object.entries(d.ai.byJob)
@@ -241,8 +304,8 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
               ))}
             <Line k="AI skupaj" v={usd(d.ai.microUsd)} />
             <Line k="Google Places klici" v={d.placesCalls} />
+            {d.ads?.data ? <Line k="Meta oglasi" v={eur(d.ads.data.spendCents)} /> : null}
           </dl>
-          <p className="mt-3 font-mono text-[10px] text-text-secondary">Meta oglasi, Google Analytics in Search Console pridejo s TASK-015.</p>
         </Box>
       </div>
     </>
