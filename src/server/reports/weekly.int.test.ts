@@ -2,10 +2,10 @@ import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createDb } from "../db/client";
 import { runMigrations } from "../db/migrate";
-import { calendarEvents, companies, deals, doNotContact, drafts, inboundMessages, projects, proposals, weeklyReports } from "../db/schema";
+import { activities, calendarEvents, companies, deals, doNotContact, drafts, inboundMessages, projects, proposals, weeklyReports } from "../db/schema";
 import { createCaptureMailer } from "../email/mailer";
 import { tick } from "./schedule";
-import { collectWeek, dueWeek, fmtHours, isDue, makeReport, ruleSuggestions, weekBounds, weekLabel, weekStartOf } from "./weekly";
+import { collectWeek, demoEmailPct, dueWeek, fmtHours, isDue, makeReport, ruleSuggestions, weekBounds, weekLabel, weekStartOf } from "./weekly";
 
 const url = process.env.TEST_DATABASE_URL!;
 const admin = postgres(url, { max: 1, onnotice: () => {} });
@@ -109,7 +109,10 @@ describe("weekly report (TASK-016)", () => {
       await db.insert(proposals).values({ dealId: x.d.id, token: tok, title: "x", items: [{ label: "x", priceCents: 59000 }], validUntil: "2026-11-01", status: "accepted", sentAt: at("2026-10-14T09:00:00+02:00"), acceptedAt: at("2026-10-15T09:00:00+02:00"), acceptedName: "A" });
       await db.insert(inboundMessages).values({ messageId: `<${tok}@x>`, companyId: x.c.id, dealId: x.d.id, fromEmail: `${tok}@x.si`, subject: "Re", receivedAt: at("2026-10-14T12:00:00+02:00"), classification: "interested", classifiedBy: "rule" });
     }
-    const d = await collectWeek(db, WS, { now: at("2026-10-19T08:00:00+02:00") });
+    for (const x of [real, test]) await db.insert(activities).values({ dealId: x.d.id, type: "note", at: at("2026-10-14T13:00:00+02:00"), payload: { kind: "editor_demo", ref: x.c.name } });
+    const d = await collectWeek(db, WS, { now: at("2026-10-19T08:00:00+02:00"), editorStats: async () => ({ stats: { visits: 10, edited: 4, emails: 2, edits: 9, costMicros: 0 }, error: null }) });
+    expect(d.demo.emails).toBe(1);
+    expect(demoEmailPct(d)).toBe(10);
     expect(d).toMatchObject({ leads: 1, monthSales: 1, proposals: { sent: 1, accepted: 1 }, outreach: { replies: 1 } });
     expect(d.channels.map((c) => c.source)).toEqual(["places_search"]);
   });
