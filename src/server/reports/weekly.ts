@@ -105,45 +105,48 @@ export async function collectWeek(db: Db, ws: string, opts: { now?: Date } & Fet
   const end = to < now ? to : now;
   const f = from.toISOString();
   const t = to.toISOString();
+  // Companies marked as test (the owner's own trials) never count (TASK-016).
+  const TC = sql.raw("(select id from companies where is_test)");
+  const TD = sql.raw("(select dd.id from deals dd join companies cc on cc.id = dd.company_id where cc.is_test)");
   const run = async <T extends Record<string, unknown>>(q: ReturnType<typeof sql>) => (await db.execute(q)) as unknown as T[];
 
   const [counts] = await run<Record<string, unknown>>(sql`
     select
-      (select count(*) from deals where created_at >= ${f} and created_at < ${t}) as leads,
-      (select count(distinct company_id) from audits where created_at >= ${f} and created_at < ${t}) as researched,
-      (select count(*) from drafts where status = 'sent' and kind = 'first' and sent_at >= ${f} and sent_at < ${t}) as first,
-      (select count(*) from drafts where status = 'sent' and kind in ('followup_1','followup_2') and sent_at >= ${f} and sent_at < ${t}) as followups,
-      (select count(*) from inbound_messages where direction = 'in' and classified_by <> 'form' and classification not in ('out_of_office','bounce') and received_at >= ${f} and received_at < ${t}) as replies,
-      (select count(*) from inbound_messages where direction = 'in' and classified_by <> 'form' and classification = 'interested' and received_at >= ${f} and received_at < ${t}) as interested,
-      (select count(*) from inbound_messages where direction = 'in' and classified_by <> 'form' and classification = 'no' and received_at >= ${f} and received_at < ${t}) as no,
-      (select count(*) from inbound_messages where direction = 'in' and classified_by <> 'form' and classification = 'bounce' and received_at >= ${f} and received_at < ${t}) as bounces,
-      (select count(*) from inbound_messages where direction = 'in' and classified_by = 'form' and received_at >= ${f} and received_at < ${t}) as form_leads,
+      (select count(*) from deals where company_id not in ${TC} and created_at >= ${f} and created_at < ${t}) as leads,
+      (select count(distinct company_id) from audits where company_id not in ${TC} and created_at >= ${f} and created_at < ${t}) as researched,
+      (select count(*) from drafts where deal_id not in ${TD} and status = 'sent' and kind = 'first' and sent_at >= ${f} and sent_at < ${t}) as first,
+      (select count(*) from drafts where deal_id not in ${TD} and status = 'sent' and kind in ('followup_1','followup_2') and sent_at >= ${f} and sent_at < ${t}) as followups,
+      (select count(*) from inbound_messages where company_id not in ${TC} and direction = 'in' and classified_by <> 'form' and classification not in ('out_of_office','bounce') and received_at >= ${f} and received_at < ${t}) as replies,
+      (select count(*) from inbound_messages where company_id not in ${TC} and direction = 'in' and classified_by <> 'form' and classification = 'interested' and received_at >= ${f} and received_at < ${t}) as interested,
+      (select count(*) from inbound_messages where company_id not in ${TC} and direction = 'in' and classified_by <> 'form' and classification = 'no' and received_at >= ${f} and received_at < ${t}) as no,
+      (select count(*) from inbound_messages where company_id not in ${TC} and direction = 'in' and classified_by <> 'form' and classification = 'bounce' and received_at >= ${f} and received_at < ${t}) as bounces,
+      (select count(*) from inbound_messages where company_id not in ${TC} and direction = 'in' and classified_by = 'form' and received_at >= ${f} and received_at < ${t}) as form_leads,
       (select count(*) from do_not_contact where created_at >= ${f} and created_at < ${t}) as opt_outs,
-      (select count(*) from proposals where sent_at >= ${f} and sent_at < ${t}) as p_sent,
-      (select count(*) from proposals where status = 'accepted' and accepted_at >= ${f} and accepted_at < ${t}) as p_acc,
-      (select coalesce(sum((select coalesce(sum((i->>'priceCents')::bigint), 0) from jsonb_array_elements(items) i)), 0) from proposals where status = 'accepted' and accepted_at >= ${f} and accepted_at < ${t}) as p_acc_net,
+      (select count(*) from proposals where deal_id not in ${TD} and sent_at >= ${f} and sent_at < ${t}) as p_sent,
+      (select count(*) from proposals where deal_id not in ${TD} and status = 'accepted' and accepted_at >= ${f} and accepted_at < ${t}) as p_acc,
+      (select coalesce(sum((select coalesce(sum((i->>'priceCents')::bigint), 0) from jsonb_array_elements(items) i)), 0) from proposals where deal_id not in ${TD} and status = 'accepted' and accepted_at >= ${f} and accepted_at < ${t}) as p_acc_net,
       (select coalesce(sum(count), 0) from api_calls where day >= ${ws}::date and day < ${addDays(ws, 7)}::date) as places_calls,
-      (select count(*) from deals where source = 'editor_demo' and created_at >= ${f} and created_at < ${t}) as demo_leads
+      (select count(*) from deals where company_id not in ${TC} and source = 'editor_demo' and created_at >= ${f} and created_at < ${t}) as demo_leads
   `);
 
   // Calls: calendar events linked to a company, plus agreed call times on deals (one per company).
   const [calls] = await run<{ n: unknown }>(sql`
     select count(*) as n from (
-      select company_id from calendar_events where company_id is not null and status <> 'cancelled' and start_at >= ${f} and start_at < ${t}
+      select company_id from calendar_events where company_id is not null and company_id not in ${TC} and status <> 'cancelled' and start_at >= ${f} and start_at < ${t}
       union
-      select company_id from deals where call_at >= ${f} and call_at < ${t}
+      select company_id from deals where company_id not in ${TC} and call_at >= ${f} and call_at < ${t}
     ) x`);
 
   // Payments the owner marked: deposit (project start) and the rest (final payment).
   const [paid] = await run<{ count: unknown; cents: unknown }>(sql`
     select count(*) as count, coalesce(sum(amount), 0) as cents from (
-      select coalesce(p.deposit_cents, 0) as amount from projects p where p.deposit_paid_at >= ${f} and p.deposit_paid_at < ${t}
+      select coalesce(p.deposit_cents, 0) as amount from projects p where p.deal_id not in ${TD} and p.deposit_paid_at >= ${f} and p.deposit_paid_at < ${t}
       union all
       select greatest(coalesce(round(net.v * (1 + pr.vat_rate_bp / 10000.0)), 0) - coalesce(p.deposit_cents, 0), 0) as amount
       from projects p
       left join proposals pr on pr.id = p.proposal_id
       left join lateral (select coalesce(sum((i->>'priceCents')::bigint), 0) as v from jsonb_array_elements(coalesce(pr.items, '[]'::jsonb)) i) net on true
-      where p.final_paid_at >= ${f} and p.final_paid_at < ${t}
+      where p.deal_id not in ${TD} and p.final_paid_at >= ${f} and p.final_paid_at < ${t}
     ) x`);
 
   // Launches and whether they made the guarantee (confirmed + timeline + paused time).
@@ -151,12 +154,12 @@ export async function collectWeek(db: Db, ws: string, opts: { now?: Date } & Fet
     select count(*) as count, count(*) filter (where p.confirmed_at is not null and p.launched_at <= p.confirmed_at + make_interval(days => p.timeline_days) + coalesce((
       select sum(coalesce(x.end_at, p.launched_at) - x.start_at) from project_pauses x where x.project_id = p.id and x.start_at >= p.confirmed_at
     ), interval '0')) as on_time
-    from projects p where p.launched_at >= ${f} and p.launched_at < ${t}`);
+    from projects p where p.deal_id not in ${TD} and p.launched_at >= ${f} and p.launched_at < ${t}`);
 
   // Sales this calendar month (Ljubljana) up to the end of the week.
   const monthStart = `${toLocalInput(new Date(end.getTime() - 1)).slice(0, 7)}-01`;
   const mFrom = fromLocalInput(`${monthStart}T00:00`)!.toISOString();
-  const [month] = await run<{ n: unknown }>(sql`select count(*) as n from proposals where status = 'accepted' and accepted_at >= ${mFrom} and accepted_at < ${end.toISOString()}`);
+  const [month] = await run<{ n: unknown }>(sql`select count(*) as n from proposals where deal_id not in ${TD} and status = 'accepted' and accepted_at >= ${mFrom} and accepted_at < ${end.toISOString()}`);
 
   // Median time from a prospect's reply to our next e-mail to them (CRM reply or one sent from the mailbox).
   const [speed] = await run<{ h: unknown }>(sql`
@@ -169,7 +172,7 @@ export async function collectWeek(db: Db, ws: string, opts: { now?: Date } & Fet
         ) x
       ) as answered
       from inbound_messages m
-      where m.direction = 'in' and m.classified_by <> 'form' and m.classification in ('interested','question','not_now') and m.received_at >= ${f} and m.received_at < ${t}
+      where m.company_id not in ${TC} and m.direction = 'in' and m.classified_by <> 'form' and m.classification in ('interested','question','not_now') and m.received_at >= ${f} and m.received_at < ${t}
     ) r where r.answered is not null`);
 
   const ai = await run<{ job: string; c: unknown }>(sql`select job, coalesce(sum(cost_micro_usd), 0) as c from ai_usage where created_at >= ${f} and created_at < ${t} group by job`);
@@ -182,7 +185,7 @@ export async function collectWeek(db: Db, ws: string, opts: { now?: Date } & Fet
       count(*) filter (where exists (select 1 from calendar_events x where x.company_id = d.company_id and x.status <> 'cancelled' and x.start_at >= ${f} and x.start_at < ${t}) or (d.call_at >= ${f} and d.call_at < ${t})) as calls,
       count(*) filter (where exists (select 1 from proposals x where x.deal_id = d.id and x.sent_at >= ${f} and x.sent_at < ${t})) as proposals,
       count(*) filter (where exists (select 1 from proposals x where x.deal_id = d.id and x.status = 'accepted' and x.accepted_at >= ${f} and x.accepted_at < ${t})) as won
-    from deals d group by d.source`);
+    from deals d where d.company_id not in ${TC} group by d.source`);
 
   // What got replies: first e-mails of the last 4 weeks up to the end of this week, by category and offer group.
   const wFrom = new Date(to.getTime() - 28 * DAY).toISOString();
@@ -190,7 +193,7 @@ export async function collectWeek(db: Db, ws: string, opts: { now?: Date } & Fet
     with sent as (
       select dl.company_id, c.category, c.offer_group::text as grp, d.sent_at
       from drafts d join deals dl on dl.id = d.deal_id join companies c on c.id = dl.company_id
-      where d.kind = 'first' and d.status = 'sent' and d.sent_at >= ${wFrom} and d.sent_at < ${t}
+      where not c.is_test and d.kind = 'first' and d.status = 'sent' and d.sent_at >= ${wFrom} and d.sent_at < ${t}
     ), r as (
       select s.*, exists (select 1 from inbound_messages m where m.company_id = s.company_id and m.direction = 'in' and m.classified_by <> 'form' and m.classification not in ('out_of_office','bounce') and m.received_at > s.sent_at) as replied from sent s
     )

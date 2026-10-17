@@ -1,6 +1,6 @@
 "use client";
 import { useActionState } from "react";
-import { addLinkAction, googleOverviewAction, setWebsiteAction, type ActionState } from "./actions";
+import { addLinkAction, googleOverviewAction, setTestAction, setWebsiteAction, type ActionState } from "./actions";
 import { JobLine, type JobView } from "./buttons";
 
 const small = "border border-accent/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-accent hover:bg-accent hover:text-black disabled:opacity-50";
@@ -60,6 +60,21 @@ export function PasteLink({ companyId }: { companyId: string }) {
         {busy ? "…" : "Dodaj povezavo"}
       </button>
       {state ? <span className={`font-mono text-[10px] ${state.ok ? "text-accent" : "text-danger-text"}`}>{state.ok ? "✓ dodano" : state.message}</span> : null}
+    </form>
+  );
+}
+
+/** "Testno podjetje" switch on the company page (TASK-016). */
+export function TestToggle({ companyId, isTest }: { companyId: string; isTest: boolean }) {
+  const [state, action, busy] = useActionState<ActionState, FormData>(setTestAction, null);
+  return (
+    <form action={action} className="flex flex-wrap items-center gap-3">
+      <input type="hidden" name="companyId" value={companyId} />
+      <input type="hidden" name="isTest" value={isTest ? "0" : "1"} />
+      <button type="submit" disabled={busy} className={small}>
+        {busy ? "…" : isTest ? "Ni testno" : "Označi kot testno"}
+      </button>
+      {state ? <span className={`font-mono text-[10px] ${state.ok ? "text-accent" : "text-danger-text"}`}>{state.message}</span> : null}
     </form>
   );
 }

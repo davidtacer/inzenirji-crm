@@ -19,7 +19,7 @@ Phases follow the business plan (`inzenirji.si` → `docs/nacrt-rasti.md` §7.5)
 | TASK-013 | Proposals (PDF), Stripe prepayment, payment status, invoices | 012, ADR-031 | C3 | Part 1 Live, owner-tested 2026-10-16 (proposal sent, client accepted, UPN QR via upnqr works); Stripe + invoices later; 2026-10-16 owner: no invoices/Stripe in the CRM, e-racuni.si instead (ADR-041) |
 | TASK-014 | Projects: materials checklist, client uploads, reminders, guarantee clock | 013, ADR-010, ADR-033 | C3 | Done — Live (PR #61) |
 | TASK-015 | Meta Ads + Search Console numbers in the weekly report, CAC and CPL (ADR-042); GA4 not installed on the site, so skipped | 016, ADR-042 | C4 · 2026-12-19 | Built |
-| TASK-016 | Weekly report (Monday 08:00) + KPI dashboard: `/porocila`, snapshot per week, e-mail to the owner, 3 proposals (ADR-040). Ads/GA4/GSC numbers join with TASK-015 | ADR-040 | C4 | Built |
+| TASK-016 | Weekly report (Monday 08:00) + KPI dashboard: `/porocila`, snapshot per week, e-mail to the owner, 3 proposals (ADR-040). Ads/GA4/GSC numbers join with TASK-015; companies marked "Testno" (owner's own trials) are left out of every count | ADR-040 | C4 | Built |
 | TASK-017 | Postaja feed for the Inženirji.si brand from finished projects | 014, ADR-006 | C5 · 2027-01 | Planned |
 | TASK-018 | After-launch flow: review/NPS/referral requests, editor-usage upsells (incl. Postaja for clients) | 014 | C5 | Planned |
 | TASK-019 | Win/loss analysis | 016 | C5 | Planned |

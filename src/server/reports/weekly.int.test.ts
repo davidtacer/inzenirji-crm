@@ -27,7 +27,7 @@ afterAll(async () => {
 const WS = "2026-10-12";
 const at = (s: string) => new Date(s);
 
-async function lead(name: string, source: "places_search" | "editor_demo", createdAt: string, category = "Frizerski salon", group: "A" | "B" = "B") {
+async function lead(name: string, source: "places_search" | "editor_demo" | "website_form", createdAt: string, category = "Frizerski salon", group: "A" | "B" = "B") {
   const [c] = await db.insert(companies).values({ name, category, group }).returning();
   const [d] = await db.insert(deals).values({ companyId: c.id, source, createdAt: at(createdAt) }).returning();
   return { c, d };
@@ -99,6 +99,19 @@ describe("weekly report (TASK-016)", () => {
     expect(s).toHaveLength(3);
     expect(s[0]).toBe("Dodaj vsaj 27 novih podjetij v Iskanju strank.");
     expect(s[1]).toMatch(/Pošlji več prvih e-mailov: ta teden 3/);
+  });
+
+  it("test companies (the owner's own trials) are left out", async () => {
+    const real = await lead("Pravi", "places_search", "2026-10-13T09:00:00+02:00");
+    const test = await lead("Test d.o.o.", "website_form", "2026-10-13T09:00:00+02:00");
+    await db.update(companies).set({ isTest: true }).where(eq(companies.id, test.c.id));
+    for (const [x, tok] of [[real, "r"], [test, "t"]] as const) {
+      await db.insert(proposals).values({ dealId: x.d.id, token: tok, title: "x", items: [{ label: "x", priceCents: 59000 }], validUntil: "2026-11-01", status: "accepted", sentAt: at("2026-10-14T09:00:00+02:00"), acceptedAt: at("2026-10-15T09:00:00+02:00"), acceptedName: "A" });
+      await db.insert(inboundMessages).values({ messageId: `<${tok}@x>`, companyId: x.c.id, dealId: x.d.id, fromEmail: `${tok}@x.si`, subject: "Re", receivedAt: at("2026-10-14T12:00:00+02:00"), classification: "interested", classifiedBy: "rule" });
+    }
+    const d = await collectWeek(db, WS, { now: at("2026-10-19T08:00:00+02:00") });
+    expect(d).toMatchObject({ leads: 1, monthSales: 1, proposals: { sent: 1, accepted: 1 }, outreach: { replies: 1 } });
+    expect(d.channels.map((c) => c.source)).toEqual(["places_search"]);
   });
 
   it("makes, stores and e-mails the report once (AI suggestions, then no second send)", async () => {
