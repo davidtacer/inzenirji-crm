@@ -27,7 +27,7 @@ afterAll(async () => {
 const WS = "2026-10-12";
 const at = (s: string) => new Date(s);
 
-async function lead(name: string, source: "places_search" | "editor_demo", createdAt: string, category = "Frizerski salon", group: "A" | "B" = "B") {
+async function lead(name: string, source: "places_search" | "editor_demo" | "website_form", createdAt: string, category = "Frizerski salon", group: "A" | "B" = "B") {
   const [c] = await db.insert(companies).values({ name, category, group }).returning();
   const [d] = await db.insert(deals).values({ companyId: c.id, source, createdAt: at(createdAt) }).returning();
   return { c, d };
