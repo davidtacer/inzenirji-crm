@@ -127,6 +127,13 @@
       "when": 1792179132904,
       "tag": "0017_weekly_reports",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792228898911,
+      "tag": "0018_test_companies",
+      "breakpoints": true
     }
   ]
 }

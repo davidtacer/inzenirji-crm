@@ -18,6 +18,7 @@ type Row = {
   group?: "A" | "B" | null;
   score?: number | null;
   triedDemo?: boolean | null;
+  isTest?: boolean | null;
 };
 
 
@@ -55,6 +56,11 @@ export function CompanyTable({ rows }: { rows: Row[] }) {
                   {r.triedDemo ? (
                     <span title="Preizkusil demo urejevalnika" className="ml-2 whitespace-nowrap border border-[#F0B429]/60 px-1 text-[9px] text-[#F0B429]">
                       DEMO
+                    </span>
+                  ) : null}
+                  {r.isTest ? (
+                    <span title="Testno podjetje, ne šteje v poročila" className="ml-2 whitespace-nowrap border border-border px-1 text-[9px] text-text-secondary">
+                      TEST
                     </span>
                   ) : null}
                 </p>

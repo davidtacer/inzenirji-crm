@@ -105,6 +105,18 @@ export async function addLinkAction(_prev: ActionState, form: FormData): Promise
   return { ok: true, message: "Dodano." };
 }
 
+/** Owner marks a company as his own test (demo, form, test sale): it stays, reports skip it (TASK-016). */
+export async function setTestAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  if (!(await getCurrentUser())) return { ok: false, message: "Prijava je potekla." };
+  const id = String(form.get("companyId") ?? "");
+  if (!/^[0-9a-f-]{36}$/.test(id)) return { ok: false, message: "Neveljavno podjetje." };
+  const on = form.get("isTest") === "1";
+  await getDb().update(companies).set({ isTest: on, updatedAt: new Date() }).where(eq(companies.id, id));
+  revalidatePath(`/podjetja/${id}`);
+  revalidatePath("/porocila");
+  return { ok: true, message: on ? "Označeno kot testno: ne šteje več v poročila." : "Ni več testno: spet šteje v poročila." };
+}
+
 /** Owner confirmed the company's website from the Google overview (TASK-037). */
 export async function setWebsiteAction(_prev: ActionState, form: FormData): Promise<ActionState> {
   if (!(await getCurrentUser())) return { ok: false, message: "Prijava je potekla." };

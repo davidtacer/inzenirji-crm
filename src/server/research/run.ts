@@ -455,6 +455,7 @@ export async function listCompanies(db: Db, query: CompanyQuery | CompanyFilter 
       stage: deals.stage,
       source: deals.source,
       triedDemo,
+      isTest: companies.isTest,
     })
     .from(companies)
     .leftJoin(deals, eq(deals.companyId, companies.id))

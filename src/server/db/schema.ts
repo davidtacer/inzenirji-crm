@@ -92,6 +92,8 @@ export const companies = pgTable(
     score: smallint("score"),
     /** Score breakdown shown on the company page (TASK-007). */
     scoreParts: jsonb("score_parts"),
+    /** The owner's own trial (demo, form, test sale): kept, but never counted in reports (TASK-016). */
+    isTest: boolean("is_test").notNull().default(false),
     ...timestamps,
   },
   (t) => [
