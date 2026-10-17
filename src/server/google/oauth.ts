@@ -5,7 +5,8 @@ import { createHmac, timingSafeEqual } from "node:crypto";
  * refresh token. Client id/secret are GitHub secrets (GOOGLE_OAUTH_CLIENT_ID / _SECRET).
  */
 
-export const SCOPES = ["openid", "email", "https://www.googleapis.com/auth/calendar.readonly"];
+/** Calendar (TASK-012b) + Search Console for the weekly report (TASK-015), both read-only. */
+export const SCOPES = ["openid", "email", "https://www.googleapis.com/auth/calendar.readonly", "https://www.googleapis.com/auth/webmasters.readonly"];
 export const AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 export const TOKEN_URL = "https://oauth2.googleapis.com/token";
 
