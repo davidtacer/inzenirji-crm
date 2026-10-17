@@ -1,6 +1,6 @@
 import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { addToDnc } from "../contact/dnc";
+import { addToDnc, listDnc } from "../contact/dnc";
 import { createDb } from "../db/client";
 import { runMigrations } from "../db/migrate";
 import { audits, companies, contacts, deals, drafts } from "../db/schema";
@@ -16,6 +16,7 @@ import {
   markReplied,
 } from "./drafts";
 import { sendApprovedDraft, type OutreachConfig } from "./send";
+import { autoSendFollowUp, inSendWindow } from "./autosend";
 import { verifyUnsubscribeToken } from "./unsubscribe";
 
 const url = process.env.TEST_DATABASE_URL!;
@@ -183,5 +184,55 @@ describe("outreach flow", () => {
     await expect(db.insert(drafts).values({ dealId: deal.id, kind: "first", toEmail: "a@b.si", subject: "s", body: "b" })).rejects.toThrow();
     expect(await discardDraft(db, r.draftId)).toBe(true);
     expect((await createFirstDraft(db, c.id)).ok).toBe(true);
+  });
+
+  it("automatic follow-ups: off by default, weekday hours only, one per check, stop on reply or opt-out (ADR-043)", async () => {
+    const a = await lead("Ana");
+    const b = await lead("Bor");
+    const mailer = createCaptureMailer();
+    for (const c of [a, b]) {
+      const r = await createFirstDraft(db, c.id);
+      if (!r.ok) throw new Error("no draft");
+      await approveDraft(db, r.draftId, { subject: `Spletna stran za ${c.name}`, body: "Pozdravljeni" }, T0);
+      expect((await sendApprovedDraft(db, r.draftId, { mailer, config: { ...cfg, dailyCap: 10 }, now: T0 })).ok).toBe(true);
+    }
+    const big = { ...cfg, dailyCap: 10 };
+    expect(await autoSendFollowUp(db, { enabled: false, mailer, config: big, now: day(3) })).toEqual({ status: "off" });
+    // Saturday 24 Oct, 10:00 Ljubljana: outside the window.
+    expect(inSendWindow(new Date("2026-10-24T08:00:00Z"))).toBe(false);
+    expect(inSendWindow(new Date("2026-10-23T05:59:00Z"))).toBe(false); // Fri 07:59
+    expect(inSendWindow(new Date("2026-10-23T14:59:00Z"))).toBe(true); // Fri 16:59
+    expect(await autoSendFollowUp(db, { enabled: true, mailer, config: big, now: new Date("2026-10-24T08:00:00Z") })).toEqual({ status: "outside_window" });
+    // Bor replied: his sequence stops.
+    await markReplied(db, b.id);
+    const r1 = await autoSendFollowUp(db, { enabled: true, mailer, config: big, now: day(3) });
+    expect(r1.status).toBe("sent");
+    expect(mailer.sent.at(-1)).toMatchObject({ to: "info@ana.si", subject: "Re: Spletna stran za Ana" });
+    expect(await autoSendFollowUp(db, { enabled: true, mailer, config: big, now: day(3) })).toEqual({ status: "nothing" });
+    // Ana opts out before day 8: the follow-up is not sent.
+    await addToDnc(db, { kind: "email", value: "info@ana.si", reason: "odjava" });
+    const before = mailer.sent.length;
+    const r2 = await autoSendFollowUp(db, { enabled: true, mailer, config: big, now: day(8) });
+    expect(r2.status === "nothing" || r2.error === "BLOCKED").toBe(true);
+    expect(mailer.sent.length).toBe(before);
+    // A first e-mail is never sent automatically.
+    const c = await lead("Cene");
+    await createFirstDraft(db, c.id);
+    expect(await autoSendFollowUp(db, { enabled: true, mailer, config: big, now: day(9) })).toEqual({ status: "nothing" });
+  });
+
+  it("the Ne kontaktiraj list shows entries newest first with their company, and searches", async () => {
+    const a = await lead("Ana");
+    await addToDnc(db, { kind: "email", value: "info@ana.si", reason: "odjava (povezava v e-mailu)" });
+    await addToDnc(db, { kind: "domain", value: "https://www.bor.si/", reason: "prosil po telefonu" });
+    await blockCompany(db, a.id, "ni zainteresiran");
+    const all = await listDnc(db);
+    expect(all.map((r) => [r.kind, r.value, r.companyName])).toEqual([
+      ["domain", "ana.si", "Ana"],
+      ["company", a.id, "Ana"],
+      ["domain", "bor.si", null],
+      ["email", "info@ana.si", "Ana"],
+    ]);
+    expect((await listDnc(db, "telefon")).map((r) => r.value)).toEqual(["bor.si"]);
   });
 });

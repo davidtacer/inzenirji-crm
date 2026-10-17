@@ -59,8 +59,8 @@ env:
     OUTREACH_FROM: "David Tacer <david@inzenirji.si>"
     # AI model for remarks and replies (ADR-021).
     AI_MODEL: claude-sonnet-5-5
-    # Monday 08:00 weekly report e-mail to the owner (TASK-016).
-    WEEKLY_REPORT: "1"
+    # Background timers: Monday 08:00 weekly report (TASK-016), automatic follow-ups when switched on (ADR-043).
+    SCHEDULER: "1"
   secret:
     - DATABASE_URL
     - BETTER_AUTH_SECRET

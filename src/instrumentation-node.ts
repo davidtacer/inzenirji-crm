@@ -16,11 +16,14 @@ export async function runStartupMigrations() {
   }
 }
 
-// Monday 08:00 weekly report e-mail (TASK-016). Only where WEEKLY_REPORT=1 (prod).
+// Background timers in the app process (prod only: SCHEDULER=1): Monday 08:00 weekly report (TASK-016) and automatic
+// follow-ups when the owner switches them on (ADR-043). WEEKLY_REPORT=1 is the older name of the same switch.
 export async function startSchedulers() {
-  if (process.env.WEEKLY_REPORT !== "1" || !process.env.DATABASE_URL) return;
+  if ((process.env.SCHEDULER !== "1" && process.env.WEEKLY_REPORT !== "1") || !process.env.DATABASE_URL) return;
   const { getDb } = await import("./server/db/client");
   const { startWeeklyReports } = await import("./server/reports/schedule");
-  startWeeklyReports(getDb());
-  console.log("[weekly] scheduler on");
+  const { startFollowUpAutoSend } = await import("./server/outreach/autosend");
+  startWeeklyReports(getDb(), { ...process.env, WEEKLY_REPORT: "1" });
+  startFollowUpAutoSend(getDb());
+  console.log("[scheduler] weekly report + follow-ups on");
 }
