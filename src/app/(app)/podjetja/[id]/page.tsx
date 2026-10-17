@@ -21,7 +21,7 @@ import { demoNotes } from "@/server/demo/demo";
 import { latestJob } from "@/server/jobs";
 import { groupSources, latestOverview, linkKind, mentioned } from "@/server/research/overview";
 import { geminiStatus } from "@/server/google/gemini";
-import { AddLink, OverviewButton, PasteLink, SetWebsite } from "../overview";
+import { AddLink, OverviewButton, PasteLink, SetWebsite, TestToggle } from "../overview";
 import { jobView } from "@/lib/jobs";
 import { formatLj } from "@/lib/time";
 
@@ -130,6 +130,7 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
         right={<ResearchOneButton id={c.id} again={!!audit} job={jobView(job)} />}
       />
 
+      {c.isTest ? <p className="mb-4 border border-border p-3 font-mono text-xs text-text-secondary">&gt; Testno podjetje: ostane v CRM, a ne šteje v poročila.</p> : null}
       {audit ? (
         <div className="mb-6 border border-accent/40 bg-surface2 p-5">
           <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-accent">
@@ -261,6 +262,7 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
             <Row k="Naslov" v={c.address} />
             <Row k="Faza" v={d.stage ? STAGE_LABEL[d.stage] : null} />
             <Row k="Vir" v={d.source ? SOURCE_LABEL[d.source] : null} />
+            <Row k="Testno" v={<TestToggle companyId={c.id} isTest={c.isTest} />} />
           </dl>
         </Box>
 

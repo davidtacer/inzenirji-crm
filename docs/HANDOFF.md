@@ -21,6 +21,7 @@ Conversation with the owner in Slovenian; code and docs in English.
 - 2026-10-15: repo created by the owner; docs foundation (manifest, product spec, architecture, ADR-001…010,
   task list) from the business plan `inzenirji.si/docs/nacrt-rasti.md`.
 
+- 2026-10-17: "Testno podjetje" switch on the company page (`companies.is_test`): the owner's test sale/demo/form trials stay in the CRM but are left out of reports.
 - 2026-10-17: TASK-015 Meta Ads + Search Console in the weekly report (ADR-042). Owner: Nastavitve → Meta oglasi (token + act_ id); Nastavitve → Google → "Poveži znova" for Search Console (enable the Search Console API in Google Cloud first).
 - 2026-10-16: TASK-016 weekly report (ADR-040): `/porocila` + Monday 08:00 e-mail (`WEEKLY_REPORT=1` in deploy.yml). Owner: no invoices in the CRM, e-racuni.si (ADR-041).
 - 2026-10-16: First e-mail and day-3 follow-up now lead with the AI editor (edit by chatting, send a picture) and link the public demo `inzenirji.si/demo` (owner: "naš paradni konj").
