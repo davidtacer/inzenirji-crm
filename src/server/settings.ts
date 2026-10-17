@@ -10,6 +10,8 @@ import { settings } from "./db/schema";
 export type Settings = {
   /** Unlocks the "Pošlji" button (ADR-013: only after DKIM passes). */
   sendingEnabled: boolean;
+  /** Follow-ups (day 3, day 8) are sent by the CRM on weekdays 8-17 h without a click (ADR-043). First e-mails never. */
+  followUpAutoSend: boolean;
   /** Cold e-mails per day (warm-up starts at 10). */
   dailySendCap: number;
   /** Google Calendar appointment schedule link for replies (ADR-008, ADR-025). */
@@ -42,6 +44,7 @@ export const LIMITS = {
 export function defaultSettings(env: Record<string, string | undefined> = process.env): Settings {
   return {
     sendingEnabled: env.OUTREACH_ENABLED === "1",
+    followUpAutoSend: false,
     dailySendCap: Number(env.OUTREACH_DAILY_CAP ?? 10) || 10,
     bookingUrl: env.BOOKING_URL?.trim() ?? "",
     ownerPhone: env.OWNER_PHONE?.trim() ?? "",
@@ -87,6 +90,7 @@ export function validateSettings(input: Partial<SettingsInput>): { ok: true; val
       ok: true,
       value: {
         sendingEnabled: input.sendingEnabled === true || input.sendingEnabled === "on",
+        followUpAutoSend: input.followUpAutoSend === true || input.followUpAutoSend === "on",
         dailySendCap: num("dailySendCap", "Omejitev e-mailov na dan"),
         bookingUrl,
         ownerPhone,

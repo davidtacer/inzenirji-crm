@@ -21,6 +21,7 @@ Conversation with the owner in Slovenian; code and docs in English.
 - 2026-10-15: repo created by the owner; docs foundation (manifest, product spec, architecture, ADR-001…010,
   task list) from the business plan `inzenirji.si/docs/nacrt-rasti.md`.
 
+- 2026-10-17: Automatic follow-ups (ADR-043, owner switch in Nastavitve, off by default) and the "Ne kontaktiraj" page (list, search, add e-mail/domain by hand; permanent).
 - 2026-10-17: "Testno podjetje" switch on the company page (`companies.is_test`): the owner's test sale/demo/form trials stay in the CRM but are left out of reports.
 - 2026-10-17: TASK-015 Meta Ads + Search Console in the weekly report (ADR-042). Owner: Nastavitve → Meta oglasi (token + act_ id); Nastavitve → Google → "Poveži znova" for Search Console (enable the Search Console API in Google Cloud first).
 - 2026-10-16: TASK-016 weekly report (ADR-040): `/porocila` + Monday 08:00 e-mail (`WEEKLY_REPORT=1` in deploy.yml). Owner: no invoices in the CRM, e-racuni.si (ADR-041).
@@ -97,4 +98,4 @@ throwaway database. In the cloud sandbox: `initdb` as user postgres in `/var/tmp
 ## Next
 TASK-001 scaffold (Next.js + Tailwind + Drizzle + Postgres in Docker locally, CI), TASK-002 Kamal deploy skeleton, then the C1 phase (prospecting, research, scoring) — target 2026-11-07.
 
-Latest TASK: 037 · latest ADR: 042. Next candidates: Meta lead forms (rest of TASK-011, not a priority), after launch (TASK-018), win/loss (TASK-019), rest of TASK-011 inbound leads. Local Postgres for int tests may stop when the sandbox restarts — restart with `pg_ctl` (see above).
+Latest TASK: 037 · latest ADR: 043. Next candidates: Meta lead forms (rest of TASK-011, not a priority), after launch (TASK-018), win/loss (TASK-019), rest of TASK-011 inbound leads. Local Postgres for int tests may stop when the sandbox restarts — restart with `pg_ctl` (see above).

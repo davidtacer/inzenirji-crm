@@ -36,7 +36,16 @@ export function SettingsForm({ s }: { s: Settings }) {
           <span className="flex flex-col gap-1">
             <span className="font-sans text-sm text-text-primary">Pošiljanje vklopljeno</span>
             <span className={help}>
-              Odklene gumb »Pošlji« v Osnutkih. Nič se ne pošlje samo — vsak e-mail pošlješ s klikom. Vklopi šele, ko mail-tester pokaže DKIM podpis.
+              Odklene gumb »Pošlji« v Osnutkih. Prve e-maile in odgovore vedno pošlješ s klikom. Vklopi šele, ko mail-tester pokaže DKIM podpis.
+            </span>
+          </span>
+        </label>
+        <label className="flex items-start gap-3">
+          <input type="checkbox" name="followUpAutoSend" defaultChecked={s.followUpAutoSend} className="mt-1 h-4 w-4 accent-[#00FF41]" />
+          <span className="flex flex-col gap-1">
+            <span className="font-sans text-sm text-text-primary">Follow-upi se pošiljajo sami</span>
+            <span className={help}>
+              Ob delavnikih med 8. in 17. uro CRM sam pošlje follow-up 3. in 8. dan (enega na 10 minut, v okviru dnevne omejitve). Prvi e-mail vedno pošlješ ti. Če stranka odgovori ali se odjavi, se follow-upi ustavijo. Deluje samo, ko je pošiljanje vklopljeno.
             </span>
           </span>
         </label>

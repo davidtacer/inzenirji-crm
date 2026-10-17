@@ -10,6 +10,7 @@ export async function saveSettingsAction(_prev: SaveState, form: FormData): Prom
   if (!(await getCurrentUser())) return { ok: false, message: "Prijava je potekla. Osveži stran." };
   const v = validateSettings({
     sendingEnabled: form.get("sendingEnabled") === "on",
+    followUpAutoSend: form.get("followUpAutoSend") === "on",
     dailySendCap: String(form.get("dailySendCap") ?? ""),
     bookingUrl: String(form.get("bookingUrl") ?? ""),
     ownerPhone: String(form.get("ownerPhone") ?? ""),

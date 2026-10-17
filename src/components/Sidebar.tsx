@@ -41,7 +41,7 @@ const GROUPS: Group[] = [
     title: "Nastavitve",
     items: [
       { href: "/nastavitve", label: "Nastavitve", icon: Settings },
-      { href: "/ne-kontaktiraj", label: "Ne kontaktiraj", icon: ShieldBan, soon: true },
+      { href: "/ne-kontaktiraj", label: "Ne kontaktiraj", icon: ShieldBan },
     ],
   },
 ];
