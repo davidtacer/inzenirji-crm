@@ -23,7 +23,9 @@ describe("settings", () => {
     expect(validateSettings({ ...ok, dailySendCap: "500" })).toEqual({ ok: false, message: "Omejitev e-mailov na dan: vpiši število od 0 do 50." });
     expect(validateSettings({ ...ok, bookingUrl: "calendar.google.com/x" })).toMatchObject({ ok: false });
     expect(validateSettings({ ...ok, ownerPhone: "pokliči" })).toMatchObject({ ok: false });
-    expect(validateSettings({ ...ok, sendingEnabled: undefined })).toMatchObject({ ok: true, value: { sendingEnabled: false } });
+    expect(validateSettings({ ...ok, sendingEnabled: undefined })).toMatchObject({ ok: true, value: { sendingEnabled: false, followUpAutoSend: false } });
+    expect(validateSettings({ ...ok, followUpAutoSend: "on" })).toMatchObject({ ok: true, value: { followUpAutoSend: true } });
+    expect(defaultSettings({}).followUpAutoSend).toBe(false);
   });
   it("switch + password decide sending; AI needs key and budget > 0", () => {
     const s = defaultSettings({});
