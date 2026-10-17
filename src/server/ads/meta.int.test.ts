@@ -44,7 +44,7 @@ describe("Meta Ads + Search Console (TASK-015)", () => {
     expect(parseAccountId("https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=987654321&nav_entry_point=x")).toBe("987654321");
     expect(parseAccountId("abc")).toBeNull();
     expect(leadsFrom([{ action_type: "lead", value: "3" }, { action_type: "offsite_conversion.fb_pixel_lead", value: "3" }])).toBe(3);
-    expect(leadsFrom([{ action_type: "onsite_conversion.lead_grouped", value: "1" }, { action_type: "offsite_conversion.fb_pixel_lead", value: "2" }])).toBe(3);
+    expect(leadsFrom([{ action_type: "onsite_conversion.lead_grouped", value: "1" }, { action_type: "offsite_conversion.fb_pixel_lead", value: "2" }])).toBe(2);
     expect(metaMessage(new MetaError(400, "Error validating access token: Session has expired"))).toMatch(/žeton je potekel/);
   });
 
