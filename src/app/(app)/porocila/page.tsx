@@ -11,6 +11,7 @@ import {
   cacCents,
   collectWeek,
   cplCents,
+  demoEmailPct,
   eur,
   fmtHours,
   nextWeek,
@@ -89,7 +90,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const prev = prevStored?.data ?? (await collectWeek(db, previousWeek(ws), { now }));
   const job = jobView(await latestJob(db, ["weekly_report"]));
   const sug = stored?.suggestions?.length ? stored.suggestions : ruleSuggestions(d);
-  const demoPct = d.demo.stats ? pct(d.demo.stats.emails, d.demo.stats.visits) : null;
+  const demoPct = demoEmailPct(d);
 
   return (
     <>
@@ -205,7 +206,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
               <>
                 <Line k={`Obiski (zadnjih ${d.demo.days} dni)`} v={d.demo.stats.visits} />
                 <Line k="Urejali" v={d.demo.stats.edited} />
-                <Line k="Pustili e-naslov" v={`${d.demo.stats.emails} (${pct(d.demo.stats.emails, d.demo.stats.visits)} %)`} />
+                <Line k="Pustili e-naslov" v={`${d.demo.emails ?? d.demo.stats.emails} (${demoPct} %) brez testnih${d.demo.emails !== undefined && d.demo.emails !== d.demo.stats.emails ? `, vseh ${d.demo.stats.emails}` : ""}`} />
               </>
             ) : (
               <p className="mb-2 font-mono text-xs text-text-secondary">&gt; Obiski demota: {ws === current || stored ? (d.demo.error ?? "ni podatka") : "samo v shranjenem poročilu"}.</p>
