@@ -52,7 +52,7 @@ export type WeekData = {
   replyHoursMedian: number | null;
   ai: { microUsd: number; byJob: Record<string, number> };
   placesCalls: number;
-  demo: { stats: EditorStats | null; days: number; leads: number; error: string | null };
+  demo: { stats: EditorStats | null; days: number; leads: number; error: string | null; /** Visitors who left an e-mail, counted in the CRM without test companies. */ emails?: number };
   /** Meta Ads for the week (TASK-015); absent in reports made before it, null data = not connected or failed. */
   ads?: { data: AdsWeek | null; error: string | null };
   /** Google Search Console for the week (TASK-015). */
@@ -126,7 +126,8 @@ export async function collectWeek(db: Db, ws: string, opts: { now?: Date } & Fet
       (select count(*) from proposals where deal_id not in ${TD} and status = 'accepted' and accepted_at >= ${f} and accepted_at < ${t}) as p_acc,
       (select coalesce(sum((select coalesce(sum((i->>'priceCents')::bigint), 0) from jsonb_array_elements(items) i)), 0) from proposals where deal_id not in ${TD} and status = 'accepted' and accepted_at >= ${f} and accepted_at < ${t}) as p_acc_net,
       (select coalesce(sum(count), 0) from api_calls where day >= ${ws}::date and day < ${addDays(ws, 7)}::date) as places_calls,
-      (select count(*) from deals where company_id not in ${TC} and source = 'editor_demo' and created_at >= ${f} and created_at < ${t}) as demo_leads
+      (select count(*) from deals where company_id not in ${TC} and source = 'editor_demo' and created_at >= ${f} and created_at < ${t}) as demo_leads,
+      (select count(distinct a.deal_id) from activities a where a.deal_id not in ${TD} and a.type = 'note' and a.payload->>'kind' = 'editor_demo' and a.at >= ${f} and a.at < ${t}) as demo_emails
   `);
 
   // Calls: calendar events linked to a company, plus agreed call times on deals (one per company).
@@ -238,7 +239,7 @@ export async function collectWeek(db: Db, ws: string, opts: { now?: Date } & Fet
     replyHoursMedian: speed?.h === null || speed?.h === undefined ? null : Math.round(n(speed.h) * 100) / 100,
     ai: { microUsd: Object.values(byJob).reduce((a, b) => a + b, 0), byJob },
     placesCalls: n(counts.places_calls),
-    demo: { stats: demo.stats, days, leads: n(counts.demo_leads), error: demo.error },
+    demo: { stats: demo.stats, days, leads: n(counts.demo_leads), emails: n(counts.demo_emails), error: demo.error },
     ...(ads ? { ads } : {}),
     ...(search ? { search } : {}),
     channels: channels
@@ -260,6 +261,9 @@ export const cplCents = (d: WeekData) => (d.ads?.data?.leads ? Math.round(d.ads.
 /** "25 min" under an hour, else "3,5 h". */
 export const fmtHours = (h: number | null) => (h === null ? "-" : h < 1 ? `${Math.max(1, Math.round(h * 60))} min` : `${String(Math.round(h * 10) / 10).replace(".", ",")} h`);
 
+/** Demo visitors who left an e-mail, in % (CRM count without test companies over editor visits). */
+export const demoEmailPct = (d: WeekData) => (d.demo.stats?.visits ? pct(Math.min(d.demo.emails ?? d.demo.stats.emails, d.demo.stats.visits), d.demo.stats.visits) : null);
+
 export const rate = (r: { sent: number; replies: number }) => (r.sent ? r.replies / r.sent : 0);
 export const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0);
 export const eur = (cents: number) => `${(cents / 100).toLocaleString("sl-SI", { minimumFractionDigits: cents % 100 ? 2 : 0, maximumFractionDigits: 2 })} €`;
@@ -275,7 +279,7 @@ export function ruleSuggestions(d: WeekData): string[] {
   if (d.outreach.first < 25) out.push(`Pošlji več prvih e-mailov: ta teden ${d.outreach.first}. Cilj je okoli 30 na teden, da pridemo do 7 klicev.`);
   if (d.outreach.replies && d.replyHoursMedian !== null && d.replyHoursMedian > TARGETS.replyHours) out.push(`Odgovarjaj hitreje: polovica odgovorov je čakala več kot ${fmtHours(d.replyHoursMedian)}. Cilj je pod 1 h.`);
   if (d.calls < TARGETS.callsPerWeek) out.push(`Klicev je bilo ${d.calls}, cilj je ${TARGETS.callsPerWeek}. Zainteresiranim v odgovoru vedno ponudi termin za klic.`);
-  if (d.demo.stats && d.demo.stats.visits >= 10 && pct(d.demo.stats.emails, d.demo.stats.visits) < TARGETS.demoEmailPct) out.push(`Demo je odprlo ${d.demo.stats.visits} ljudi, e-naslov jih je pustilo ${d.demo.stats.emails}. Preveri, ali je ponudba za e-naslov v demu dovolj jasna.`);
+  if (d.demo.stats && d.demo.stats.visits >= 10 && (demoEmailPct(d) ?? 0) < TARGETS.demoEmailPct) out.push(`Demo je odprlo ${d.demo.stats.visits} ljudi, e-naslov jih je pustilo ${d.demo.emails ?? d.demo.stats.emails}. Preveri, ali je ponudba za e-naslov v demu dovolj jasna.`);
   if (d.ads?.data && d.ads.data.spendCents >= 2000 && d.ads.data.leads === 0) out.push(`Oglasi so porabili ${eur(d.ads.data.spendCents)} brez leadov. Preveri oglas in stran, kamor vodi (npr. demo).`);
   if (d.proposals.sent > d.proposals.accepted) out.push("Pokliči tiste, ki so ponudbo dobili, a je še niso potrdili.");
   out.push("Za vsako zainteresirano podjetje naredi Google pregled in preveri, da imaš pravi e-naslov.");
@@ -379,7 +383,7 @@ export function renderEmail(d: WeekData, prev: WeekData | null, sug: string[], a
     [`Prodaje v mesecu (${d.monthLabel})`, `${d.monthSales} / cilj ${TARGETS.salesPerMonth}`],
     ["Plačila (označena)", `${d.paid.count} (${eur(d.paid.cents)})`],
     ["Objavljene strani", `${d.launched.count}${d.launched.count ? `, v roku ${d.launched.onTime}` : ""}`],
-    ["Demo urejevalnika", d.demo.stats ? `${d.demo.stats.visits} obiskov, ${d.demo.stats.edited} urejalo, ${d.demo.stats.emails} e-naslovov (${pct(d.demo.stats.emails, d.demo.stats.visits)} %), ${d.demo.leads} v CRM` : `${d.demo.leads} v CRM${d.demo.error ? ` (${d.demo.error})` : ""}`],
+    ["Demo urejevalnika", d.demo.stats ? `${d.demo.stats.visits} obiskov, ${d.demo.stats.edited} urejalo, ${d.demo.emails ?? d.demo.stats.emails} e-naslovov brez testnih (${demoEmailPct(d)} %), ${d.demo.leads} novih v CRM` : `${d.demo.leads} v CRM${d.demo.error ? ` (${d.demo.error})` : ""}`],
     ["Meta oglasi", d.ads?.data ? `${eur(d.ads.data.spendCents)}, ${d.ads.data.clicks} klikov, ${d.ads.data.leads} leadov${cplCents(d) !== null ? ` (${eur(cplCents(d)!)} na lead)` : ""}` : (d.ads?.error ?? "ni povezano")],
     ["CAC (oglasi na prodajo)", cacCents(d) !== null ? eur(cacCents(d)!) : "-"],
     ["Google iskanje", d.search?.data ? `${d.search.data.clicks} klikov, ${d.search.data.impressions} prikazov${d.search.data.position ? `, povprečni položaj ${String(d.search.data.position).replace(".", ",")}` : ""}` : (d.search?.error ?? "ni povezano")],
