@@ -38,6 +38,7 @@ describe("migrations", () => {
       "inbound_messages",
       "jobs",
       "mailbox_state",
+      "places_searches",
       "project_files",
       "project_pauses",
       "projects",
