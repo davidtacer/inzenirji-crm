@@ -1,5 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import { callClaude } from "../ai/anthropic";
+import { AVOID_PHRASES_RULE, aiPhrases } from "../ai/humanize";
 import { type AiConfig, buildPrompt, spentTodayMicroUsd } from "../ai/remark";
 import type { Db } from "../db/client";
 import { aiUsage, audits, companies } from "../db/schema";
@@ -26,6 +27,7 @@ Pravila:
 - Zaključek: povabi, naj na kratko odpišejo, da se za 15 minut slišite po telefonu.{COFFEE}
 - PREPOVEDANO: omenjati konkurenco ali druga podjetja, izmišljena dejstva, imena oseb iz mnenj, besedo »čist«, WordPress, superlative (najboljši, edinstven), emoji, dolgi pomišljaj (uporabi navaden vezaj -), druge povezave, podpis in P.S. (doda ju sistem), oglate oklepaje.
 - Zadeva: kratka (do 60 znakov), osebna, brez clickbaita in klicajev, lahko z imenom podjetja.
+- {HUMAN}
 
 Odgovori samo z JSON: {"subject": "...", "body": "..."}`;
 
@@ -33,7 +35,7 @@ const OFFER_B = "naredimo novo spletno stran za 590 € + DDV, na spletu je v 7 
 const OFFER_A = "vsebino njihove obstoječe strani prenesemo na našo platformo, da je hitra, na telefonu se odpre v trenutku in jo najdejo tudi Google in ChatGPT. Cene NE omenjaj.";
 
 export function systemFor(group: "A" | "B" | null, city: string | null): string {
-  return FIRST_EMAIL_SYSTEM.replace("{OFFER}", group === "A" ? OFFER_A : OFFER_B).replace(
+  return FIRST_EMAIL_SYSTEM.replace("{HUMAN}", AVOID_PHRASES_RULE).replace("{OFFER}", group === "A" ? OFFER_A : OFFER_B).replace(
     "{COFFEE}",
     /maribor/i.test(city ?? "") ? " Ker sta oba v Mariboru, lahko namesto klica ponudiš kavo." : "",
   );
@@ -73,6 +75,7 @@ export function checkAiEmail(
   if (words < 55 || words > 140) problems.push(`dolžina ${words} besed`);
   if (/(?<!\p{L})(ti|tebi|tvoj\p{L}*|imaš|veš|želiš|boš)(?!\p{L})/iu.test(body)) problems.push("tikanje");
   if (/čist/i.test(body)) problems.push("beseda »čist«");
+  for (const p of aiPhrases(`${subject}\n${body}`)) problems.push(`AI fraza »${p}«`);
   if (/wordpress/i.test(body)) problems.push("WordPress");
   if (/konkurenc/i.test(body)) problems.push("konkurenca");
   for (const r of ctx.rivals) if (r && r.length > 3 && body.toLowerCase().includes(r.toLowerCase())) problems.push(`omenja ${r}`);

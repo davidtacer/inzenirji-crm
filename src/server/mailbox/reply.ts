@@ -1,4 +1,5 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
+import { AVOID_PHRASES_RULE } from "../ai/humanize";
 import type { Db } from "../db/client";
 import { aiUsage, companies, deals, drafts } from "../db/schema";
 import { callClaude, AiError } from "../ai/anthropic";
@@ -48,6 +49,7 @@ Pravila:
   "${nextStep(o)}"
 - Če stranka reče "zdaj ne", se zahvali, ne prepričuj in povej, da se oglasiš čez nekaj mesecev; naslednjega koraka takrat NE dodaj.
 - Navaden vezaj (-), brez dolgega pomišljaja. Začni z "Pozdravljeni,". Brez podpisa (dodam ga sam).
+- ${AVOID_PHRASES_RULE}
 ${OFFER}
 Odgovori samo z besedilom e-maila.`;
 }
