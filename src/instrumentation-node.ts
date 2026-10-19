@@ -25,5 +25,10 @@ export async function startSchedulers() {
   const { startFollowUpAutoSend } = await import("./server/outreach/autosend");
   startWeeklyReports(getDb(), { ...process.env, WEEKLY_REPORT: "1" });
   startFollowUpAutoSend(getDb());
+  // Addresses of directories/portals that research added before ADR-044: marked invalid, their drafts cancelled.
+  const { sweepForeignEmails } = await import("./server/contact/emails");
+  sweepForeignEmails(getDb())
+    .then((r) => console.log(`[emails] foreign addresses marked: ${r.marked}, drafts cancelled: ${r.drafts}`))
+    .catch((e) => console.error("[emails] sweep failed:", e instanceof Error ? e.message.slice(0, 160) : "unknown"));
   console.log("[scheduler] weekly report + follow-ups on");
 }

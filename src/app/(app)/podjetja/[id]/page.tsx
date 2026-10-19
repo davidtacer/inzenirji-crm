@@ -21,7 +21,9 @@ import { demoNotes } from "@/server/demo/demo";
 import { latestJob } from "@/server/jobs";
 import { groupSources, latestOverview, linkKind, mentioned } from "@/server/research/overview";
 import { geminiStatus } from "@/server/google/gemini";
-import { AddLink, OverviewButton, PasteLink, SetWebsite, TestToggle } from "../overview";
+import { isAggregatorDomain } from "@/server/contact/emails";
+import { domainOf } from "@/server/contact/normalize";
+import { AddLink, ChannelToggle, ContactEmail, OverviewButton, PasteLink, SetWebsite, TestToggle } from "../overview";
 import { jobView } from "@/lib/jobs";
 import { formatLj } from "@/lib/time";
 
@@ -225,7 +227,7 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
           </Box>
         ) : null}
         <Box title="Stik in e-mail">
-          <CompanyOutreach companyId={c.id} stage={d.stage} hasEmail={d.contacts.some((p) => !!p.email)} />
+          <CompanyOutreach companyId={c.id} stage={d.stage} hasEmail={d.contacts.some((p) => !!p.email && !p.invalidAt)} />
         </Box>
         {google ? (
           <Box title="Google profil">
@@ -262,6 +264,7 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
             <Row k="Naslov" v={c.address} />
             <Row k="Faza" v={d.stage ? STAGE_LABEL[d.stage] : null} />
             <Row k="Vir" v={d.source ? SOURCE_LABEL[d.source] : null} />
+            <Row k="Kanal" v={<ChannelToggle companyId={c.id} call={d.deal?.channel === "call"} />} />
             <Row k="Testno" v={<TestToggle companyId={c.id} isTest={c.isTest} />} />
           </dl>
         </Box>
@@ -407,14 +410,18 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
             ) : null}
             {d.links.length ? <p className="mb-2 mt-2 font-mono text-[10px] uppercase tracking-widest text-text-secondary">Vse povezave in e-naslovi</p> : null}
             <ul className="flex flex-col gap-2">
-              {d.links.map((l) => (
+              {d.links
+                .filter((l) => l.kind !== "email" || !isAggregatorDomain(domainOf(l.url.replace(/^mailto:/, ""))))
+                .map((l) => (
                 <li key={l.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border pb-2 last:border-b-0">
                   <span className="w-24 shrink-0 font-mono text-[10px] uppercase tracking-widest text-text-secondary">{LINK_KIND[l.kind] ?? l.kind}</span>
                   {l.kind === "email" ? (
                     <>
                       <span className="font-sans text-sm text-text-primary">{l.url.replace(/^mailto:/, "")}</span>
                       {l.note ? <span className="font-mono text-[10px] text-text-secondary">vir: {l.note.replace(/^https?:\/\/(www\.)?/, "").slice(0, 50)}</span> : null}
-                      {d.contacts.some((p) => `mailto:${p.email}` === l.url) ? (
+                      {d.contacts.some((p) => `mailto:${p.email}` === l.url && p.invalidAt) ? (
+                        <span className="font-mono text-xs text-danger-text">označen kot napačen</span>
+                      ) : d.contacts.some((p) => `mailto:${p.email}` === l.url) ? (
                         <span className="font-mono text-xs text-accent">✓ med kontakti</span>
                       ) : (
                         <AddCandidateEmail companyId={c.id} email={l.url.replace(/^mailto:/, "")} source={l.note ?? ""} />
@@ -511,12 +518,11 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
             <p className="font-mono text-xs text-text-secondary">Ni najdenih e-naslovov.</p>
           ) : (
             <ul className="space-y-2">
-              {d.contacts.map((p) => (
-                <li key={p.id} className="font-mono text-xs">
-                  <span className="text-text-primary">{p.email}</span>
-                  {p.emailSource ? <span className="block text-[10px] text-text-secondary">vir: {p.emailSource}</span> : null}
-                </li>
-              ))}
+              {d.contacts
+                .filter((p) => !!p.email)
+                .map((p) => (
+                  <ContactEmail key={p.id} companyId={c.id} email={p.email!} source={p.emailSource} invalidReason={p.invalidAt ? (p.invalidReason ?? "napačen") : null} />
+                ))}
             </ul>
           )}
         </Box>

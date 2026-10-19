@@ -81,7 +81,7 @@ export default async function DraftsPage() {
               <article key={x.id} className="border border-border bg-surface">
                 <Head d={x} />
                 <div className="p-5">
-                  <PendingDraftForm id={x.id} subject={x.subject} body={x.body} />
+                  <PendingDraftForm id={x.id} subject={x.subject} body={x.body} toEmail={x.toEmail} emails={d.emails[x.companyId] ?? []} />
                 </div>
               </article>
             ))}

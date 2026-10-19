@@ -50,7 +50,8 @@ export async function checkMcpToken(db: Db, got: string): Promise<boolean> {
 export const INSTRUCTIONS = `CRM Inženirji.si (spletne strani za mala podjetja v Sloveniji). Za nočno raziskavo:
 1) research_queue vrne podjetja, ki jih je treba raziskati.
 2) Za vsako podjetje na spletu poišči vse, kar bi našel izkušen prodajalec v 5 minutah z Googlom (uradna domena, tudi iz opisa na Instagramu/Facebooku, profili s sledilci in opisom, stare strani na Wixu ipd., imeniki najdi.si/bizi.si, pravna oseba, javni e-naslovi in telefoni z URL-jem vira, osebe, storitve, dejstva za osebni e-mail). Odpri strani in preveri, da gre za isto podjetje (ime, naslov, telefon). Ničesar ne ugibaj.
-3) save_research shrani ugotovitve; CRM jih preveri in podjetje znova oceni.`;
+3) save_research shrani ugotovitve; CRM jih preveri in podjetje znova oceni.
+E-naslovi: samo naslov podjetja (na njegovi domeni ali gmail/siol ipd.), objavljen na njegovi strani ali profilu (Facebook O nas, Instagram). Nikoli naslova imenika ali portala, kjer je podjetje navedeno (doberfrizer.si, najdi.si, bizi.si, pirs.si, visitcelje.eu ...). Naslovov, ki jih get_company kaže kot "invalid", ne pošiljaj znova.`;
 
 export const TOOLS = [
   {
@@ -96,7 +97,11 @@ export const TOOLS = [
             },
             links: { type: "array", items: { type: "object", properties: { url: { type: "string" }, kind: { type: "string", enum: ["directory", "booking", "article", "other"] }, note: { type: "string" } } } },
             entities: { type: "array", items: { type: "object", properties: { name: { type: "string" }, address: { type: "string" }, tax_id: { type: "string" }, source: { type: "string" } } } },
-            emails: { type: "array", items: { type: "object", properties: { email: { type: "string" }, source_url: { type: "string" } }, required: ["email", "source_url"] } },
+            emails: {
+              type: "array",
+              description: "Only the company's own addresses (its domain or free mail), with the page or profile that shows them. Never a directory's/portal's address.",
+              items: { type: "object", properties: { email: { type: "string" }, source_url: { type: "string" } }, required: ["email", "source_url"] },
+            },
             phones: { type: "array", items: { type: "string" } },
             people: { type: "array", items: { type: "object", properties: { name: { type: "string" }, role: { type: "string" } } } },
             services: { type: "array", items: { type: "string" } },
@@ -167,7 +172,7 @@ export async function getCompany(db: Db, id: string) {
     group: d.company.group,
     score: d.company.score,
     stage: d.stage,
-    contacts: d.contacts.map((c) => ({ name: c.name, email: c.email, source: c.emailSource, phone: c.phone })),
+    contacts: d.contacts.map((c) => ({ name: c.name, email: c.email, source: c.emailSource, phone: c.phone, ...(c.invalidAt ? { invalid: c.invalidReason ?? "napačen" } : {}) })),
     links: d.links.map((l) => ({ url: l.url, kind: l.kind, verified: l.verified, note: l.note })),
     research: data.web ?? null,
     site_state: data.siteState ?? null,

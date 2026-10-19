@@ -134,6 +134,13 @@
       "when": 1792228898911,
       "tag": "0018_test_companies",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792400138117,
+      "tag": "0019_invalid_emails",
+      "breakpoints": true
     }
   ]
 }
