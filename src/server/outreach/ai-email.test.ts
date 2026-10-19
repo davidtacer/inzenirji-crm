@@ -59,3 +59,15 @@ describe("AI first e-mail checks (ADR-045)", () => {
     expect(systemFor("B", null)).toContain("kar preko klepeta");
   });
 });
+
+describe("AI phrases (humanizer, owner 2026-10-19)", () => {
+  it("rejects typical AI Slovenian and keeps a plain text", async () => {
+    const { aiPhrases } = await import("../ai/humanize");
+    expect(aiPhrases("V današnjem digitalnem svetu je spletna stran ključnega pomena.")).toEqual(expect.arrayContaining(["ključnega pomena", "v današnjem … svetu"]));
+    expect(aiPhrases("Ne samo, da je hitra, ampak tudi lepa.")).toContain("ne samo … ampak tudi");
+    expect(aiPhrases("Imate 4,9 na Googlu. Stran bi to lepo pokazala.")).toEqual([]);
+    const r = checkAiEmail(json(GOOD.replace("lepa vizitka.", "lepa vizitka, ki je ključnega pomena.")), ctx);
+    expect(r.ok ? [] : r.problems).toContain("AI fraza »ključnega pomena«");
+    expect(systemFor("B", null)).toContain("ne kot AI");
+  });
+});

@@ -97,8 +97,8 @@ describe("weekly report (TASK-016)", () => {
 
     const s = ruleSuggestions(d);
     expect(s).toHaveLength(3);
-    expect(s[0]).toBe("Dodaj vsaj 27 novih podjetij v Iskanju strank.");
-    expect(s[1]).toMatch(/Pošlji več prvih e-mailov: ta teden 3/);
+    expect(s[0]).toBe("V Iskanju strank dodaj vsaj 27 novih podjetij.");
+    expect(s[1]).toMatch(/novih krajih/);
   });
 
   it("test companies (the owner's own trials) are left out", async () => {
