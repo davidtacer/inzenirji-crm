@@ -22,7 +22,7 @@ describe("composeFirst", () => {
     const m = composeFirst(base);
     expect(m.subject).toBe("Spletna stran za Salon Ana");
     expect(m.body).toContain("opazil sem, da je v nogi vaše spletne strani še letnica 2015, stran pa teče na WordPress 4.9 - škoda, ker imate na Googlu odlične ocene (4,8 iz 80 mnenj).");
-    expect(m.body).toContain("stran urejate sami, s pogovorom");
+    expect(m.body).toContain("stran urejate sami, kar preko klepeta");
     expect(m.body).toContain("https://www.inzenirji.si/demo");
     expect(m.body).not.toMatch(/€/); // ADR-009: never a migration price
     expect(m.body).not.toMatch(/—/); // style: plain hyphens
@@ -32,7 +32,7 @@ describe("composeFirst", () => {
     expect(words(m.body)).toBeLessThan(150);
   });
 
-  it("group B in Maribor with a social profile only: offer, rival, coffee", () => {
+  it("group B in Maribor with a social profile only: offer, no competitor, coffee", () => {
     const m = composeFirst({
       ...base,
       city: "Maribor",
@@ -42,16 +42,17 @@ describe("composeFirst", () => {
       rival: { name: "Frizer Beta", distanceM: 430 },
     });
     expect(m.body).toContain("se predstavljate samo na Facebooku, lastne spletne strani pa nimate");
-    expect(m.body).toContain("Frizer Beta, 450 m od vas, ima svojo spletno stran");
+    expect(m.body).not.toContain("Frizer Beta");
+    expect(m.body).not.toMatch(/čist/);
     expect(m.body).toContain("590 € + DDV");
     expect(m.body).toContain("na kavo");
-    expect(m.body).toContain("AI urejevalnik to uredi v nekaj sekundah");
+    expect(m.body).toContain("AI pa to uredi v nekaj sekundah");
     expect(m.body).toContain("https://www.inzenirji.si/demo");
     expect(words(m.body)).toBeLessThan(175);
   });
 
-  it("rival line only when the lead itself is weak online", () => {
-    expect(composeFirst({ ...base, rival: { name: "X", distanceM: 100 } }).body).not.toContain("X,");
+  it("never names a competitor", () => {
+    expect(composeFirst({ ...base, issues: [{ code: "no_website", severity: "high", text: "x" }], rival: { name: "Salon X", distanceM: 100 } }).body).not.toContain("Salon X");
   });
 
   it("hours mismatch becomes the personal remark", () => {

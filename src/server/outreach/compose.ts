@@ -12,7 +12,7 @@ export const SITE_URL = "https://www.inzenirji.si";
 /** Public editor demo (ADR-015); the landing redirects /demo to it. */
 export const DEMO_URL = "https://www.inzenirji.si/demo";
 /** Our flagship: the owner edits his site by chatting with the AI editor (owner, 2026-10-16). */
-export const EDITOR_LINE = `Največja prednost: stran potem urejate sami, s pogovorom. Napišete, kaj želite spremeniti, ali pošljete sliko, in AI urejevalnik to uredi v nekaj sekundah. Preizkusite ga kar sami: ${DEMO_URL}`;
+export const EDITOR_LINE = `Največja prednost: stran potem urejate sami, kar preko klepeta: napišete, kaj želite spremeniti, ali pošljete sliko, AI pa to uredi v nekaj sekundah. Preizkusite tukaj: ${DEMO_URL}`;
 export const OPT_OUT_LINE = "P.S. Če vas to ne zanima, mi samo odpišite »ne« in vam ne bom več pisal.";
 
 export type ComposeInput = {
@@ -93,34 +93,24 @@ export function remarkFor(input: ComposeInput): string {
   }
 }
 
-function distance(m: number | null) {
-  if (m === null) return "v vaši bližini";
-  if (m < 1000) return `${Math.max(50, Math.round(m / 50) * 50)} m od vas`;
-  return `${(m / 1000).toFixed(1).replace(".", ",")} km od vas`;
-}
-
 function closing(city: string | null) {
   return /maribor/i.test(city ?? "")
     ? "Če vas to zanima, mi na kratko odpišite. Ker smo v Mariboru, se lahko tudi vsedemo za 15 min na kavo in predebatiramo. Javite, kako se vam zdi."
     : "Če vas to zanima, mi na kratko odpišite, pa se za 15 min slišimo po telefonu in predebatiramo. Javite, kako se vam zdi.";
 }
 
-const SIGNATURE = "Lp,\nDavid\ninženirji.si";
+export const SIGNATURE = "Lp,\nDavid\ninženirji.si";
 
 export function composeFirst(input: ComposeInput): Composed {
-  const weakOnline = ["no_website", "social_only", "link_only", "unreachable"].includes(input.issues[0]?.code ?? "");
-  const rivalLine =
-    input.rival && weakOnline
-      ? `\n\n${input.rival.name}, ${distance(input.rival.distanceM)}, ima svojo spletno stran - ko ljudje na telefonu iščejo, kam iti, primerjajo prav to.`
-      : "";
   const offer =
     input.group === "B"
       ? `Novo stran vam naredimo za 590 € + DDV in je na spletu v 7 dneh od prejema vseh materialov.\n\n${EDITOR_LINE}`
-      : `Vašo obstoječo vsebino prenesemo na našo platformo, kjer potem stran urejate sami, s pogovorom. Napišete, kaj želite spremeniti, ali pošljete sliko, in AI urejevalnik to uredi v nekaj sekundah. Preizkusite ga kar sami: ${DEMO_URL}`;
+      : `Vašo obstoječo vsebino prenesemo na našo platformo, kjer potem stran urejate sami, kar preko klepeta: napišete, kaj želite spremeniti, ali pošljete sliko, AI pa to uredi v nekaj sekundah. Preizkusite tukaj: ${DEMO_URL}`;
   const body = [
     "Pozdravljeni,",
-    `opazil sem, da ${remarkFor(input)}.${rivalLine}`,
-    `Sem David iz ekipe inženirji.si (${SITE_URL}) - delamo hitre in čiste spletne strani, prilagojene za telefone in optimizirane tudi za ChatGPT in ostale AI iskalnike, ne samo Google.`,
+    // No competitor line (owner 2026-10-19: "nevem če bi glih konkurenco vpisoval").
+    `opazil sem, da ${remarkFor(input)}.`,
+    `Sem David iz ekipe inženirji.si (${SITE_URL}) - delamo hitre spletne strani, ki se na telefonu odprejo v trenutku, najdejo pa jih tudi Google, ChatGPT in ostali AI iskalniki.`,
     offer,
     closing(input.city),
     SIGNATURE,

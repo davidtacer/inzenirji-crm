@@ -32,6 +32,7 @@ export const dynamic = "force-dynamic";
 
 const JOB_LABEL: Record<string, string> = {
   remark: "Osebne opombe v e-mailih",
+  first_email: "Prvi e-maili (AI)",
   reply: "Osnutki odgovorov",
   classify: "Razvrščanje odgovorov",
   web_search: "Iskanje po spletu",

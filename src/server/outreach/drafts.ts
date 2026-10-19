@@ -8,6 +8,7 @@ import { activities, audits, companies, competitorLinks, contacts, deals, drafts
 import type { Issue } from "../research/analyze";
 import { rescoreCompany } from "../scoring/apply";
 import { ensureAiRemark, type AiConfig } from "../ai/remark";
+import { aiFirstEmail } from "./ai-email";
 import { composeFirst, composeFollowUp1, composeFollowUp2, type ComposeInput } from "./compose";
 
 /*
@@ -58,7 +59,7 @@ async function composeInput(db: Db, companyId: string) {
     issues: (audit?.issues ?? []) as Issue[],
     rival: rival ? { name: rival.name, distanceM: rival.distanceM } : null,
   };
-  return { input, dealId: row.dealId, stage: row.stage, audit: audit ?? null, email: contact?.email ?? null };
+  return { input, dealId: row.dealId, stage: row.stage, audit: audit ?? null, email: contact?.email ?? null, rivals: rivals.map((r) => r.name) };
 }
 
 /** Day-0 e-mail for a researched company with a published e-mail address. */
@@ -75,9 +76,10 @@ export async function createFirstDraft(db: Db, companyId: string, ai: AiConfig |
     .where(and(eq(drafts.dealId, ctx.dealId), eq(drafts.kind, "first"), ne(drafts.status, "discarded")))
     .limit(1);
   if (existing.length) return { ok: false, reason: "EXISTS" };
-  // AI remark only now, for leads the owner actually writes to (cost); rules when AI is off or fails.
-  const ai_ = await ensureAiRemark(db, companyId, ai);
-  const m = composeFirst({ ...ctx.input, aiRemark: ai_?.remark ?? null });
+  // The whole e-mail by AI (ADR-045), only now, for leads the owner writes to (cost). If AI is off, over budget or
+  // its text fails the checks twice: the template with the AI remark (or the rules).
+  const full = await aiFirstEmail(db, companyId, ai, ctx.rivals);
+  const m = full ?? composeFirst({ ...ctx.input, aiRemark: (await ensureAiRemark(db, companyId, ai))?.remark ?? null });
   const [d] = await db
     .insert(drafts)
     .values({ dealId: ctx.dealId, kind: "first", toEmail: ctx.email, subject: m.subject, body: m.body })
