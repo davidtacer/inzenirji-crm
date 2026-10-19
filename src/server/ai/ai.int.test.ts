@@ -52,10 +52,13 @@ describe("AI remark", () => {
     expect(r.ok).toBe(true);
     const d = (await listDrafts(db)).pending[0];
     expect(d.body).toContain("opazil sem, da imate samo Facebook profil - stranke pa hvalijo vaše barvanje.");
-    expect(calls[0]).toContain("Najboljše barvanje v Celju!");
+    // The whole AI e-mail is tried first (ADR-045); this answer is only a remark, so it fails twice and the
+    // template with the AI remark is used.
+    expect(calls).toHaveLength(3);
+    expect(calls[2]).toContain("Najboljše barvanje v Celju!");
     expect(await ensureAiRemark(db, c.id, cfg)).toMatchObject({ remark: "imate samo Facebook profil - stranke pa hvalijo vaše barvanje" });
-    expect(calls).toHaveLength(1);
-    const [u] = await admin`select job, model, input_tokens, output_tokens, cost_micro_usd, ok from ai_usage`;
+    expect(calls).toHaveLength(3);
+    const [u] = await admin`select job, model, input_tokens, output_tokens, cost_micro_usd, ok from ai_usage where job = 'remark'`;
     expect(u).toEqual({ job: "remark", model: "claude-sonnet-5-5", input_tokens: 2000, output_tokens: 80, cost_micro_usd: 4800, ok: true });
   });
 
