@@ -269,10 +269,104 @@ export const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0)
 export const eur = (cents: number) => `${(cents / 100).toLocaleString("sl-SI", { minimumFractionDigits: cents % 100 ? 2 : 0, maximumFractionDigits: 2 })} €`;
 export const usd = (micro: number) => `${(micro / 1_000_000).toLocaleString("sl-SI", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $`;
 
+/* ---------------- the constraint (Theory of Constraints) ---------------- */
+
+/*
+ * Owner 2026-10-19 (from the "theory-of-constraints" skill he sent): the report names ONE bottleneck in the sales
+ * chain and all proposals aim at it. Volume steps are compared to the weekly need, conversion steps to a benchmark;
+ * the first step clearly below (under 70 %) is the constraint, because everything after it is starved by it.
+ */
+export type Constraint = { key: string; label: string; actual: string; target: string; why: string };
+
+export const BENCH = { replyRate: 0.08, replyToCall: 0.3, callToProposal: 0.6, proposalToSale: 0.4 };
+
+export function findConstraint(d: WeekData): Constraint | null {
+  const emails = d.outreach.first;
+  // A running week is compared with the share of the week that has passed (Monday: 1/7 of the weekly target).
+  const share = d.partial ? Math.min(1, Math.max(1, d.demo.days) / 7) : 1;
+  const soFar = (weekly: number) => (share < 1 ? `${Math.ceil(weekly * share)} do zdaj (${weekly} na teden)` : `${weekly} na teden`);
+  const steps: { key: string; label: string; ratio: number | null; actual: string; target: string; why: string }[] = [
+    { key: "leads", label: "Novi leadi", ratio: d.leads / (TARGETS.leadsPerWeek * share), actual: `${d.leads}`, target: soFar(TARGETS.leadsPerWeek), why: "Premalo novih podjetij v bazi, da bi bilo komu pisati." },
+    { key: "emails", label: "Prvi e-maili", ratio: emails / (30 * share), actual: `${emails}`, target: soFar(30), why: "Leadov je dovolj, a jim ne pišemo. Vse za tem (odgovori, klici, prodaje) čaka na to." },
+    {
+      key: "replies",
+      label: "Odgovori na e-maile",
+      ratio: emails >= 10 ? d.outreach.replies / emails / BENCH.replyRate : null,
+      actual: `${d.outreach.replies} od ${emails} (${pct(d.outreach.replies, emails)} %)`,
+      target: `${Math.round(BENCH.replyRate * 100)} % odgovorov`,
+      why: "E-mailov gre dovolj, a nanje odgovori premalo ljudi: besedilo, zadeva ali izbor podjetij.",
+    },
+    {
+      key: "calls",
+      label: "Klici",
+      ratio: d.outreach.replies >= 3 ? d.calls / Math.max(1, d.outreach.replies) / BENCH.replyToCall : null,
+      actual: `${d.calls} iz ${d.outreach.replies} odgovorov`,
+      target: `${Math.round(BENCH.replyToCall * 100)} % odgovorov do klica`,
+      why: "Ljudje odgovarjajo, a ne pridemo do klica.",
+    },
+    {
+      key: "proposals",
+      label: "Ponudbe po klicu",
+      ratio: d.calls >= 2 ? d.proposals.sent / d.calls / BENCH.callToProposal : null,
+      actual: `${d.proposals.sent} iz ${d.calls} klicev`,
+      target: `${Math.round(BENCH.callToProposal * 100)} % klicev s ponudbo`,
+      why: "Po klicih ne pošiljamo ponudb.",
+    },
+    {
+      key: "sales",
+      label: "Potrjene ponudbe",
+      ratio: d.proposals.sent >= 2 ? d.proposals.accepted / d.proposals.sent / BENCH.proposalToSale : null,
+      actual: `${d.proposals.accepted} iz ${d.proposals.sent} ponudb`,
+      target: `${Math.round(BENCH.proposalToSale * 100)} % potrjenih`,
+      why: "Ponudbe gredo ven, potrdi pa jih premalo strank.",
+    },
+  ];
+  const known = steps.filter((x) => x.ratio !== null);
+  const first = known.find((x) => (x.ratio as number) < 0.7);
+  const pick = first ?? null;
+  return pick ? { key: pick.key, label: pick.label, actual: pick.actual, target: pick.target, why: pick.why } : null;
+}
+
+/** Concrete actions for each constraint (rules; AI proposals get the constraint too). */
+const CONSTRAINT_ACTIONS: Record<string, (d: WeekData) => string[]> = {
+  leads: (d) => [
+    `V Iskanju strank dodaj vsaj ${Math.max(0, TARGETS.leadsPerWeek - d.leads)} novih podjetij${d.worked.categories.find((c) => c.sent >= 3 && c.replies > 0) ? ` - najbolje odgovarja panoga »${d.worked.categories.find((c) => c.sent >= 3 && c.replies > 0)!.label}«` : ""}.`,
+    "Poišči v novih krajih ali sosednjih panogah, kjer v bazi še nimaš podjetij.",
+    "Raziskuj nova podjetja sproti, da so takoj pripravljena za e-mail.",
+  ],
+  emails: (d) => [
+    `Vsak delovni dan pripravi in pošlji 6 prvih e-mailov (Danes → Pripravi osnutke za teh 10). Ta teden jih je šlo ${d.outreach.first}.`,
+    "Vklopi samodejne follow-upe v Nastavitvah, da ti ostane čas samo za prve e-maile.",
+    "Podjetja brez e-naslova pokliči s seznama Za klic namesto da čakajo.",
+  ],
+  replies: () => [
+    "Preberi zadnjih 10 poslanih e-mailov in popravi tiste, ki zvenijo splošno - prva vrstica mora biti o njih.",
+    "Piši najprej panogam, ki v »Kaj dobi odgovore« odgovarjajo največ.",
+    "Preveri zadeve e-mailov: kratke in z imenom podjetja.",
+  ],
+  calls: () => [
+    "Vsem zainteresiranim v isti uri odgovori s povezavo za termin.",
+    "Kdor odgovori, a ne rezervira klica, ga v 2 dneh pokliči sam.",
+    "V odgovoru ponudi dva konkretna termina namesto vprašanja, kdaj jim ustreza.",
+  ],
+  proposals: () => [
+    "Ponudbo pošlji še isti dan po klicu (Pripravi ponudbo na strani podjetja).",
+    "Med klicem zapiši obseg in materiale, da je ponudba pripravljena v 5 minutah.",
+    "Kdor po klicu ni dobil ponudbe, mu jo pošlji ta teden.",
+  ],
+  sales: () => [
+    "Pokliči vse, ki so ponudbo odprli, a je niso potrdili.",
+    "Ob ponudbi omeni garancijo: če stran ni na spletu v 7 dneh, vrnemo predplačilo.",
+    "Vprašaj tiste, ki so rekli ne, kaj jih je ustavilo, in razlog zapiši.",
+  ],
+};
+
 /* ---------------- suggestions ---------------- */
 
 /** Rule-based proposals, used when AI is off or fails. Always returns 3. */
 export function ruleSuggestions(d: WeekData): string[] {
+  const c = findConstraint(d);
+  if (c) return CONSTRAINT_ACTIONS[c.key](d).slice(0, 3);
   const out: string[] = [];
   const best = d.worked.categories.find((c) => c.sent >= 3 && c.replies > 0);
   if (d.leads < TARGETS.leadsPerWeek) out.push(`Dodaj vsaj ${TARGETS.leadsPerWeek - d.leads} novih podjetij v Iskanju strank${best ? ` - najbolje odgovarja panoga »${best.label}«` : ""}.`);
@@ -287,7 +381,7 @@ export function ruleSuggestions(d: WeekData): string[] {
   return out.slice(0, 3);
 }
 
-const SYSTEM = `Si poslovni svetovalec za David Tacerja (inženirji.si, Maribor), ki prodaja spletne strani malim podjetjem v Sloveniji (nova stran 590 € + DDV v 7 dneh, AI urejevalnik, kjer stranka stran ureja s pogovorom). Cilj je 10 prodanih strani na mesec. Iz številk tega tedna predlagaj natanko 3 konkretne stvari za naslednji teden, vsako v enem stavku, ki jih David lahko naredi v CRM-ju (iskanje strank, e-maili, odgovori, klici, ponudbe, demo urejevalnika). Opri se samo na številke. Piši v slovenščini, vikanje ni potrebno, uporabljaj navaden vezaj (-), ne dolgih pomišljajev. Odgovori samo z JSON: {"suggestions": ["...", "...", "..."]}`;
+const SYSTEM = `Si poslovni svetovalec za David Tacerja (inženirji.si, Maribor), ki prodaja spletne strani malim podjetjem v Sloveniji (nova stran 590 € + DDV v 7 dneh, AI urejevalnik, kjer stranka stran ureja s pogovorom). Cilj je 10 prodanih strani na mesec. Iz številk tega tedna predlagaj natanko 3 konkretne stvari za naslednji teden, vsako v enem stavku, ki jih David lahko naredi v CRM-ju (iskanje strank, e-maili, seznam Za klic, odgovori, klici, ponudbe, demo urejevalnika). Po teoriji omejitev: VSI 3 predlogi naj ciljajo samo na OZKO GRLO, ki je podano (ne predlagaj izboljšav drugje, ker ne bi povečale prodaje). Opri se samo na številke. Piši v slovenščini, vikanje ni potrebno, uporabljaj navaden vezaj (-), ne dolgih pomišljajev. Odgovori samo z JSON: {"suggestions": ["...", "...", "..."]}`;
 
 export async function suggestions(db: Db, d: WeekData, prev: WeekData | null, ai: AiConfig | null): Promise<{ list: string[]; by: string }> {
   if (!ai) return { list: ruleSuggestions(d), by: "rules" };
@@ -295,7 +389,7 @@ export async function suggestions(db: Db, d: WeekData, prev: WeekData | null, ai
   const strip = (x: WeekData) => ({ ...x, worked: { categories: x.worked.categories.slice(0, 8), groups: x.worked.groups } });
   try {
     const r = await callClaude(
-      { model: ai.model, system: SYSTEM, user: JSON.stringify({ cilji: TARGETS, ta_teden: strip(d), prejsnji_teden: prev ? strip(prev) : null }), maxTokens: 600 },
+      { model: ai.model, system: SYSTEM, user: JSON.stringify({ ozko_grlo: findConstraint(d), cilji: TARGETS, ta_teden: strip(d), prejsnji_teden: prev ? strip(prev) : null }), maxTokens: 600 },
       { apiKey: ai.apiKey, fetchImpl: ai.fetchImpl, timeoutMs: 60_000 },
     );
     await db.insert(aiUsage).values({ job: "weekly_report", model: ai.model, inputTokens: r.inputTokens, outputTokens: r.outputTokens, costMicroUsd: r.costMicroUsd, ok: true });
@@ -405,6 +499,7 @@ export function renderEmail(d: WeekData, prev: WeekData | null, sug: string[], a
     "Kaj dobi odgovore (zadnji 4 tedni, panoge z vsaj 3 e-maili):",
     ...(best.length ? best.map((x) => `- ${x}`) : ["- premalo poslanih e-mailov"]),
     "",
+    ...(findConstraint(d) ? [`Ozko grlo: ${findConstraint(d)!.label} - ${findConstraint(d)!.actual} (cilj ${findConstraint(d)!.target}). ${findConstraint(d)!.why}`, ""] : []),
     "3 predlogi za ta teden:",
     ...sug.map((s, i) => `${i + 1}. ${s}`),
     "",
@@ -417,7 +512,7 @@ export function renderEmail(d: WeekData, prev: WeekData | null, sug: string[], a
 <table style="border-collapse:collapse">${lines.map(([k, v]) => `<tr><td ${td}><b>${esc(k)}</b></td><td ${td}>${esc(v)}</td></tr>`).join("")}</table>
 <h3 style="font-size:15px">Po kanalih</h3><ul>${(ch.length ? ch : ["ni aktivnosti"]).map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
 <h3 style="font-size:15px">Kaj dobi odgovore (zadnji 4 tedni)</h3><ul>${(best.length ? best : ["premalo poslanih e-mailov"]).map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
-<h3 style="font-size:15px">3 predlogi za ta teden</h3><ol>${sug.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
+${findConstraint(d) ? `<p style="border:1px solid #F0B429;padding:8px"><b>Ozko grlo: ${esc(findConstraint(d)!.label)}</b> - ${esc(findConstraint(d)!.actual)} (cilj ${esc(findConstraint(d)!.target)}). ${esc(findConstraint(d)!.why)}</p>` : ""}<h3 style="font-size:15px">3 predlogi za ta teden</h3><ol>${sug.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
 <p><a href="${esc(url)}">Celotno poročilo v CRM</a></p></div>`;
   return { subject, text, html };
 }

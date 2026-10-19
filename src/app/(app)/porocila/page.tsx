@@ -12,6 +12,7 @@ import {
   collectWeek,
   cplCents,
   demoEmailPct,
+  findConstraint,
   eur,
   fmtHours,
   nextWeek,
@@ -86,6 +87,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const fetchers = { editorStats, ads: (a: string, b: string) => adsFor(db, a, b), search: (a: string, b: string) => searchWeekFromAccount(db, a, b) };
   const d: WeekData = live ? await collectWeek(db, ws, { now, ...fetchers }) : stored.data;
   const cac = cacCents(d);
+  const constraint = findConstraint(d);
   const cpl = cplCents(d);
   const prevStored = await storedReport(db, previousWeek(ws));
   const prev = prevStored?.data ?? (await collectWeek(db, previousWeek(ws), { now }));
@@ -116,6 +118,16 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           </>
         ) : null}
       </nav>
+
+      {constraint ? (
+        <section className="mb-6 border border-[#F0B429]/70 bg-surface p-5">
+          <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.3em] text-[#F0B429]">{"// Ozko grlo tega tedna"}</p>
+          <p className="font-sans text-lg text-text-primary">
+            {constraint.label}: {constraint.actual} <span className="font-mono text-xs text-text-secondary">(cilj {constraint.target})</span>
+          </p>
+          <p className="mt-1 font-sans text-sm text-text-secondary">{constraint.why} Predlogi spodaj ciljajo samo na to.</p>
+        </section>
+      ) : null}
 
       <div className="grid grid-cols-2 border-l border-t border-border lg:grid-cols-3">
         <Tile label="Novi leadi" value={String(d.leads)} target={`cilj ${TARGETS.leadsPerWeek}+ na teden`} good={d.leads >= TARGETS.leadsPerWeek} />
