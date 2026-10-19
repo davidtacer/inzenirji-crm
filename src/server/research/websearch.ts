@@ -1,5 +1,6 @@
 import { domainOf, normalizeEmail } from "../contact/normalize";
 import { websiteKind } from "../contact/website";
+import { emailBelongs, isFreeMail } from "../contact/emails";
 import { AiError, callClaudeWithSearch } from "../ai/anthropic";
 import type { AiConfig } from "../ai/remark";
 import { addressKey, norm } from "../directories/bizi";
@@ -147,7 +148,7 @@ export function pageMatches(html: string, c: CompanyForSearch): boolean {
   return !!c.city && nameWords.some((w) => words.includes(` ${w} `)) && words.includes(` ${norm(c.city)} `);
 }
 
-const distinctiveWords = (name: string) => norm(name).split(" ").filter((w) => w.length >= 4 && !GENERIC.has(w));
+export const distinctiveWords = (name: string) => norm(name).split(" ").filter((w) => w.length >= 4 && !GENERIC.has(w));
 
 /** "salonfantazija.si" carries "Frizerski salon FANTAZIJA" (a distinctive name word in the domain label). */
 export function domainCarriesName(domain: string | null, name: string): boolean {
@@ -312,20 +313,47 @@ export async function verifyFindings(
   for (const l of p.links) push({ url: l.url, kind: l.kind === "article" ? "other" : l.kind, source: "web_search", verified: FETCHABLE(l.url) ? belongs(l.url) : false, note: l.note });
   for (const e of p.entities) if (e.source) push({ url: e.source, kind: "directory", source: "web_search", verified: belongs(e.source), note: e.name });
 
-  // E-mails: verified only when we saw them on a page that belongs to the company.
-  const onPages = new Map<string, string>();
-  for (const [u, pg] of pages) if (pg.html && pageMatches(pg.html, c)) for (const e of extractEmails(pg.html)) if (!IGNORE_EMAIL.test(e) && !onPages.has(e)) onPages.set(e, u);
-  // Also published on the very page the researcher named as its source (e.g. a directory entry), which we opened.
+  // E-mails (ADR-044): verified only when the domain is the company's, or the address is published on the company's
+  // own site or on one of its profiles. Directory/portal addresses are dropped; anything else is a candidate for the
+  // owner to confirm. (Directories show their own info@ on every listing: that is how info@doberfrizer.si got in.)
+  const company = { name: c.name, website: accepted ?? c.website };
+  const ownDomain = (() => {
+    const d = domainOf(accepted ?? c.website);
+    return d && websiteKind(d) === "own" ? d : null;
+  })();
+  const isOwnPage = (u: string) => !!ownDomain && domainOf(u) === ownDomain;
+  const profileKey = (u: string) => {
+    try {
+      const x = new URL(u);
+      return `${x.hostname.replace(/^(www|m)\./, "")}${x.pathname.replace(/\/+$/, "")}`.toLowerCase();
+    } catch {
+      return u.toLowerCase();
+    }
+  };
+  const profiles = new Set(p.profiles.map((x) => profileKey(x.url!)));
+  const isProfile = (u: string) => !!u && (profiles.has(profileKey(u)) || [...profiles].some((k) => profileKey(u).startsWith(k)));
+  const verified = new Map<string, string>();
+  const candidate = new Map<string, string>();
+  const consider = (raw: string, source: string, published: boolean) => {
+    const em = normalizeEmail(raw);
+    if (!em || IGNORE_EMAIL.test(em) || verified.has(em)) return;
+    const v = emailBelongs(em, company);
+    if (!v.ok && v.reason !== "foreign_domain") return; // aggregator or junk: never
+    const ownDomainMail = v.ok && !isFreeMail(domainOf(em)) && published;
+    if (v.ok && published && (isOwnPage(source) || isProfile(source) || ownDomainMail)) {
+      verified.set(em, source);
+      candidate.delete(em);
+    } else if (!candidate.has(em)) candidate.set(em, source);
+  };
+  for (const [u, pg] of pages) if (pg.html && pageMatches(pg.html, c)) for (const e of extractEmails(pg.html)) consider(e, u, true);
   for (const e of p.emails) {
-    const em = normalizeEmail(e.email);
     const src = e.source ? pages.get(e.source) : undefined;
-    if (em && !IGNORE_EMAIL.test(em) && !onPages.has(em) && src?.html && extractEmails(src.html).includes(em)) onPages.set(em, e.source);
-  }
-  for (const [e, u] of onPages) out.emails.push({ email: e, source: u });
-  for (const e of p.emails) {
     const em = normalizeEmail(e.email);
-    if (!em || IGNORE_EMAIL.test(em) || onPages.has(em)) continue;
-    out.candidates.push({ email: em, source: e.source });
+    // A profile (Facebook "O nas") cannot be opened by us; the researcher read it there.
+    const published = !!em && ((!!src?.html && extractEmails(src.html).includes(em)) || isProfile(e.source));
+    consider(e.email, e.source, published);
   }
+  for (const [e, u] of verified) out.emails.push({ email: e, source: u });
+  for (const [e, u] of candidate) out.candidates.push({ email: e, source: u });
   return out;
 }

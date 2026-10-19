@@ -37,10 +37,11 @@ export async function approveAction(_prev: ActionState, form: FormData): Promise
   const id = form.get("id");
   if (!isId(id)) return { ok: false, message: "Neveljaven osnutek." };
   try {
-    const ok = await approveDraft(getDb(), id, { subject: String(form.get("subject") ?? ""), body: String(form.get("body") ?? "") });
+    const ok = await approveDraft(getDb(), id, { subject: String(form.get("subject") ?? ""), body: String(form.get("body") ?? ""), toEmail: form.get("toEmail") ? String(form.get("toEmail")) : null });
     refresh();
     return ok ? { ok: true, message: "Odobreno." } : { ok: false, message: "Osnutek ni več v čakanju." };
   } catch (e) {
+    if (e instanceof Error && e.message === "DRAFT_BAD_RECIPIENT") return { ok: false, message: "Tega e-naslova ni med veljavnimi naslovi podjetja." };
     if (e instanceof Error && e.message === "DRAFT_PLACEHOLDER") return { ok: false, message: "Najprej zamenjaj [TUKAJ ODGOVORI NA VPRAŠANJE] s svojim odgovorom." };
     return { ok: false, message: "Zadeva in besedilo ne smeta biti prazna." };
   }

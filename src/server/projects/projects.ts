@@ -146,7 +146,7 @@ async function recipient(db: Db, dealId: string) {
     .where(and(eq(inboundMessages.companyId, d.companyId), eq(inboundMessages.direction, "in")))
     .orderBy(desc(inboundMessages.receivedAt))
     .limit(1);
-  const [c] = await db.select({ email: contacts.email }).from(contacts).where(and(eq(contacts.companyId, d.companyId), sql`${contacts.email} is not null`)).limit(1);
+  const [c] = await db.select({ email: contacts.email }).from(contacts).where(and(eq(contacts.companyId, d.companyId), sql`${contacts.email} is not null and ${contacts.invalidAt} is null`)).limit(1);
   return { to: lastIn?.from ?? c?.email ?? null, inReplyTo: lastIn?.messageId ?? null, subject: lastIn?.subject ? (/^re:/i.test(lastIn.subject) ? lastIn.subject : `Re: ${lastIn.subject}`) : null };
 }
 

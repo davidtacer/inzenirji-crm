@@ -128,7 +128,7 @@ export async function proposalEmail(db: Db, id: string, st: Settings, now = new 
     .where(and(eq(inboundMessages.companyId, d.companyId), eq(inboundMessages.direction, "in")))
     .orderBy(desc(inboundMessages.receivedAt))
     .limit(1);
-  const [contact] = await db.select({ email: contacts.email }).from(contacts).where(and(eq(contacts.companyId, d.companyId), sql`${contacts.email} is not null`)).limit(1);
+  const [contact] = await db.select({ email: contacts.email }).from(contacts).where(and(eq(contacts.companyId, d.companyId), sql`${contacts.email} is not null and ${contacts.invalidAt} is null`)).limit(1);
   const to = lastIn?.from ?? contact?.email;
   if (!to) return { ok: false, message: "Podjetje nima e-naslova." };
   const t = totals(p.items as Item[], p.vatRateBp, st.vatPayer, p.depositPct);

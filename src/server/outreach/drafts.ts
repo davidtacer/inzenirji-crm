@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, inArray, lte, ne, sql } from "drizzle-orm";
 import { addToDnc, isBlocked } from "../contact/dnc";
+import { validEmails } from "../contact/emails";
 import { normalizeEmail } from "../contact/normalize";
 import { websiteKind } from "../contact/website";
 import type { Db } from "../db/client";
@@ -44,7 +45,7 @@ async function composeInput(db: Db, companyId: string) {
   const [contact] = await db
     .select({ email: contacts.email })
     .from(contacts)
-    .where(and(eq(contacts.companyId, companyId), sql`${contacts.email} is not null`))
+    .where(and(eq(contacts.companyId, companyId), sql`${contacts.email} is not null and ${contacts.invalidAt} is null`))
     .orderBy(asc(contacts.createdAt))
     .limit(1);
   const input: ComposeInput = {
@@ -156,7 +157,19 @@ export async function listDrafts(db: Db) {
     .innerJoin(companies, eq(companies.id, deals.companyId))
     .where(inArray(drafts.status, ["pending", "approved", "sent"]))
     .orderBy(sql`${companies.score} desc nulls last`, asc(drafts.createdAt));
+  // Valid addresses per company, for the recipient drop-down (ADR-044).
+  const ids = [...new Set(rows.filter((r) => r.status === "pending").map((r) => r.companyId))];
+  const all = ids.length
+    ? await db
+        .select({ companyId: contacts.companyId, email: contacts.email })
+        .from(contacts)
+        .where(and(inArray(contacts.companyId, ids), sql`${contacts.email} is not null and ${contacts.invalidAt} is null`))
+        .orderBy(asc(contacts.createdAt))
+    : [];
+  const emails: Record<string, string[]> = {};
+  for (const e of all) (emails[e.companyId] ??= []).push(e.email!);
   return {
+    emails,
     pending: rows.filter((r) => r.status === "pending"),
     approved: rows.filter((r) => r.status === "approved"),
     sent: rows
@@ -172,14 +185,25 @@ export async function pendingDraftCount(db: Db): Promise<number> {
 }
 
 /** Saves the owner's edits and approves in one step (ADR-004: approval is explicit and timestamped). */
-export async function approveDraft(db: Db, id: string, edit: { subject: string; body: string }, now = new Date()) {
+export async function approveDraft(db: Db, id: string, edit: { subject: string; body: string; toEmail?: string | null }, now = new Date()) {
   const subject = edit.subject.trim();
   const body = edit.body.replace(/\r\n/g, "\n").trim();
   if (!subject || !body) throw new Error("DRAFT_EMPTY");
   if (body.includes("[TUKAJ ODGOVORI")) throw new Error("DRAFT_PLACEHOLDER");
+  // Another recipient chosen in the drop-down: only a valid address of the same company (ADR-044).
+  let toEmail: string | undefined;
+  if (edit.toEmail) {
+    const want = normalizeEmail(edit.toEmail);
+    const [row] = await db.select({ companyId: deals.companyId, toEmail: drafts.toEmail }).from(drafts).innerJoin(deals, eq(deals.id, drafts.dealId)).where(eq(drafts.id, id)).limit(1);
+    if (!row) return false;
+    if (want && want !== row.toEmail) {
+      if (!(await validEmails(db, row.companyId)).includes(want) || (await isBlocked(db, { email: want, companyId: row.companyId }))) throw new Error("DRAFT_BAD_RECIPIENT");
+      toEmail = want;
+    }
+  }
   const r = await db
     .update(drafts)
-    .set({ subject, body, status: "approved", approvedAt: now })
+    .set({ subject, body, status: "approved", approvedAt: now, ...(toEmail ? { toEmail } : {}) })
     .where(and(eq(drafts.id, id), eq(drafts.status, "pending")))
     .returning({ id: drafts.id });
   return r.length === 1;
@@ -254,7 +278,11 @@ export async function addContactEmail(db: Db, companyId: string, rawEmail: strin
   const src = source.trim();
   if (!email) return { ok: false as const, message: "Neveljaven e-naslov." };
   if (src.length < 4) return { ok: false as const, message: "Vpiši, kje je e-naslov objavljen (povezava)." };
-  await db.insert(contacts).values({ companyId, email, emailSource: src }).onConflictDoNothing();
+  // The owner adding it again means it is right after all (clears an earlier "napačen" mark, ADR-044).
+  await db
+    .insert(contacts)
+    .values({ companyId, email, emailSource: src })
+    .onConflictDoUpdate({ target: [contacts.companyId, contacts.email], set: { invalidAt: null, invalidReason: null } });
   await rescoreCompany(db, companyId);
   return { ok: true as const, message: `Dodan ${email}.` };
 }

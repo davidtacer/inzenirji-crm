@@ -34,7 +34,7 @@ export async function rescoreCompany(db: Db, companyId: string): Promise<Score |
   const [email] = await db
     .select({ id: contacts.id })
     .from(contacts)
-    .where(and(eq(contacts.companyId, companyId), sql`${contacts.email} is not null`))
+    .where(and(eq(contacts.companyId, companyId), sql`${contacts.email} is not null and ${contacts.invalidAt} is null`))
     .limit(1);
   const score = scoreLead({
     ratingX10: c.ratingX10,

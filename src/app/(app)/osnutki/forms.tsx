@@ -24,13 +24,26 @@ function Msg({ state }: { state: ActionState }) {
   return state ? <p role="status" className={`font-mono text-xs ${state.ok ? "text-accent" : "text-danger-text"}`}>&gt; {state.message}</p> : null;
 }
 
-export function PendingDraftForm({ id, subject, body }: { id: string; subject: string; body: string }) {
+export function PendingDraftForm({ id, subject, body, toEmail, emails = [] }: { id: string; subject: string; body: string; toEmail?: string; emails?: string[] }) {
+  const options = toEmail && !emails.includes(toEmail) ? [toEmail, ...emails] : emails;
   const [state, approve, busy] = useActionState<ActionState, FormData>(approveAction, null);
   const [dState, discard, dBusy] = useActionState<ActionState, FormData>(discardAction, null);
   return (
     <div className="flex flex-col gap-3">
       <form action={approve} className="flex flex-col gap-3">
         <input type="hidden" name="id" value={id} />
+        {options.length > 1 ? (
+          <label className="flex flex-col gap-1">
+            <span className="font-mono text-[10px] uppercase tracking-widest text-text-secondary">Prejemnik</span>
+            <select name="toEmail" defaultValue={toEmail} className={input}>
+              {options.map((e) => (
+                <option key={e} value={e}>
+                  {e}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         <label className="flex flex-col gap-1">
           <span className="font-mono text-[10px] uppercase tracking-widest text-text-secondary">Zadeva</span>
           <input name="subject" defaultValue={subject} className={input} />

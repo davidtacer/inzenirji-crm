@@ -1,4 +1,5 @@
 import { and, desc, eq, inArray, isNotNull, ne, sql } from "drizzle-orm";
+import { emailBelongs } from "../contact/emails";
 import { domainOf, normalizeEmail } from "../contact/normalize";
 import { websiteKind } from "../contact/website";
 import type { Db } from "../db/client";
@@ -230,16 +231,18 @@ export async function runAudit(db: Db, companyId: string, deps: AuditDeps = {}) 
       summary,
     });
     await tx.update(companies).set({ group, updatedAt: new Date() }).where(eq(companies.id, c.id));
+    // Only addresses that belong to the company (ADR-044): not the web agency's in the footer, never a directory's.
+    const belongs = (e: string) => emailBelongs(e, { name: c.name, website: c.website, websiteDomain: c.websiteDomain }).ok;
     for (const raw of facts?.emails ?? []) {
       const email = normalizeEmail(raw);
-      if (!email) continue;
+      if (!email || !belongs(email)) continue;
       // Published by the business on its own site (ADR-007); the page is the source.
       await tx.insert(contacts).values({ companyId: c.id, email, emailSource: emailSource.get(raw) ?? page!.finalUrl }).onConflictDoNothing();
     }
     for (const e of web?.emails ?? []) {
       const email = normalizeEmail(e.email);
       // Seen on a page of the company that we opened ourselves (ADR-007, ADR-030).
-      if (email) await tx.insert(contacts).values({ companyId: c.id, email, emailSource: e.source }).onConflictDoNothing();
+      if (email && belongs(email)) await tx.insert(contacts).values({ companyId: c.id, email, emailSource: e.source }).onConflictDoNothing();
     }
     const links: { url: string; kind: string; source: string; verified: boolean; note: string | null }[] = [
       ...(web?.links ?? []),
@@ -258,7 +261,7 @@ export async function runAudit(db: Db, companyId: string, deps: AuditDeps = {}) 
     for (const raw of directory?.match ? directory.emails : []) {
       const email = normalizeEmail(raw);
       // Published in a public business directory (ADR-007); the directory page is the source.
-      if (email) await tx.insert(contacts).values({ companyId: c.id, email, emailSource: directory!.match!.url }).onConflictDoNothing();
+      if (email && belongs(email)) await tx.insert(contacts).values({ companyId: c.id, email, emailSource: directory!.match!.url }).onConflictDoNothing();
     }
     if (competitorSource === "nearby") await tx.delete(competitorLinks).where(eq(competitorLinks.companyId, c.id));
     for (const comp of competitors!) {
@@ -423,7 +426,7 @@ export async function listCompanies(db: Db, query: CompanyQuery | CompanyFilter 
   const triedDemo = sql<boolean>`(${deals.source} = 'editor_demo' or exists (select 1 from activities a where a.deal_id = ${deals.id} and a.type = 'note' and a.payload->>'kind' = 'editor_demo'))`;
   if (qy.source === "editor_demo") conds.push(triedDemo);
   else if (qy.source) conds.push(sql`${deals.source} = ${qy.source}`);
-  const hasEmail = sql`exists (select 1 from ${contacts} ct where ct.company_id = ${companies.id} and ct.email is not null)`;
+  const hasEmail = sql`exists (select 1 from ${contacts} ct where ct.company_id = ${companies.id} and ct.email is not null and ct.invalid_at is null)`;
   if (qy.email === "yes") conds.push(hasEmail);
   if (qy.email === "no") conds.push(sql`not ${hasEmail}`);
   const social = sql.join(SOCIAL_OR_LINK.map((d) => sql`${d}`), sql`, `);
