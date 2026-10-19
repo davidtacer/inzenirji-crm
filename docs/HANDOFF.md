@@ -21,6 +21,7 @@ Conversation with the owner in Slovenian; code and docs in English.
 - 2026-10-15: repo created by the owner; docs foundation (manifest, product spec, architecture, ADR-001…010,
   task list) from the business plan `inzenirji.si/docs/nacrt-rasti.md`.
 
+- 2026-10-19: ADR-047 smart search (activity/town lists, synonyms, skip 90 days, adaptive paging, history), https check before no_https, coming-soon phrases, draft author shown.
 - 2026-10-19: ADR-046 AI-phrase ban (humanizer) and the weekly bottleneck (theory of constraints).
 - 2026-10-19: ADR-045 first e-mail fully written by AI within checks; no competitor line; owner's editor sentence.
 - 2026-10-19: ADR-044 wrong e-mails (invalid mark, aggregator/foreign-domain rule, start-up sweep), Za klic list, recipient drop-down in drafts.
@@ -101,4 +102,4 @@ throwaway database. In the cloud sandbox: `initdb` as user postgres in `/var/tmp
 ## Next
 TASK-001 scaffold (Next.js + Tailwind + Drizzle + Postgres in Docker locally, CI), TASK-002 Kamal deploy skeleton, then the C1 phase (prospecting, research, scoring) — target 2026-11-07.
 
-Latest TASK: 037 · latest ADR: 046. Next candidates: Meta lead forms (rest of TASK-011, not a priority), after launch (TASK-018), win/loss (TASK-019), rest of TASK-011 inbound leads. Local Postgres for int tests may stop when the sandbox restarts — restart with `pg_ctl` (see above).
+Latest TASK: 038 · latest ADR: 047. Next candidates: Meta lead forms (rest of TASK-011, not a priority), after launch (TASK-018), win/loss (TASK-019), rest of TASK-011 inbound leads. Local Postgres for int tests may stop when the sandbox restarts — restart with `pg_ctl` (see above).

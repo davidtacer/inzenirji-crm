@@ -66,6 +66,23 @@ describe("runAudit", () => {
     ]);
   });
 
+  it("http address that works on https is not flagged; a 'kmalu bomo online' page is under construction (owner 2026-10-19)", async () => {
+    const c = await company({ name: "Studio Minimal", website: "http://studiominimal.si/", websiteDomain: "studiominimal.si" });
+    const PAGE = `<html><head><title>Studio Minimal</title></head><body><h1>Kmalu bomo z vami tudi online!</h1><p>00 Days 00 Hours</p>
+<p>V tem času, ko naša stran še nastaja, nas pokličite na 040 261 207 ali pišite na info@studiominimal.si</p></body></html>`;
+    const seen: string[] = [];
+    const f = (async (u: string) => {
+      seen.push(String(u));
+      return new Response(PAGE, { status: 200, headers: { "content-type": "text/html" } });
+    }) as unknown as typeof fetch;
+    await runAudit(db, c.id, { fetchImpl: f, resolve });
+    expect(seen.slice(0, 2)).toEqual(["http://studiominimal.si/", "https://studiominimal.si/"]);
+    const d = (await companyDetail(db, c.id))!;
+    const codes = (d.audit!.issues as { code: string }[]).map((i) => i.code);
+    expect(codes).not.toContain("no_https");
+    expect(codes[0]).toBe("site_under_construction");
+  });
+
   it("unreachable own site → group B, error kept, never touches a later stage", async () => {
     const c = await company({ name: "Mrtva stran", website: "https://mrtva.si", websiteDomain: "mrtva.si" });
     await admin`update deals set stage = 'contacted'`;

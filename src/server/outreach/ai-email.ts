@@ -92,15 +92,16 @@ export function checkAiEmail(
  * The AI first e-mail for a company, or null (AI off, over budget, failed twice); the caller falls back to the
  * template. Every call is logged in ai_usage as "first_email".
  */
-export async function aiFirstEmail(db: Db, companyId: string, cfg: AiConfig | null, rivals: string[], now = new Date()): Promise<(Composed & { model: string }) | null> {
-  if (!cfg) return null;
+export async function aiFirstEmail(db: Db, companyId: string, cfg: AiConfig | null, rivals: string[], now = new Date()): Promise<(Composed & { model: string }) | { reason: string }> {
+  if (!cfg) return { reason: "AI je izklopljen (ključ ali dnevni AI proračun v Nastavitvah)" };
   const [c] = await db.select().from(companies).where(eq(companies.id, companyId)).limit(1);
   const [audit] = await db.select().from(audits).where(eq(audits.companyId, companyId)).orderBy(desc(audits.createdAt)).limit(1);
-  if (!c || !audit) return null;
+  if (!c || !audit) return { reason: "podjetje še ni raziskano" };
   const user = buildPrompt(c, (audit.issues ?? []) as Issue[], (audit.data ?? {}) as Parameters<typeof buildPrompt>[2]);
   let feedback = "";
+  let lastProblems: string[] = [];
   for (let attempt = 0; attempt < 2; attempt++) {
-    if ((await spentTodayMicroUsd(db, now)) >= cfg.dailyBudgetMicroUsd) return null;
+    if ((await spentTodayMicroUsd(db, now)) >= cfg.dailyBudgetMicroUsd) return { reason: "dnevni AI proračun je porabljen" };
     try {
       const res = await callClaude(
         { model: cfg.model, system: systemFor(c.group, c.city), user: user + feedback, maxTokens: 900 },
@@ -117,11 +118,12 @@ export async function aiFirstEmail(db: Db, companyId: string, cfg: AiConfig | nu
         ok: checked.ok,
       });
       if (checked.ok) return { ...checked.email, model: cfg.model };
+      lastProblems = checked.problems;
       feedback = `\n\nPREJŠNJI POSKUS NI USTREZAL PRAVILOM (${checked.problems.join("; ")}). Napiši znova in upoštevaj vsa pravila.`;
     } catch (e) {
       console.error("[first_email] AI failed:", e instanceof Error ? e.message.slice(0, 120) : "unknown");
-      return null;
+      return { reason: "AI se ni odzval" };
     }
   }
-  return null;
+  return { reason: `AI besedilo ni prestalo preverjanja (${lastProblems.join("; ")})` };
 }

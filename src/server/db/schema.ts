@@ -229,6 +229,8 @@ export const drafts = pgTable(
     /** For reply drafts: the prospect's Message-ID we answer (threading). */
     inReplyTo: text("in_reply_to"),
     /** What sending this draft triggers (TASK-014): "project_confirm" starts the guarantee clock of `refId`. */
+    /** First e-mails: "ai:<model>" or "predloga: <why AI was not used>" (ADR-045), shown in Osnutki. */
+    writtenBy: text("written_by"),
     purpose: text("purpose"),
     refId: uuid("ref_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -595,3 +597,21 @@ export const weeklyReports = pgTable("weekly_reports", {
   sentAt: timestamp("sent_at", { withTimezone: true }),
   sendError: text("send_error"),
 });
+
+/** Every Google Places query (smart and manual): what was searched and how many new companies it brought (smart search). */
+export const placesSearches = pgTable(
+  "places_searches",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    query: text("query").notNull(),
+    /** Activity key from the catalog; null for a manual query. */
+    activity: text("activity"),
+    town: text("town"),
+    pages: smallint("pages").notNull().default(1),
+    found: integer("found").notNull().default(0),
+    created: integer("created").notNull().default(0),
+    updated: integer("updated").notNull().default(0),
+    at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("places_searches_query_idx").on(t.query, t.at), index("places_searches_activity_idx").on(t.activity, t.town)],
+);

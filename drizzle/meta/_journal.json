@@ -141,6 +141,13 @@
       "when": 1792400138117,
       "tag": "0019_invalid_emails",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1792419141608,
+      "tag": "0020_smart_search",
+      "breakpoints": true
     }
   ]
 }

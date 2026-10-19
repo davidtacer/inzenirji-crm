@@ -81,6 +81,11 @@ export default async function DraftsPage() {
               <article key={x.id} className="border border-border bg-surface">
                 <Head d={x} />
                 <div className="p-5">
+                  {x.writtenBy ? (
+                    <p className={`mb-3 font-mono text-[10px] uppercase tracking-widest ${x.writtenBy.startsWith("ai:") ? "text-accent" : "text-[#F0B429]"}`}>
+                      {x.writtenBy.startsWith("ai:") ? "Napisal AI za to podjetje" : `Predloga - ${x.writtenBy.replace(/^predloga:\s*/, "")}`}
+                    </p>
+                  ) : null}
                   <PendingDraftForm id={x.id} subject={x.subject} body={x.body} toEmail={x.toEmail} emails={d.emails[x.companyId] ?? []} />
                 </div>
               </article>

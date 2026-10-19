@@ -85,6 +85,16 @@ export async function runAudit(db: Db, companyId: string, deps: AuditDeps = {}) 
   if (kind === "own" && c.website) {
     try {
       page = await safeFetch(/^https?:\/\//i.test(c.website) ? c.website : `https://${c.website}`, deps);
+      // Google often lists "http://…" for a site that works on https but does not redirect: try https before
+      // calling it insecure (owner 2026-10-19: studiominimal.si was flagged "ni HTTPS", which was not true).
+      if (!page.https) {
+        try {
+          const secure = await safeFetch(page.finalUrl.replace(/^http:/i, "https:"), { ...deps, timeoutMs: 8_000 });
+          if (secure.status < 400) page = secure;
+        } catch {
+          /* really no https */
+        }
+      }
       scanned.push({ url: page.finalUrl, status: page.status });
       if (page.status < 400) {
         facts = analyzeHtml(page.html);
