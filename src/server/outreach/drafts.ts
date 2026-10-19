@@ -79,10 +79,11 @@ export async function createFirstDraft(db: Db, companyId: string, ai: AiConfig |
   // The whole e-mail by AI (ADR-045), only now, for leads the owner writes to (cost). If AI is off, over budget or
   // its text fails the checks twice: the template with the AI remark (or the rules).
   const full = await aiFirstEmail(db, companyId, ai, ctx.rivals);
-  const m = full ?? composeFirst({ ...ctx.input, aiRemark: (await ensureAiRemark(db, companyId, ai))?.remark ?? null });
+  const m = "body" in full ? full : composeFirst({ ...ctx.input, aiRemark: (await ensureAiRemark(db, companyId, ai))?.remark ?? null });
+  const writtenBy = "body" in full ? `ai:${full.model}` : `predloga: ${full.reason}`.slice(0, 300);
   const [d] = await db
     .insert(drafts)
-    .values({ dealId: ctx.dealId, kind: "first", toEmail: ctx.email, subject: m.subject, body: m.body })
+    .values({ dealId: ctx.dealId, kind: "first", toEmail: ctx.email, subject: m.subject, body: m.body, writtenBy })
     .onConflictDoNothing()
     .returning({ id: drafts.id });
   return d ? { ok: true, draftId: d.id } : { ok: false, reason: "EXISTS" };
@@ -143,6 +144,7 @@ export async function listDrafts(db: Db) {
       id: drafts.id,
       kind: drafts.kind,
       status: drafts.status,
+      writtenBy: drafts.writtenBy,
       toEmail: drafts.toEmail,
       subject: drafts.subject,
       body: drafts.body,

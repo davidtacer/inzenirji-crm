@@ -11,7 +11,7 @@ import { jobs } from "./db/schema";
 
 export const STALE_MS = 30 * 60_000;
 
-export type JobKind = "research_one" | "research_batch" | "research_deepen" | "google_overview" | "weekly_report";
+export type JobKind = "research_one" | "research_batch" | "research_deepen" | "google_overview" | "weekly_report" | "smart_search";
 export type JobRow = typeof jobs.$inferSelect;
 export type Progress = (p: { done: number; failed: number; total: number }) => Promise<void>;
 

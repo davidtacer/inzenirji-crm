@@ -43,5 +43,9 @@ export async function runPlacesSearch(
     token = page.nextPageToken;
   }
   const { created, updated } = await importPlaces(db, all);
+  if (calls) {
+    const { logSearch } = await import("./smart");
+    await logSearch(db, { query: input.query, pages: calls, found: all.length, created, updated });
+  }
   return { created, updated, found: all.length, calls, stoppedByQuota };
 }
