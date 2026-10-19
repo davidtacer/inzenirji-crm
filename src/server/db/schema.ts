@@ -119,6 +119,9 @@ export const contacts = pgTable(
     emailSource: text("email_source"),
     phone: text("phone"),
     role: text("role"),
+    /** Marked wrong by the owner (e.g. an aggregator's address): kept so research never adds it back; never e-mailed (ADR-044). */
+    invalidAt: timestamp("invalid_at", { withTimezone: true }),
+    invalidReason: text("invalid_reason"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -173,6 +176,10 @@ export const deals = pgTable(
     nextActionAt: timestamp("next_action_at", { withTimezone: true }),
     lostReason: text("lost_reason"),
     valueCents: integer("value_cents"),
+    /** "call" = the owner chose to phone this lead instead of e-mailing (ADR-044); null = e-mail when possible. */
+    channel: text("channel"),
+    /** "Za klic": not reached, show again after this time. */
+    callLaterAt: timestamp("call_later_at", { withTimezone: true }),
     /** Agreed call time (TASK-012); Google Calendar sync later. */
     callAt: timestamp("call_at", { withTimezone: true }),
     /** Pre-call brief (AI or rules), shown on the company page and on "Klici". */

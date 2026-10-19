@@ -1,6 +1,6 @@
 import { and, eq, or, sql } from "drizzle-orm";
 import type { Db } from "../db/client";
-import { doNotContact } from "../db/schema";
+import { contacts, doNotContact } from "../db/schema";
 import { domainOf, normalizeEmail } from "./normalize";
 
 export type DncTarget = { email: string; companyId?: string };
@@ -20,7 +20,10 @@ export async function isBlocked(db: Db, target: DncTarget): Promise<boolean> {
   ];
   if (target.companyId) conds.push(and(eq(doNotContact.kind, "company"), eq(doNotContact.value, target.companyId.toLowerCase())));
   const rows = await db.select({ id: doNotContact.id }).from(doNotContact).where(or(...conds)).limit(1);
-  return rows.length > 0;
+  if (rows.length > 0) return true;
+  // An address the owner marked wrong (ADR-044) is never e-mailed either.
+  const [bad] = await db.select({ id: contacts.id }).from(contacts).where(and(eq(contacts.email, email), sql`${contacts.invalidAt} is not null`)).limit(1);
+  return !!bad;
 }
 
 /** Adds an entry; idempotent. Opt-outs are permanent — there is deliberately no remove function. */

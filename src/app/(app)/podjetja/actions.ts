@@ -10,6 +10,9 @@ import { linkKind, runOverview } from "@/server/research/overview";
 import { companies, companyLinks } from "@/server/db/schema";
 import { domainOf } from "@/server/contact/normalize";
 import { eq } from "drizzle-orm";
+import { markEmailInvalid, markEmailValid } from "@/server/contact/emails";
+import { callLater, setChannel } from "@/server/calls/calllist";
+import { rescoreCompany } from "@/server/scoring/apply";
 
 /** Research options from Nastavitve: Google Places cap, AI web search (TASK-031). */
 async function researchDeps() {
@@ -126,4 +129,51 @@ export async function setWebsiteAction(_prev: ActionState, form: FormData): Prom
   await getDb().update(companies).set({ website: url, websiteDomain: domainOf(url), updatedAt: new Date() }).where(eq(companies.id, id));
   revalidatePath(`/podjetja/${id}`);
   return { ok: true, message: "Nastavljeno. Klikni »Raziskuj znova«, da CRM pregleda stran." };
+}
+
+/* ---------- wrong e-mails and the phone channel (ADR-044) ---------- */
+
+export async function markInvalidAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  if (!(await getCurrentUser())) return { ok: false, message: "Prijava je potekla." };
+  const id = String(form.get("companyId") ?? "");
+  if (!/^[0-9a-f-]{36}$/.test(id)) return { ok: false, message: "Neveljavno podjetje." };
+  const reason = String(form.get("reason") ?? "").trim() || "napačen";
+  const r = await markEmailInvalid(getDb(), id, String(form.get("email") ?? ""), reason);
+  await rescoreCompany(getDb(), id);
+  revalidatePath(`/podjetja/${id}`);
+  revalidatePath("/osnutki");
+  revalidatePath("/za-klic");
+  return r;
+}
+
+export async function markValidAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  if (!(await getCurrentUser())) return { ok: false, message: "Prijava je potekla." };
+  const id = String(form.get("companyId") ?? "");
+  if (!/^[0-9a-f-]{36}$/.test(id)) return { ok: false, message: "Neveljavno podjetje." };
+  const r = await markEmailValid(getDb(), id, String(form.get("email") ?? ""));
+  await rescoreCompany(getDb(), id);
+  revalidatePath(`/podjetja/${id}`);
+  revalidatePath("/za-klic");
+  return r;
+}
+
+export async function setChannelAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  if (!(await getCurrentUser())) return { ok: false, message: "Prijava je potekla." };
+  const id = String(form.get("companyId") ?? "");
+  if (!/^[0-9a-f-]{36}$/.test(id)) return { ok: false, message: "Neveljavno podjetje." };
+  const call = form.get("channel") === "call";
+  await setChannel(getDb(), id, call ? "call" : null);
+  revalidatePath(`/podjetja/${id}`);
+  revalidatePath("/za-klic");
+  revalidatePath("/osnutki");
+  return { ok: true, message: call ? "Podjetje je v seznamu Za klic. Odprti e-maili zanj so preklicani." : "Spet kontakt po e-mailu." };
+}
+
+export async function callLaterAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  if (!(await getCurrentUser())) return { ok: false, message: "Prijava je potekla." };
+  const id = String(form.get("companyId") ?? "");
+  if (!/^[0-9a-f-]{36}$/.test(id)) return { ok: false, message: "Neveljavno podjetje." };
+  await callLater(getDb(), id, 2);
+  revalidatePath("/za-klic");
+  return { ok: true, message: "Pokažem znova čez 2 dni." };
 }

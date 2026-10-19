@@ -14,6 +14,7 @@ import {
   Settings,
   ShieldBan,
   type LucideIcon,
+  Phone,
 } from "lucide-react";
 
 type Item = { href: string; label: string; icon: LucideIcon; soon?: boolean };
@@ -29,6 +30,7 @@ const GROUPS: Group[] = [
       { href: "/osnutki", label: "Osnutki", icon: Mail },
       { href: "/odgovori", label: "Odgovori", icon: Inbox },
       { href: "/klici", label: "Klici", icon: CalendarClock },
+      { href: "/za-klic", label: "Za klic", icon: Phone },
       { href: "/ponudbe", label: "Ponudbe", icon: FileText },
     ],
   },
