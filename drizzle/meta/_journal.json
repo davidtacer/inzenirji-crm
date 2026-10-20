@@ -148,6 +148,13 @@
       "when": 1792419141608,
       "tag": "0020_smart_search",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1792501225819,
+      "tag": "0021_draft_attachments",
+      "breakpoints": true
     }
   ]
 }
