@@ -16,7 +16,7 @@ import {
   listDrafts,
   markReplied,
 } from "./drafts";
-import { sendApprovedDraft, type OutreachConfig } from "./send";
+import { sendApprovedDraft, sentTodayByKind, type OutreachConfig } from "./send";
 import { autoSendFollowUp, inSendWindow } from "./autosend";
 import { verifyUnsubscribeToken } from "./unsubscribe";
 
@@ -94,6 +94,7 @@ describe("outreach flow", () => {
     expect(f1.subject).toBe("Re: Spletna stran za Ana");
     await approveDraft(db, f1.id, { subject: f1.subject, body: f1.body }, day(3));
     expect((await sendApprovedDraft(db, f1.id, { mailer, config: cfg, now: day(3) })).ok).toBe(true);
+    expect(await sentTodayByKind(db, day(3))).toEqual({ first: 0, followUps: 1 });
 
     expect(await createDueFollowUps(db, day(7))).toBe(0);
     expect(await createDueFollowUps(db, day(8))).toBe(1);

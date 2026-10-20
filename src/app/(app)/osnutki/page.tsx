@@ -7,7 +7,7 @@ import { createDueFollowUps, dueFollowUpCount, listDrafts } from "@/server/outre
 import { jobView } from "@/lib/jobs";
 import { latestJob, runningJob, startJob } from "@/server/jobs";
 import { JobLine } from "../podjetja/buttons";
-import { lockReason, outreachConfig, sentToday } from "@/server/outreach/send";
+import { lockReason, outreachConfig, sentToday, sentTodayByKind } from "@/server/outreach/send";
 import { getSettings } from "@/server/settings";
 import { ApprovedDraftActions, PendingDraftForm } from "./forms";
 import { aiConfig, spentTodayMicroUsd } from "@/server/ai/remark";
@@ -53,7 +53,7 @@ export default async function DraftsPage() {
     });
   }
   const fuJob = await latestJob(db, ["followups"], undefined, 10 * 60_000);
-  const [d, today, aiSpent] = await Promise.all([listDrafts(db), sentToday(db), spentTodayMicroUsd(db)]);
+  const [d, today, byKind, aiSpent] = await Promise.all([listDrafts(db), sentToday(db), sentTodayByKind(db), spentTodayMicroUsd(db)]);
   const cfg = outreachConfig(st);
   const lock = lockReason(st);
   return (
@@ -68,7 +68,12 @@ export default async function DraftsPage() {
           </Link>
         </p>
         <p className="mt-1 text-text-secondary">
-          Danes poslanih: {today} / {cfg.dailyCap} · odjava je v vsakem e-mailu (stavek + glava List-Unsubscribe)
+          Danes poslanih: {today} / {cfg.dailyCap} (prvi e-maili: {byKind.first}, follow-upi: {byKind.followUps}; odgovori se ne štejejo) · odjava je v vsakem
+          e-mailu (stavek + glava List-Unsubscribe)
+        </p>
+        <p className="mt-1 text-text-secondary">
+          Omejitev šteje vse hladne e-maile, ker za ugled domene inzenirji.si šteje skupno število. Dvigni jo postopoma v Nastavitvah (+5 na teden, dokler ni
+          zavrnjenih).
         </p>
         <p className="mt-1 text-text-secondary">
           {ai

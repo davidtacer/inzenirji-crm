@@ -21,6 +21,7 @@ Conversation with the owner in Slovenian; code and docs in English.
 - 2026-10-15: repo created by the owner; docs foundation (manifest, product spec, architecture, ADR-001…010,
   task list) from the business plan `inzenirji.si/docs/nacrt-rasti.md`.
 
+- 2026-10-20: Osnutki shows today's sends split into first e-mails and follow-ups; the cap still counts all cold e-mails (ADR-013).
 - 2026-10-20: ADR-049 structured outputs (json_schema) for all JSON AI answers, fallback without it.
 - 2026-10-20: ADR-048 AI-written follow-ups per company, short business name, lenient AI answer parsing.
 - 2026-10-19: ADR-047 smart search (activity/town lists, synonyms, skip 90 days, adaptive paging, history), https check before no_https, coming-soon phrases, draft author shown.
