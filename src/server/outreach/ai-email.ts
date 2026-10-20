@@ -97,6 +97,13 @@ export function parseModelEmail(raw: string): { subject?: string; body?: string;
   return { ok: false, keys: [] };
 }
 
+const str = { type: "string" };
+export const EMAIL_SCHEMA = { type: "object", properties: { subject: str, body: str }, required: ["subject", "body"], additionalProperties: false };
+export const BODY_SCHEMA = { type: "object", properties: { body: str }, required: ["body"], additionalProperties: false };
+
+/** Why an answer could not be read, for the log (never the text itself beyond 60 characters). */
+const answerInfo = (r: { text: string; stopReason?: string | null }) => `stop=${r.stopReason ?? "?"} len=${r.text.length} starts=${JSON.stringify(r.text.slice(0, 60))}`;
+
 const WORDS = (s: string) => s.split(/\s+/).filter(Boolean).length;
 
 /** Tidies the model text and checks it; returns the e-mail or the list of problems. */
@@ -105,7 +112,7 @@ export function checkAiEmail(
   ctx: { group: "A" | "B" | null; rivals: string[]; companyName: string },
 ): { ok: true; email: Composed } | { ok: false; problems: string[] } {
   const parsed = parseModelEmail(raw);
-  if (!parsed.ok) return { ok: false, problems: ["ni JSON"] };
+  if (!parsed.ok) return { ok: false, problems: [raw.trim() ? "ni JSON" : "prazen odgovor"] };
   if (typeof parsed.body !== "string") return { ok: false, problems: [`manjka besedilo (ključi: ${parsed.keys.join(", ") || "ni"})`] };
   // A missing subject is not worth a second paid call: a short personal one from the company name.
   if (typeof parsed.subject !== "string" || !parsed.subject.trim()) parsed.subject = `Spletna stran za ${shortName(ctx.companyName)}`;
@@ -158,7 +165,7 @@ export async function aiFirstEmail(db: Db, companyId: string, cfg: AiConfig | nu
     if ((await spentTodayMicroUsd(db, now)) >= cfg.dailyBudgetMicroUsd) return { reason: "dnevni AI proračun je porabljen" };
     try {
       const res = await callClaude(
-        { model: cfg.model, system: systemFor(c.group, c.city), user: user + feedback, maxTokens: 900 },
+        { model: cfg.model, system: systemFor(c.group, c.city), user: user + feedback, maxTokens: 2000, schema: EMAIL_SCHEMA },
         { apiKey: cfg.apiKey, fetchImpl: cfg.fetchImpl, timeoutMs: 60_000 },
       );
       const checked = checkAiEmail(res.text, { group: c.group, rivals, companyName: c.name });
@@ -173,7 +180,7 @@ export async function aiFirstEmail(db: Db, companyId: string, cfg: AiConfig | nu
       });
       if (checked.ok) return { ...checked.email, model: cfg.model };
       lastProblems = checked.problems;
-      console.warn(`[ai-email] check failed: ${checked.problems.join("; ").slice(0, 200)} · answer starts: ${JSON.stringify(res.text.slice(0, 60))}`);
+      console.warn(`[ai-email] check failed: ${checked.problems.join("; ").slice(0, 200)} · ${answerInfo(res)}`);
       feedback = `\n\nPREJŠNJI POSKUS NI USTREZAL PRAVILOM (${checked.problems.join("; ")}). Napiši znova in upoštevaj vsa pravila. Odgovori SAMO z JSON.`;
     } catch (e) {
       console.error("[first_email] AI failed:", e instanceof Error ? e.message.slice(0, 120) : "unknown");
@@ -237,7 +244,7 @@ export function checkAiFollowUp(
   ctx: { kind: "followup_1" | "followup_2"; firstBody: string; rivals: string[] },
 ): { ok: true; body: string } | { ok: false; problems: string[] } {
   const parsed = parseModelEmail(raw);
-  if (!parsed.ok) return { ok: false, problems: ["ni JSON"] };
+  if (!parsed.ok) return { ok: false, problems: [raw.trim() ? "ni JSON" : "prazen odgovor"] };
   if (typeof parsed.body !== "string") return { ok: false, problems: [`manjka besedilo (ključi: ${parsed.keys.join(", ") || "ni"})`] };
   let body = parsed.body
     .replace(/\r\n/g, "\n")
@@ -291,7 +298,7 @@ export async function aiFollowUp(
     if ((await spentTodayMicroUsd(db, now)) >= cfg.dailyBudgetMicroUsd) return { reason: "dnevni AI proračun je porabljen" };
     try {
       const res = await callClaude(
-        { model: cfg.model, system: followUpSystem(input.kind), user: user + feedback, maxTokens: 600 },
+        { model: cfg.model, system: followUpSystem(input.kind), user: user + feedback, maxTokens: 1500, schema: BODY_SCHEMA },
         { apiKey: cfg.apiKey, fetchImpl: cfg.fetchImpl, timeoutMs: 60_000 },
       );
       const checked = checkAiFollowUp(res.text, { kind: input.kind, firstBody: input.firstBody, rivals: input.rivals });
@@ -306,7 +313,8 @@ export async function aiFollowUp(
       });
       if (checked.ok) return { body: checked.body, model: cfg.model };
       lastProblems = checked.problems;
-      console.warn(`[ai-email] check failed: ${checked.problems.join("; ").slice(0, 200)} · answer starts: ${JSON.stringify(res.text.slice(0, 60))}`);
+      console.warn(`[followup] check failed: ${checked.problems.join("; ").slice(0, 200)} · ${answerInfo(res)}`);
+      console.warn(`[ai-email] check failed: ${checked.problems.join("; ").slice(0, 200)} · ${answerInfo(res)}`);
       feedback = `\n\nPREJŠNJI POSKUS NI USTREZAL PRAVILOM (${checked.problems.join("; ")}). Napiši znova in upoštevaj vsa pravila. Odgovori SAMO z JSON.`;
     } catch (e) {
       console.error("[followup] AI failed:", e instanceof Error ? e.message.slice(0, 120) : "unknown");

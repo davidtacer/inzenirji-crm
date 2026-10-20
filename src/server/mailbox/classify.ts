@@ -61,7 +61,7 @@ export async function classifyReply(m: InboundMail, ai: AiConfig | null): Promis
   const model = "claude-haiku-5-5";
   try {
     const r = await callClaude(
-      { model, system: SYSTEM, user: `Zadeva: ${m.subject}\n\n${ownText(m.text).slice(0, 3000)}`, maxTokens: 30 },
+      { model, system: SYSTEM, user: `Zadeva: ${m.subject}\n\n${ownText(m.text).slice(0, 3000)}`, maxTokens: 300, schema: { type: "object", properties: { class: { type: "string", enum: ["interested", "not_now", "no", "question"] } }, required: ["class"], additionalProperties: false } },
       { apiKey: ai.apiKey, fetchImpl: ai.fetchImpl },
     );
     const cls = r.text.match(/"class"\s*:\s*"(interested|not_now|no|question)"/)?.[1] as ReplyClass | undefined;

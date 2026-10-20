@@ -158,7 +158,7 @@ export async function prepareBrief(db: Db, companyId: string, ai: AiConfig | nul
       .filter(Boolean)
       .join("\n");
     try {
-      const r = await callClaude({ model: ai.model, system: BRIEF_SYSTEM, user, maxTokens: 900 }, { apiKey: ai.apiKey, fetchImpl: ai.fetchImpl });
+      const r = await callClaude({ model: ai.model, system: BRIEF_SYSTEM, user, maxTokens: 2500, schema: { type: "object", properties: { business: { type: "string" }, problems: { type: "array", items: { type: "string" } }, competitors: { type: "string" }, objections: { type: "array", items: { type: "string" } }, offer: { type: "string" }, questions: { type: "array", items: { type: "string" } } }, required: ["business", "problems", "competitors", "objections", "offer", "questions"], additionalProperties: false } }, { apiKey: ai.apiKey, fetchImpl: ai.fetchImpl });
       const parsed = parseBrief(r.text);
       await db.insert(aiUsage).values({ job: "brief", model: ai.model, companyId, inputTokens: r.inputTokens, outputTokens: r.outputTokens, costMicroUsd: r.costMicroUsd, ok: !!parsed });
       if (parsed) brief = { source: "ai", ...parsed };
@@ -195,7 +195,7 @@ export async function saveCallNotes(db: Db, companyId: string, notes: string, ai
   let summary: CallSummary = { source: "notes", summary: text.slice(0, 600), scope: "", wishes: [], objections: [], nextStep: "", package: null, materials: [...MATERIALS] };
   if (ai) {
     try {
-      const r = await callClaude({ model: ai.model, system: NOTES_SYSTEM, user: text.slice(0, 6000), maxTokens: 700 }, { apiKey: ai.apiKey, fetchImpl: ai.fetchImpl });
+      const r = await callClaude({ model: ai.model, system: NOTES_SYSTEM, user: text.slice(0, 6000), maxTokens: 2000, schema: { type: "object", properties: { summary: { type: "string" }, scope: { type: "string" }, wishes: { type: "array", items: { type: "string" } }, objections: { type: "array", items: { type: "string" } }, nextStep: { type: "string" }, package: { type: ["string", "null"], enum: ["A", "B", null] }, materials: { type: "array", items: { type: "string" } } }, required: ["summary", "scope", "wishes", "objections", "nextStep", "package", "materials"], additionalProperties: false } }, { apiKey: ai.apiKey, fetchImpl: ai.fetchImpl });
       const j = JSON.parse(r.text.match(/\{[\s\S]*\}/)?.[0] ?? "null") as Record<string, unknown> | null;
       const arr = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string").slice(0, 10) : []);
       const ok = !!j && typeof j.summary === "string";

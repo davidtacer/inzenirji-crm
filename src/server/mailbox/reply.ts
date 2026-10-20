@@ -113,7 +113,7 @@ export async function composeReply(
             ours ? `\nTvoj zadnji e-mail njim:\n${ours.slice(0, 2000)}` : "",
             `\nNjihov odgovor (zadeva: ${m.subject}):\n${ownText(m.text).slice(0, 3000)}`,
           ].join("\n"),
-          maxTokens: 500,
+          maxTokens: 1500,
         },
         { apiKey: ai.apiKey, fetchImpl: ai.fetchImpl },
       );
