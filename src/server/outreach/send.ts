@@ -84,6 +84,17 @@ export async function sentToday(db: Db, now = new Date()): Promise<number> {
   return r?.n ?? 0;
 }
 
+/** Today's cold e-mails split by kind, for the Osnutki page (owner 2026-10-20: "tu so not follow up emaili zraven"). */
+export async function sentTodayByKind(db: Db, now = new Date()): Promise<{ first: number; followUps: number }> {
+  const rows = await db
+    .select({ kind: drafts.kind, n: sql<number>`count(*)::int` })
+    .from(drafts)
+    .where(and(eq(drafts.status, "sent"), gte(drafts.sentAt, startOfLocalDay(now)), sql`${drafts.kind}::text <> 'reply'`))
+    .groupBy(drafts.kind);
+  const n = (k: string) => rows.filter((r) => r.kind === k).reduce((a, r) => a + r.n, 0);
+  return { first: n("first"), followUps: n("followup_1") + n("followup_2") };
+}
+
 export const messageIdFor = (draftId: string) => `<${draftId}@inzenirji.si>`;
 
 export function buildMail(d: { id?: string; toEmail: string; subject: string; body: string; inReplyTo?: string | null }, cfg: OutreachConfig): Mail {
