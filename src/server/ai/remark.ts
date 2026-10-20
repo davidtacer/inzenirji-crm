@@ -118,7 +118,7 @@ export async function ensureAiRemark(db: Db, companyId: string, cfg: AiConfig | 
   if (!c) return null;
   try {
     const res = await callClaude(
-      { model: cfg.model, system: SYSTEM, user: buildPrompt(c, (audit.issues ?? []) as Issue[], data), maxTokens: 300 },
+      { model: cfg.model, system: SYSTEM, user: buildPrompt(c, (audit.issues ?? []) as Issue[], data), maxTokens: 1000, schema: { type: "object", properties: { remark: { type: "string" }, basis: { type: "string" } }, required: ["remark", "basis"], additionalProperties: false } },
       { apiKey: cfg.apiKey, fetchImpl: cfg.fetchImpl },
     );
     const clean = cleanRemark(res.text);

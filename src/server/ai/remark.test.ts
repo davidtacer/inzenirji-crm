@@ -41,11 +41,30 @@ describe("anthropic client", () => {
       return new Response(JSON.stringify({ content: [{ type: "text", text: "{}" }], usage: { input_tokens: 3000, output_tokens: 100 } }), { status: 200 });
     }) as unknown as typeof fetch;
     const r = await callClaude({ model: "claude-sonnet-5-5", system: "s", user: "u", maxTokens: 300 }, { apiKey: "KEY", fetchImpl: fake });
-    expect(r).toEqual({ text: "{}", inputTokens: 3000, outputTokens: 100, costMicroUsd: 7000 });
+    expect(r).toEqual({ text: "{}", inputTokens: 3000, outputTokens: 100, costMicroUsd: 7000, stopReason: null });
     const headers = sent!.init.headers as Record<string, string>;
     expect(headers["x-api-key"]).toBe("KEY");
     expect(JSON.parse(String(sent!.init.body))).toMatchObject({ model: "claude-sonnet-5-5", max_tokens: 300, system: "s" });
     expect(costMicroUsd("claude-haiku-5-5", 1_000_000, 0)).toBe(100_000);
+  });
+  it("asks for structured JSON when a schema is given; without it when the model refuses the option", async () => {
+    const bodies: Record<string, unknown>[] = [];
+    const schema = { type: "object", properties: { body: { type: "string" } }, required: ["body"], additionalProperties: false };
+    const ok = (async (_u: string, init: RequestInit) => {
+      bodies.push(JSON.parse(String(init.body)));
+      return Response.json({ content: [{ type: "text", text: '{"body":"x"}' }], usage: {}, stop_reason: "end_turn" });
+    }) as unknown as typeof fetch;
+    const r = await callClaude({ model: "claude-sonnet-5-5", system: "s", user: "u", maxTokens: 100, schema }, { apiKey: "K", fetchImpl: ok });
+    expect(r.stopReason).toBe("end_turn");
+    expect(bodies[0]!.output_config).toEqual({ format: { type: "json_schema", schema } });
+    let n = 0;
+    const old = (async (_u: string, init: RequestInit) => {
+      n++;
+      if (JSON.parse(String(init.body)).output_config) return Response.json({ error: { type: "invalid_request_error", message: "output_config: not supported" } }, { status: 400 });
+      return Response.json({ content: [{ type: "text", text: "ok" }], usage: {} });
+    }) as unknown as typeof fetch;
+    expect((await callClaude({ model: "old", system: "s", user: "u", maxTokens: 100, schema }, { apiKey: "K", fetchImpl: old })).text).toBe("ok");
+    expect(n).toBe(2);
   });
   it("errors carry only the status", async () => {
     const fake = (async () => new Response("secret body", { status: 401 })) as unknown as typeof fetch;
