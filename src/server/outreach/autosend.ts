@@ -3,6 +3,7 @@ import type { Db } from "../db/client";
 import { deals, drafts } from "../db/schema";
 import type { Mailer } from "../email/mailer";
 import { toLocalInput } from "@/lib/time";
+import type { AiConfig } from "../ai/remark";
 import { createDueFollowUps } from "./drafts";
 import { type OutreachConfig, type SendError, sendApprovedDraft } from "./send";
 
@@ -25,12 +26,12 @@ export type AutoSendResult = { status: "off" | "outside_window" | "nothing" | "s
 
 export async function autoSendFollowUp(
   db: Db,
-  opts: { enabled: boolean; mailer: Mailer; config: OutreachConfig; now?: Date },
+  opts: { enabled: boolean; mailer: Mailer; config: OutreachConfig; now?: Date; ai?: AiConfig | null },
 ): Promise<AutoSendResult> {
   const now = opts.now ?? new Date();
   if (!opts.enabled || !opts.config.enabled) return { status: "off" };
   if (!inSendWindow(now)) return { status: "outside_window" };
-  await createDueFollowUps(db, now);
+  await createDueFollowUps(db, now, opts.ai ?? null);
   // Oldest open follow-up of a deal that is still waiting for an answer; an approved one (e.g. stopped by the cap) first.
   const [d] = await db
     .select({ id: drafts.id, status: drafts.status })
@@ -59,7 +60,8 @@ export function startFollowUpAutoSend(db: Db, env: Record<string, string | undef
       if (!st.followUpAutoSend) return;
       const config = outreachConfig(st, env);
       if (!config.enabled) return;
-      const r = await autoSendFollowUp(db, { enabled: true, mailer: createOutreachMailerFromEnv(env), config });
+      const { aiConfig } = await import("../ai/remark");
+      const r = await autoSendFollowUp(db, { enabled: true, mailer: createOutreachMailerFromEnv(env), config, ai: aiConfig(st, env) });
       if (r.status === "sent" || r.status === "failed") console.log(`[followup] ${r.status}${r.error ? ` ${r.error}` : ""}`);
     } catch (e) {
       console.error("[followup] check failed:", e instanceof Error ? e.message.slice(0, 160) : "unknown");

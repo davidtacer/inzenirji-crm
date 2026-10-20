@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkAiEmail, systemFor } from "./ai-email";
+import { checkAiEmail, checkAiFollowUp, parseModelEmail, systemFor } from "./ai-email";
 import { OPT_OUT_LINE } from "./compose";
 
 const GOOD = `Pozdravljeni,
@@ -69,5 +69,44 @@ describe("AI phrases (humanizer, owner 2026-10-19)", () => {
     const r = checkAiEmail(json(GOOD.replace("lepa vizitka.", "lepa vizitka, ki je ključnega pomena.")), ctx);
     expect(r.ok ? [] : r.problems).toContain("AI fraza »ključnega pomena«");
     expect(systemFor("B", null)).toContain("ne kot AI");
+  });
+});
+
+describe("AI follow-up checks (owner 2026-10-20: \"vsi so isti ... zgleda da je robot napisal\")", () => {
+  const first = "Pozdravljeni,\n\nna Googlu vas stranke zelo hvalijo, spletne strani pa za zdaj nimate nobene.\n\nLp,\nDavid\ninženirji.si\n\nP.S. x";
+  const ok = (body: string, kind: "followup_1" | "followup_2" = "followup_1") => checkAiFollowUp(JSON.stringify({ body }), { kind, firstBody: first, rivals: [] });
+  const good =
+    "Pozdravljeni,\n\nše ena misel: na Instagramu imate lepe fotografije pričesk, na spletni strani bi jih lahko pokazali v galeriji, poleg pa še cenik in uro, ko ste odprti.\n\nKako bi to potem urejali sami, vidite tukaj: https://www.inzenirji.si/demo\n\nČe vam ustreza, mi odpišite.";
+  it("accepts a short, new message and adds signature and opt-out", () => {
+    const r = ok(good);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.body).toMatch(/Lp,\nDavid[\s\S]*P\.S\./);
+  });
+  it("rejects the robotic check-in, legal names, prices, repeats and length", () => {
+    const bad = (b: string, kind?: "followup_1" | "followup_2") => {
+      const r = ok(b, kind);
+      return r.ok ? [] : r.problems.join(" | ");
+    };
+    expect(bad(good.replace("še ena misel:", "samo kratko preverjam, ali ste prejeli moje sporočilo:"))).toContain("preverjam");
+    expect(bad(good.replace("na Instagramu", "za S-FRIZERSTVO s.p. na Instagramu"))).toContain("s.p.");
+    expect(bad(good.replace("cenik", "cenik (590 €)"))).toContain("cena");
+    expect(bad(good.replace("še ena misel:", "na Googlu vas stranke zelo hvalijo, spletne strani pa za zdaj nimate nobene."))).toContain("ponavlja");
+    expect(bad(good, "followup_2")).toContain("povezava");
+    expect(bad("Pozdravljeni,\n\nkratko.")).toContain("dolžina");
+  });
+});
+
+describe("parseModelEmail (owner 2026-10-20: AI answer thrown away as \"manjka zadeva ali besedilo\")", () => {
+  it("reads the shapes models actually return", () => {
+    expect(parseModelEmail('{"subject": "A", "body": "B"}')).toMatchObject({ subject: "A", body: "B" });
+    expect(parseModelEmail('```json\n{"zadeva": "A", "besedilo": "B"}\n```')).toMatchObject({ subject: "A", body: "B" });
+    expect(parseModelEmail('Tu je mail:\n{"email": {"subject": "A", "body": ["P1", "P2"]}}')).toMatchObject({ subject: "A", body: "P1\n\nP2" });
+    expect(parseModelEmail('{"subject": "A", "body": "Pozdravljeni,\n\nvrstica"}')).toMatchObject({ body: "Pozdravljeni,\n\nvrstica" });
+    expect(parseModelEmail("Zadeva: A\n\nPozdravljeni,\n\ntekst")).toMatchObject({ subject: "A", body: "Pozdravljeni,\n\ntekst" });
+    expect(parseModelEmail("nič")).toMatchObject({ ok: false });
+  });
+  it("a missing subject does not throw the e-mail away", () => {
+    const r = checkAiEmail(JSON.stringify({ body: GOOD }), { group: "B", rivals: [], companyName: "Frizerski Studio Tanja, Tanja Sorec S.P." });
+    expect(r.ok ? r.email.subject : r.problems).toBe("Spletna stran za Frizerski Studio Tanja");
   });
 });

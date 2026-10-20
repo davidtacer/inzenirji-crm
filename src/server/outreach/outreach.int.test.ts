@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { addToDnc, listDnc } from "../contact/dnc";
@@ -103,6 +104,35 @@ describe("outreach flow", () => {
     expect((await stage(c.id)).next_action_at).toBeNull();
     expect(await createDueFollowUps(db, day(30))).toBe(0);
     expect((await admin`select count(*)::int n from activities where type = 'email_out'`)[0].n).toBe(3);
+  });
+
+  it("follow-ups are written by AI for each company, with the short name; the template only as fallback", async () => {
+    const c = await lead("Ana");
+    await db.update(companies).set({ name: "S-FRIZERSTVO,SANDRA NEMET s.p." }).where(eq(companies.id, c.id));
+    const r = await createFirstDraft(db, c.id);
+    if (!r.ok) throw new Error("no draft");
+    await approveDraft(db, r.draftId, { subject: "Za vaš salon", body: "Pozdravljeni,\n\nprvi mail." }, T0);
+    await sendApprovedDraft(db, r.draftId, { mailer: createCaptureMailer(), config: cfg, now: T0 });
+    const prompts: string[] = [];
+    const body = "Pozdravljeni,\n\nše ena misel: na vaši strani bi lahko pokazali galerijo pričesk, cenik in uro, ko ste odprti, da stranke vse najdejo na enem mestu.\n\nKako bi to urejali sami, vidite tukaj: https://www.inzenirji.si/demo\n\nČe vam ustreza, mi odpišite.";
+    const fetchImpl = (async (_u: string, init: RequestInit) => {
+      prompts.push(String(init.body));
+      return Response.json({ content: [{ type: "text", text: JSON.stringify({ body }) }], usage: { input_tokens: 1500, output_tokens: 90 } });
+    }) as unknown as typeof fetch;
+    expect(await createDueFollowUps(db, day(3), { apiKey: "K", model: "claude-sonnet-5-5", dailyBudgetMicroUsd: 1_000_000, fetchImpl })).toBe(1);
+    const [f1] = await admin`select subject, body, written_by from drafts where kind = 'followup_1'`;
+    expect(f1.written_by).toBe("ai:claude-sonnet-5-5");
+    expect(f1.body).toContain("galerijo pričesk");
+    expect(f1.subject).toBe("Re: Za vaš salon");
+    expect(prompts[0]).toContain("Ime za v mail: S-frizerstvo");
+    expect(prompts[0]).toContain("prvi mail.");
+    // Discarded → prepared again; without AI the template with the short name, and the reason shown.
+    await admin`update drafts set status = 'discarded' where kind = 'followup_1'`;
+    expect(await createDueFollowUps(db, day(3))).toBe(1);
+    const [t] = await admin`select body, written_by from drafts where kind = 'followup_1' and status = 'pending'`;
+    expect(t.written_by).toMatch(/^predloga: AI je izklopljen/);
+    expect(t.body).toContain("za S-frizerstvo.");
+    expect(t.body).not.toContain("s.p.");
   });
 
   it("daily cap counts across drafts, also for parallel sends", async () => {

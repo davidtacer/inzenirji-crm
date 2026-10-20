@@ -31,6 +31,26 @@ export type ComposeInput = {
 
 export type Composed = { subject: string; body: string };
 
+const LEGAL_FORM = /,?\s*\b(s\.\s?p\.|d\.\s?o\.\s?o\.|d\.\s?n\.\s?o\.|k\.\s?d\.|z\.\s?o\.\s?o\.)(?=\s|$|,)/gi;
+
+/**
+ * The name a person would write in an e-mail (owner 2026-10-20: "kdo ime firme vpiše v mail?"). Google often lists
+ * the legal name: "S-FRIZERSTVO,SANDRA NEMET s.p." → "S-Frizerstvo", "Frizerski salon pri Slavici, Tjaša Mogu s.p."
+ * → "Frizerski salon pri Slavici", "Primer d.o.o." → "Primer". The part after a comma is the owner's name; legal
+ * forms go; ALL CAPS become normal case.
+ */
+export function shortName(name: string): string {
+  let n = name.trim();
+  if (n.includes(",")) n = n.split(",")[0]!;
+  n = n.replace(LEGAL_FORM, "").replace(/\s+/g, " ").trim().replace(/[,.\s-]+$/, "");
+  const letters = n.replace(/[^\p{L}]/gu, "");
+  if (letters.length > 3 && letters === letters.toUpperCase()) n = n.charAt(0) + n.slice(1).toLowerCase();
+  return n || name.trim();
+}
+
+/** True when a text uses a legal form (s.p., d.o.o. ...), which no person writes in a short e-mail. */
+export const hasLegalForm = (s: string) => new RegExp(LEGAL_FORM.source, "i").test(s);
+
 const SOCIAL_NAME: [RegExp, string][] = [
   [/facebook|fb\./, "Facebooku"],
   [/instagram/, "Instagramu"],
@@ -116,29 +136,29 @@ export function composeFirst(input: ComposeInput): Composed {
     SIGNATURE,
     OPT_OUT_LINE,
   ].join("\n\n");
-  return { subject: `Spletna stran za ${input.name}`, body };
+  return { subject: `Spletna stran za ${shortName(input.name)}`, body };
 }
 
-/** Day 3: short, with one new fact (the second issue) when there is one. */
+/** Day 3 template (used only when AI is off or fails): short, natural, one new fact when there is one. */
 export function composeFollowUp1(input: ComposeInput, firstSubject: string): Composed {
   const second = input.issues[1] ? remarkFor({ ...input, issues: input.issues.slice(1), ratingX10: null }) : null;
   const body = [
     "Pozdravljeni,",
-    `samo kratko preverjam, ali ste prejeli moje sporočilo glede spletne strani za ${input.name}.${second ? ` Ob ponovnem pogledu sem opazil še, da ${second}.` : ""}`,
-    `Če vas zanima, kako bi stran urejali sami s pogovorom, urejevalnik lahko preizkusite kar zdaj: ${DEMO_URL}`,
-    "Če vas zanima, mi odpišite in se dogovoriva za kratek pogovor - brez obveznosti.",
+    `pred par dnevi sem vam pisal glede spletne strani za ${shortName(input.name)}. Vem, da je dela vedno dovolj, zato bom kratek.${second ? ` Pri ponovnem pogledu sem opazil še, da ${second}.` : ""}`,
+    `Če vas zanima, kako bi stran potem urejali sami, kar preko klepeta, si lahko urejevalnik ogledate tukaj: ${DEMO_URL}`,
+    "Če vam ustreza, mi samo odpišite in se slišimo za 10 minut po telefonu.",
     SIGNATURE,
     OPT_OUT_LINE,
   ].join("\n\n");
   return { subject: `Re: ${firstSubject}`, body };
 }
 
-/** Day 8: the last one, "I'll close the folder". */
+/** Day 8 template: the last one. */
 export function composeFollowUp2(input: ComposeInput, firstSubject: string): Composed {
   const body = [
     "Pozdravljeni,",
-    `to je moje zadnje sporočilo glede spletne strani za ${input.name} - ne bi vas rad motil.`,
-    "Če bo prenova strani kdaj aktualna, mi samo odpišite na ta e-mail in se oglasim.",
+    `ne bi vas rad motil, zato je to moje zadnje sporočilo glede strani za ${shortName(input.name)}.`,
+    "Če bo nova stran kdaj aktualna, mi samo odpišite na ta e-mail in se oglasim.",
     SIGNATURE,
     OPT_OUT_LINE,
   ].join("\n\n");
