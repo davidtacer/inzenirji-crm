@@ -33,6 +33,7 @@ describe("migrations", () => {
       "contacts",
       "deals",
       "do_not_contact",
+      "draft_attachments",
       "drafts",
       "google_accounts",
       "inbound_messages",

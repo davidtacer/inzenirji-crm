@@ -10,6 +10,7 @@ export type Mail = {
   messageId?: string;
   inReplyTo?: string;
   references?: string[];
+  attachments?: { filename: string; content: Buffer; contentType: string }[];
 };
 export interface Mailer {
   send(mail: Mail): Promise<void>;

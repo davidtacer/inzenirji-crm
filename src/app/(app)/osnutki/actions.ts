@@ -19,6 +19,7 @@ import { getSettings } from "@/server/settings";
 import { topLeads } from "@/server/scoring/apply";
 import { importCompanyHistory } from "@/server/mailbox/sync";
 import { aiConfig } from "@/server/ai/remark";
+import { addAttachments, removeAttachment } from "@/server/outreach/attachments";
 
 export type ActionState = { ok: boolean; message: string } | null;
 
@@ -129,4 +130,24 @@ export async function blockAction(_prev: ActionState, form: FormData): Promise<A
   await blockCompany(getDb(), id, reason);
   refresh(id);
   return { ok: true, message: "Dodano na seznam »ne kontaktiraj« (trajno)." };
+}
+
+export async function addAttachmentAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  if (!(await getCurrentUser())) return EXPIRED;
+  const id = form.get("id");
+  if (!isId(id)) return { ok: false, message: "Neveljaven osnutek." };
+  const files = form.getAll("files").filter((f): f is File => typeof f === "object" && f !== null && "arrayBuffer" in f);
+  const items = await Promise.all(files.map(async (f) => ({ name: f.name, type: f.type, size: f.size, data: Buffer.from(await f.arrayBuffer()) })));
+  const r = await addAttachments(getDb(), id, items);
+  if (r.ok) refresh();
+  return r;
+}
+
+export async function removeAttachmentAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  if (!(await getCurrentUser())) return EXPIRED;
+  const id = form.get("id");
+  if (!isId(id)) return { ok: false, message: "Neveljavna priponka." };
+  const ok = await removeAttachment(getDb(), id);
+  refresh();
+  return ok ? { ok: true, message: "Priponka odstranjena." } : { ok: false, message: "Priponke ni bilo mogoče odstraniti." };
 }
