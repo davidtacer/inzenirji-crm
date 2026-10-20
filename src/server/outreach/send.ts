@@ -1,3 +1,4 @@
+import { attachmentsForSend } from "./attachments";
 import { and, eq, gte, sql } from "drizzle-orm";
 import { isBlocked } from "../contact/dnc";
 import type { Db } from "../db/client";
@@ -42,7 +43,7 @@ export function lockReason(st: Settings, env: Record<string, string | undefined>
   return null;
 }
 
-export type SendError = "NOT_FOUND" | "LOCKED" | "NOT_APPROVED" | "BLOCKED" | "CAP" | "BOUNCE_STOP" | "SEND_FAILED";
+export type SendError = "NOT_FOUND" | "LOCKED" | "NOT_APPROVED" | "BLOCKED" | "CAP" | "BOUNCE_STOP" | "SEND_FAILED" | "ATTACHMENT_MISSING";
 
 export const SEND_REASON: Record<SendError, string> = {
   NOT_FOUND: "Osnutka ni.",
@@ -52,6 +53,7 @@ export const SEND_REASON: Record<SendError, string> = {
   CAP: "Dosežena je današnja omejitev pošiljanja.",
   BOUNCE_STOP: "Pošiljanje novih e-mailov je ustavljeno: v zadnjih 7 dneh je več kot 3 % nedostavljenih (ADR-013). Preveri naslove.",
   SEND_FAILED: "Pošiljanje ni uspelo. Osnutek ostane odobren, poskusi kasneje.",
+  ATTACHMENT_MISSING: "Priponke ni več na strežniku. Odstrani jo in jo pripni znova.",
 };
 
 const NEXT_STEP_DAYS: Record<"first" | "followup_1" | "followup_2" | "reply", number | null> = { first: 3, followup_1: 5, followup_2: null, reply: null };
@@ -97,7 +99,11 @@ export async function sentTodayByKind(db: Db, now = new Date()): Promise<{ first
 
 export const messageIdFor = (draftId: string) => `<${draftId}@inzenirji.si>`;
 
-export function buildMail(d: { id?: string; toEmail: string; subject: string; body: string; inReplyTo?: string | null }, cfg: OutreachConfig): Mail {
+export function buildMail(
+  d: { id?: string; toEmail: string; subject: string; body: string; inReplyTo?: string | null },
+  cfg: OutreachConfig,
+  attachments: NonNullable<Mail["attachments"]> = [],
+): Mail {
   const url = `${cfg.appUrl}/api/odjava?t=${unsubscribeToken(d.toEmail, cfg.secret)}`;
   return {
     to: d.toEmail,
@@ -106,6 +112,7 @@ export function buildMail(d: { id?: string; toEmail: string; subject: string; bo
     html: toHtml(d.body),
     ...(d.id ? { messageId: messageIdFor(d.id) } : {}),
     ...(d.inReplyTo ? { inReplyTo: d.inReplyTo, references: [d.inReplyTo] } : {}),
+    ...(attachments.length ? { attachments } : {}),
     headers: {
       "List-Unsubscribe": `<mailto:${cfg.fromAddress}?subject=odjava>, <${url}>`,
       "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
@@ -140,8 +147,14 @@ export async function sendApprovedDraft(
     const cold = d.draft.kind !== "reply";
     if (cold && (await sentToday(tx as unknown as Db, now)) >= cfg.dailyCap) return { ok: false as const, error: "CAP" as const };
     if (cold && (await bounceStop(tx as unknown as Db, now))) return { ok: false as const, error: "BOUNCE_STOP" as const };
+    let files: NonNullable<Mail["attachments"]>;
     try {
-      await deps.mailer.send(buildMail(d.draft, cfg));
+      files = await attachmentsForSend(tx as unknown as Db, id);
+    } catch {
+      return { ok: false as const, error: "ATTACHMENT_MISSING" as const };
+    }
+    try {
+      await deps.mailer.send(buildMail(d.draft, cfg, files));
     } catch (e) {
       console.error("[outreach] send failed:", e instanceof Error ? e.message : "unknown");
       return { ok: false as const, error: "SEND_FAILED" as const };
@@ -165,7 +178,7 @@ export async function sendApprovedDraft(
       dealId: d.draft.dealId,
       type: "email_out",
       at: now,
-      payload: { draftId: id, kind: d.draft.kind, to: d.draft.toEmail, subject: d.draft.subject },
+      payload: { draftId: id, kind: d.draft.kind, to: d.draft.toEmail, subject: d.draft.subject, ...(files.length ? { attachments: files.map((f) => f.filename) } : {}) },
     });
     await tx.update(companies).set({ updatedAt: now }).where(eq(companies.id, d.companyId));
     return { ok: true as const };

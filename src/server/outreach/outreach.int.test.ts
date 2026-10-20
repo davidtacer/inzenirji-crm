@@ -19,6 +19,10 @@ import {
 import { sendApprovedDraft, sentTodayByKind, type OutreachConfig } from "./send";
 import { autoSendFollowUp, inSendWindow } from "./autosend";
 import { verifyUnsubscribeToken } from "./unsubscribe";
+import { addAttachments, attachmentsFor, removeAttachment } from "./attachments";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
 const url = process.env.TEST_DATABASE_URL!;
 const admin = postgres(url, { max: 1, onnotice: () => {} });
@@ -134,6 +138,40 @@ describe("outreach flow", () => {
     expect(t.written_by).toMatch(/^predloga: AI je izklopljen/);
     expect(t.body).toContain("za S-frizerstvo.");
     expect(t.body).not.toContain("s.p.");
+  });
+
+  it("attachments (owner 2026-10-20): added before sending, sent with the e-mail, locked after", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "crm-att-"));
+    process.env.UPLOAD_DIR = dir;
+    try {
+      const c = await lead("Ana");
+      const r = await createFirstDraft(db, c.id);
+      if (!r.ok) throw new Error("no draft");
+      const pdf = { name: "ponudba.pdf", type: "application/pdf", size: 5, data: Buffer.from("%PDF1") };
+      expect(await addAttachments(db, r.draftId, [{ ...pdf, name: "x.exe", type: "application/x-msdownload" }])).toMatchObject({ ok: false });
+      expect(await addAttachments(db, r.draftId, [{ ...pdf, size: 16 * 1024 * 1024 }])).toMatchObject({ ok: false });
+      expect(await addAttachments(db, r.draftId, [pdf, { ...pdf, name: "slika.png", type: "image/png" }])).toMatchObject({ ok: true });
+      const list = (await attachmentsFor(db, [r.draftId]))[r.draftId]!;
+      expect(list.map((a) => a.name)).toEqual(["ponudba.pdf", "slika.png"]);
+      expect(await removeAttachment(db, list[1]!.id)).toBe(true);
+      await approveDraft(db, r.draftId, { subject: "S", body: "Pozdravljeni,\n\nx" }, T0);
+      const mailer = createCaptureMailer();
+      expect(await sendApprovedDraft(db, r.draftId, { mailer, config: cfg, now: T0 })).toEqual({ ok: true });
+      expect(mailer.sent[0]!.attachments).toEqual([{ filename: "ponudba.pdf", content: Buffer.from("%PDF1"), contentType: "application/pdf" }]);
+      expect(await addAttachments(db, r.draftId, [pdf])).toMatchObject({ ok: false, message: "E-mail je že poslan ali zavržen." });
+      expect(await removeAttachment(db, list[0]!.id)).toBe(false);
+      // A file gone from disk stops the send instead of sending without it.
+      const c2 = await lead("Bor");
+      const r2 = await createFirstDraft(db, c2.id);
+      if (!r2.ok) throw new Error("no draft");
+      await addAttachments(db, r2.draftId, [pdf]);
+      rmSync(path.join(dir, "drafts", r2.draftId), { recursive: true });
+      await approveDraft(db, r2.draftId, { subject: "S", body: "Pozdravljeni,\n\nx" }, T0);
+      expect(await sendApprovedDraft(db, r2.draftId, { mailer, config: cfg, now: T0 })).toEqual({ ok: false, error: "ATTACHMENT_MISSING" });
+    } finally {
+      delete process.env.UPLOAD_DIR;
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("daily cap counts across drafts, also for parallel sends", async () => {

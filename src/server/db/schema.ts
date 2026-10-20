@@ -615,3 +615,20 @@ export const placesSearches = pgTable(
   },
   (t) => [index("places_searches_query_idx").on(t.query, t.at), index("places_searches_activity_idx").on(t.activity, t.town)],
 );
+
+/** Files attached to an outgoing e-mail (owner 2026-10-20: "potrebujem, da lahko dodajam priponke"); on the upload volume. */
+export const draftAttachments = pgTable(
+  "draft_attachments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    draftId: uuid("draft_id")
+      .notNull()
+      .references(() => drafts.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    mime: text("mime").notNull(),
+    size: integer("size").notNull(),
+    path: text("path").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("draft_attachments_draft_idx").on(t.draftId)],
+);

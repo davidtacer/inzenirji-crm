@@ -1,6 +1,9 @@
 "use client";
 import { useActionState } from "react";
+import { useRef } from "react";
 import {
+  addAttachmentAction,
+  removeAttachmentAction,
   addEmailAction,
   approveAction,
   blockAction,
@@ -176,5 +179,62 @@ export function AddCandidateEmail({ companyId, email, source }: { companyId: str
       </button>
       {state && !state.ok ? <span className="font-mono text-[10px] text-danger-text">{state.message}</span> : null}
     </form>
+  );
+}
+
+export type AttachmentView = { id: string; name: string; size: string };
+
+/** Files sent with this e-mail; add or remove until it is sent (owner 2026-10-20). */
+export function DraftAttachments({ draftId, items, coldFirst }: { draftId: string; items: AttachmentView[]; coldFirst: boolean }) {
+  const [state, add, busy] = useActionState<ActionState, FormData>(addAttachmentAction, null);
+  const [rState, remove, rBusy] = useActionState<ActionState, FormData>(removeAttachmentAction, null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  return (
+    <div className="mt-4 flex flex-col gap-2 border-t border-border pt-3">
+      <p className="font-mono text-[10px] uppercase tracking-widest text-text-secondary">Priponke{items.length ? ` (${items.length})` : ""}</p>
+      {items.length ? (
+        <ul className="flex flex-col gap-1">
+          {items.map((a) => (
+            <li key={a.id} className="flex flex-wrap items-center gap-3 font-mono text-xs">
+              <a href={`/api/osnutki/priponka/${a.id}`} className="text-text-primary underline hover:text-accent">
+                📎 {a.name}
+              </a>
+              <span className="text-text-secondary">{a.size}</span>
+              <form action={remove}>
+                <input type="hidden" name="id" value={a.id} />
+                <button type="submit" disabled={rBusy} className="text-[10px] uppercase tracking-widest text-danger-text hover:underline">
+                  Odstrani
+                </button>
+              </form>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <form
+        action={async (f) => {
+          await add(f);
+          if (fileRef.current) fileRef.current.value = "";
+        }}
+        className="flex flex-wrap items-center gap-3"
+      >
+        <input type="hidden" name="id" value={draftId} />
+        <input
+          ref={fileRef}
+          type="file"
+          name="files"
+          multiple
+          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.txt"
+          className="max-w-full font-mono text-xs text-text-secondary file:mr-3 file:border file:border-border file:bg-black file:px-3 file:py-1 file:font-mono file:text-xs file:text-text-primary"
+        />
+        <button type="submit" disabled={busy} className={ghost}>
+          {busy ? "Nalagam…" : "Pripni"}
+        </button>
+        <Msg state={state ?? rState} />
+      </form>
+      <p className="font-mono text-[10px] text-text-secondary">
+        Do 5 datotek, skupaj do 15 MB (slike, PDF, Word, Excel, ZIP).
+        {coldFirst ? " Pri prvem e-mailu neznancu priponka poveča možnost, da mail pristane v vsiljeni pošti - raje jo pošlji, ko odgovori." : ""}
+      </p>
+    </div>
   );
 }

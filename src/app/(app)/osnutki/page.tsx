@@ -9,7 +9,8 @@ import { latestJob, runningJob, startJob } from "@/server/jobs";
 import { JobLine } from "../podjetja/buttons";
 import { lockReason, outreachConfig, sentToday, sentTodayByKind } from "@/server/outreach/send";
 import { getSettings } from "@/server/settings";
-import { ApprovedDraftActions, PendingDraftForm } from "./forms";
+import { ApprovedDraftActions, DraftAttachments, PendingDraftForm } from "./forms";
+import { attachmentsFor, sizeLabel } from "@/server/outreach/attachments";
 import { aiConfig, spentTodayMicroUsd } from "@/server/ai/remark";
 
 export const dynamic = "force-dynamic";
@@ -52,8 +53,10 @@ export default async function DraftsPage() {
       return `Pripravljenih follow-upov: ${n}.`;
     });
   }
-  const fuJob = await latestJob(db, ["followups"], undefined, 10 * 60_000);
-  const [d, today, byKind, aiSpent] = await Promise.all([listDrafts(db), sentToday(db), sentTodayByKind(db), spentTodayMicroUsd(db)]);
+  const fuJobPromise = latestJob(db, ["followups"], undefined, 10 * 60_000);
+  const [d, today, byKind, aiSpent, fuJob] = await Promise.all([listDrafts(db), sentToday(db), sentTodayByKind(db), spentTodayMicroUsd(db), fuJobPromise]);
+  const files = await attachmentsFor(db, [...d.pending, ...d.approved].map((x) => x.id));
+  const filesOf = (id: string) => (files[id] ?? []).map((a) => ({ id: a.id, name: a.name, size: sizeLabel(a.size) }));
   const cfg = outreachConfig(st);
   const lock = lockReason(st);
   return (
@@ -109,6 +112,7 @@ export default async function DraftsPage() {
                     </p>
                   ) : null}
                   <PendingDraftForm id={x.id} subject={x.subject} body={x.body} toEmail={x.toEmail} emails={d.emails[x.companyId] ?? []} />
+                  <DraftAttachments draftId={x.id} items={filesOf(x.id)} coldFirst={x.kind === "first"} />
                 </div>
               </article>
             ))}
@@ -125,6 +129,7 @@ export default async function DraftsPage() {
                 <p className="mb-2 font-sans text-sm text-text-primary">{x.subject}</p>
                 <pre className="mb-4 whitespace-pre-wrap font-sans text-sm leading-relaxed text-text-secondary">{x.body}</pre>
                 <ApprovedDraftActions id={x.id} locked={!!lock} />
+                <DraftAttachments draftId={x.id} items={filesOf(x.id)} coldFirst={x.kind === "first"} />
               </div>
             </article>
           ))}
