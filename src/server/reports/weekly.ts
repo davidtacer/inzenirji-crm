@@ -389,7 +389,7 @@ export async function suggestions(db: Db, d: WeekData, prev: WeekData | null, ai
   const strip = (x: WeekData) => ({ ...x, worked: { categories: x.worked.categories.slice(0, 8), groups: x.worked.groups } });
   try {
     const r = await callClaude(
-      { model: ai.model, system: SYSTEM, user: JSON.stringify({ ozko_grlo: findConstraint(d), cilji: TARGETS, ta_teden: strip(d), prejsnji_teden: prev ? strip(prev) : null }), maxTokens: 600 },
+      { model: ai.model, system: SYSTEM, user: JSON.stringify({ ozko_grlo: findConstraint(d), cilji: TARGETS, ta_teden: strip(d), prejsnji_teden: prev ? strip(prev) : null }), maxTokens: 1500, schema: { type: "object", properties: { suggestions: { type: "array", items: { type: "string" } } }, required: ["suggestions"], additionalProperties: false } },
       { apiKey: ai.apiKey, fetchImpl: ai.fetchImpl, timeoutMs: 60_000 },
     );
     await db.insert(aiUsage).values({ job: "weekly_report", model: ai.model, inputTokens: r.inputTokens, outputTokens: r.outputTokens, costMicroUsd: r.costMicroUsd, ok: true });

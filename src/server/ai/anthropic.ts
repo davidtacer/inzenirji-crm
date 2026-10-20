@@ -32,7 +32,10 @@ export async function errorDetail(res: Response): Promise<string | null> {
   }
 }
 
-export type ClaudeResult = { text: string; inputTokens: number; outputTokens: number; costMicroUsd: number };
+export type ClaudeResult = { text: string; inputTokens: number; outputTokens: number; costMicroUsd: number; stopReason?: string | null };
+
+/** A JSON schema for structured outputs: the answer is always valid JSON of this shape (owner 2026-10-20: "ni JSON"). */
+export type JsonSchema = Record<string, unknown>;
 
 export function costMicroUsd(model: string, inputTokens: number, outputTokens: number): number {
   const p = PRICES[model] ?? PRICES["claude-sonnet-5-5"];
@@ -40,7 +43,22 @@ export function costMicroUsd(model: string, inputTokens: number, outputTokens: n
 }
 
 export async function callClaude(
-  req: { model: string; system: string; user: string; maxTokens: number },
+  req: { model: string; system: string; user: string; maxTokens: number; schema?: JsonSchema },
+  deps: { apiKey: string; fetchImpl?: typeof fetch; timeoutMs?: number },
+): Promise<ClaudeResult> {
+  try {
+    return await callClaudeOnce(req, deps);
+  } catch (e) {
+    // A model without structured outputs: ask again without the schema (the caller parses leniently).
+    if (req.schema && e instanceof AiError && e.status === 400 && /output_config|json_schema|format/i.test(e.detail ?? "")) {
+      return callClaudeOnce({ ...req, schema: undefined }, deps);
+    }
+    throw e;
+  }
+}
+
+async function callClaudeOnce(
+  req: { model: string; system: string; user: string; maxTokens: number; schema?: JsonSchema },
   deps: { apiKey: string; fetchImpl?: typeof fetch; timeoutMs?: number },
 ): Promise<ClaudeResult> {
   const controller = new AbortController();
@@ -55,14 +73,15 @@ export async function callClaude(
         max_tokens: req.maxTokens,
         system: req.system,
         messages: [{ role: "user", content: req.user }],
+        ...(req.schema ? { output_config: { format: { type: "json_schema", schema: req.schema } } } : {}),
       }),
     });
     if (!res.ok) throw new AiError(res.status, await errorDetail(res));
-    const d = (await res.json()) as { content?: { type: string; text?: string }[]; usage?: { input_tokens?: number; output_tokens?: number } };
+    const d = (await res.json()) as { content?: { type: string; text?: string }[]; usage?: { input_tokens?: number; output_tokens?: number }; stop_reason?: string };
     const text = (d.content ?? []).filter((c) => c.type === "text").map((c) => c.text ?? "").join("").trim();
     const inputTokens = d.usage?.input_tokens ?? 0;
     const outputTokens = d.usage?.output_tokens ?? 0;
-    return { text, inputTokens, outputTokens, costMicroUsd: costMicroUsd(req.model, inputTokens, outputTokens) };
+    return { text, inputTokens, outputTokens, costMicroUsd: costMicroUsd(req.model, inputTokens, outputTokens), stopReason: d.stop_reason ?? null };
   } finally {
     clearTimeout(timer);
   }
