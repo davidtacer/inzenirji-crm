@@ -3,7 +3,10 @@ import { PageHeader } from "@/components/PageHeader";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import { GROUP_LABEL } from "@/lib/labels";
 import { getDb } from "@/server/db/client";
-import { createDueFollowUps, listDrafts } from "@/server/outreach/drafts";
+import { createDueFollowUps, dueFollowUpCount, listDrafts } from "@/server/outreach/drafts";
+import { jobView } from "@/lib/jobs";
+import { latestJob, runningJob, startJob } from "@/server/jobs";
+import { JobLine } from "../podjetja/buttons";
 import { lockReason, outreachConfig, sentToday } from "@/server/outreach/send";
 import { getSettings } from "@/server/settings";
 import { ApprovedDraftActions, PendingDraftForm } from "./forms";
@@ -39,10 +42,18 @@ function Section({ title, count, children }: { title: string; count: number; chi
 
 export default async function DraftsPage() {
   const db = getDb();
-  await createDueFollowUps(db);
-  const [d, today, aiSpent] = await Promise.all([listDrafts(db), sentToday(db), spentTodayMicroUsd(db)]);
   const st = await getSettings(db);
   const ai = aiConfig(st);
+  // Due follow-ups are written by AI for each company (ADR-048): in the background, so the page opens at once.
+  const due = await dueFollowUpCount(db);
+  if (due && !(await runningJob(db, ["followups"]))) {
+    await startJob(db, { kind: "followups" }, async () => {
+      const n = await createDueFollowUps(db, new Date(), ai);
+      return `Pripravljenih follow-upov: ${n}.`;
+    });
+  }
+  const fuJob = await latestJob(db, ["followups"], undefined, 10 * 60_000);
+  const [d, today, aiSpent] = await Promise.all([listDrafts(db), sentToday(db), spentTodayMicroUsd(db)]);
   const cfg = outreachConfig(st);
   const lock = lockReason(st);
   return (
@@ -65,6 +76,12 @@ export default async function DraftsPage() {
             : "AI: izklopljen (ni ključa ANTHROPIC_API_KEY ali omejitev 0 $ v Nastavitvah) — besedila so iz pravil"}
         </p>
       </div>
+
+      {fuJob ? (
+        <div className="mb-6">
+          <JobLine job={jobView(fuJob)} label="AI piše follow-upe za vsako podjetje posebej" />
+        </div>
+      ) : null}
 
       <Section title="Za odobritev" count={d.pending.length}>
         {d.pending.length === 0 ? (
