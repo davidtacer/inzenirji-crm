@@ -8,7 +8,7 @@ import { activities, audits, companies, competitorLinks, contacts, deals, drafts
 import type { Issue } from "../research/analyze";
 import { rescoreCompany } from "../scoring/apply";
 import { ensureAiRemark, type AiConfig } from "../ai/remark";
-import { aiFirstEmail } from "./ai-email";
+import { aiFirstEmail, aiFollowUp } from "./ai-email";
 import { composeFirst, composeFollowUp1, composeFollowUp2, type ComposeInput } from "./compose";
 
 /*
@@ -105,15 +105,33 @@ export async function createFirstDrafts(db: Db, companyIds: string[], ai: AiConf
  * Follow-ups that are due: deal still `contacted`, next action date passed, previous step sent.
  * day 3 after the first e-mail → followup_1, day 8 (5 days after followup_1) → followup_2.
  */
-export async function createDueFollowUps(db: Db, now = new Date()): Promise<number> {
+export async function createDueFollowUps(db: Db, now = new Date(), ai: AiConfig | null = null): Promise<number> {
+  // One run at a time in this process (page job and the auto-send timer), so AI is never asked twice for one step.
+  const prev = followUpRun;
+  const run = (async () => {
+    await prev?.catch(() => 0);
+    return createDueFollowUpsNow(db, now, ai);
+  })();
+  followUpRun = run;
+  return run;
+}
+
+let followUpRun: Promise<number> | null = null;
+
+/** How many follow-ups are due and not prepared yet (cheap; the Osnutki page starts the job only then). */
+export async function dueFollowUpCount(db: Db, now = new Date()): Promise<number> {
+  return (await dueFollowUps(db, now)).length;
+}
+
+async function dueFollowUps(db: Db, now: Date) {
   const due = await db
     .select({ dealId: deals.id, companyId: deals.companyId })
     .from(deals)
     .where(and(eq(deals.stage, "contacted"), lte(deals.nextActionAt, now)));
-  let created = 0;
+  const out = [];
   for (const d of due) {
     const sent = await db
-      .select({ kind: drafts.kind, status: drafts.status, subject: drafts.subject, toEmail: drafts.toEmail, messageId: drafts.messageId })
+      .select({ kind: drafts.kind, status: drafts.status, subject: drafts.subject, body: drafts.body, toEmail: drafts.toEmail, messageId: drafts.messageId })
       .from(drafts)
       .where(and(eq(drafts.dealId, d.dealId), ne(drafts.status, "discarded"), sql`${drafts.kind}::text <> 'reply'`))
       .orderBy(asc(drafts.createdAt));
@@ -125,12 +143,23 @@ export async function createDueFollowUps(db: Db, now = new Date()): Promise<numb
     const next = !has("followup_1") ? "followup_1" : !has("followup_2") ? "followup_2" : null;
     if (!next) continue;
     if (await isBlocked(db, { email: first.toEmail, companyId: d.companyId })) continue;
+    out.push({ ...d, next, first } as const);
+  }
+  return out;
+}
+
+async function createDueFollowUpsNow(db: Db, now: Date, ai: AiConfig | null): Promise<number> {
+  let created = 0;
+  for (const d of await dueFollowUps(db, now)) {
     const ctx = await composeInput(db, d.companyId);
     if (!ctx) continue;
-    const m = next === "followup_1" ? composeFollowUp1(ctx.input, first.subject) : composeFollowUp2(ctx.input, first.subject);
+    const tpl = d.next === "followup_1" ? composeFollowUp1(ctx.input, d.first.subject) : composeFollowUp2(ctx.input, d.first.subject);
+    const byAi = await aiFollowUp(db, { companyId: d.companyId, kind: d.next, firstBody: d.first.body, rivals: ctx.rivals }, ai, now);
+    const body = "body" in byAi ? byAi.body : tpl.body;
+    const writtenBy = "body" in byAi ? `ai:${byAi.model}` : `predloga: ${byAi.reason}`.slice(0, 300);
     const [row] = await db
       .insert(drafts)
-      .values({ dealId: d.dealId, kind: next, toEmail: first.toEmail, subject: m.subject, body: m.body, inReplyTo: first.messageId })
+      .values({ dealId: d.dealId, kind: d.next, toEmail: d.first.toEmail, subject: tpl.subject, body, inReplyTo: d.first.messageId, writtenBy })
       .onConflictDoNothing()
       .returning({ id: drafts.id });
     if (row) created++;

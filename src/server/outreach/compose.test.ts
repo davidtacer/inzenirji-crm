@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { composeFirst, composeFollowUp1, composeFollowUp2, OPT_OUT_LINE, remarkFor, toHtml, type ComposeInput } from "./compose";
+import { composeFirst, composeFollowUp1, composeFollowUp2, hasLegalForm, OPT_OUT_LINE, remarkFor, shortName, toHtml, type ComposeInput } from "./compose";
 import { unsubscribeToken, verifyUnsubscribeToken } from "./unsubscribe";
 
 const base: ComposeInput = {
@@ -78,6 +78,24 @@ describe("follow-ups", () => {
     const f2 = composeFollowUp2(base, "Spletna stran za Salon Ana");
     expect(f2.body).toContain("zadnje sporočilo");
     for (const b of [f1.body, f2.body]) expect(b.endsWith(OPT_OUT_LINE)).toBe(true);
+  });
+});
+
+describe("shortName (owner 2026-10-20: \"kdo ime firme vpiše v mail?\")", () => {
+  it("drops the legal form and the owner's name, fixes ALL CAPS", () => {
+    expect(shortName("S-FRIZERSTVO,SANDRA NEMET s.p.")).toBe("S-frizerstvo");
+    expect(shortName("Frizerski salon pri Slavici, Tjaša Mogu s.p.")).toBe("Frizerski salon pri Slavici");
+    expect(shortName("Frizerstvo Bojan Čatorič s.p.")).toBe("Frizerstvo Bojan Čatorič");
+    expect(shortName("Primer d.o.o.")).toBe("Primer");
+    expect(shortName("Studio Minimal")).toBe("Studio Minimal");
+    expect(hasLegalForm("glede strani za Frizerstvo Bojan s.p. pa")).toBe(true);
+    expect(hasLegalForm("glede strani za Frizerstvo Bojan")).toBe(false);
+  });
+  it("templates use the short name", () => {
+    const f1 = composeFollowUp1({ ...base, name: "S-FRIZERSTVO,SANDRA NEMET s.p." }, "x");
+    expect(f1.body).toContain("za S-frizerstvo.");
+    expect(f1.body).not.toMatch(/s\.p\.|preverjam/);
+    expect(composeFirst({ ...base, name: "Primer d.o.o." }).subject).toBe("Spletna stran za Primer");
   });
 });
 

@@ -1,3 +1,4 @@
+import { shortName } from "../outreach/compose";
 import { and, desc, eq, gte, sql } from "drizzle-orm";
 import type { Db } from "../db/client";
 import { aiUsage, audits, companies } from "../db/schema";
@@ -52,7 +53,8 @@ type AuditData = {
 
 export function buildPrompt(c: { name: string; category: string | null; city: string | null; websiteDomain: string | null; ratingX10: number | null; reviewCount: number | null }, issues: Issue[], data: AuditData): string {
   const lines = [
-    `Podjetje: ${c.name}`,
+    `Podjetje (uradno ime): ${c.name}`,
+    `Ime za v mail: ${shortName(c.name)} (nikoli ne piši s.p., d.o.o. ali imena lastnika iz uradnega imena)`,
     c.category ? `Dejavnost: ${c.category}` : null,
     c.city ? `Kraj: ${c.city}` : null,
     `Spletna stran: ${c.websiteDomain ?? "nima"}`,
