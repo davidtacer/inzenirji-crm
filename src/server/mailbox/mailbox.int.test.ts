@@ -2,7 +2,7 @@ import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createDb } from "../db/client";
 import { runMigrations } from "../db/migrate";
-import { audits, companies, contacts, deals, drafts } from "../db/schema";
+import { audits, companies, contacts, deals, drafts, inboundMessages } from "../db/schema";
 import { createCaptureMailer } from "../email/mailer";
 import { approveDraft, createDueFollowUps, createFirstDraft, listDrafts } from "../outreach/drafts";
 import { bounceStop, sendApprovedDraft, type OutreachConfig } from "../outreach/send";
@@ -169,6 +169,9 @@ describe("mailbox processing", () => {
       const [dl] = await db.insert(deals).values({ companyId: x.id, source: "places_search", stage: "contacted" }).returning();
       await db.insert(drafts).values({ dealId: dl.id, kind: "first", toEmail: `x${i}@y.si`, subject: "s", body: "b", status: "sent", approvedAt: day(1), sentAt: day(1) });
     }
+    // 1 bounce / 20 sent = 5 %, but fewer than 3 bounces: no stop (owner 2026-10-21, small volume).
+    expect(await bounceStop(db, day(2))).toBe(false);
+    for (const n of [1, 2]) await db.insert(inboundMessages).values({ messageId: `<b${n}@mx.si>`, companyId: c.id, fromEmail: "mailer-daemon@mx.si", subject: "Undelivered", receivedAt: day(1), bodyText: "x", classification: "bounce", classifiedBy: "rule" });
     expect(await bounceStop(db, day(2))).toBe(true);
   });
 

@@ -3,7 +3,7 @@ import type { Db } from "../db/client";
 import { activities, companies, contacts, deals, drafts } from "../db/schema";
 import { distinctiveWords, domainCarriesName } from "../research/websearch";
 import { domainOf, normalizeEmail } from "./normalize";
-import { websiteKind } from "./website";
+import { isDirectorySite, websiteKind } from "./website";
 
 /*
  * Which e-mail addresses belong to a company (ADR-044). Research kept picking up the address of the page it read the
@@ -21,7 +21,7 @@ export const AGGREGATOR_DOMAINS = [
   "imenik-podjetij.si", "poslovni-imenik.si", "slovenia.info", "visitmaribor.si", "visitljubljana.com", "maribor-pohorje.si",
   "zurnal24.si", "24ur.com", "deloindom.si", "salonsi.si", "lepotni-saloni.si", "frizerji.si", "treatwell.com", "fresha.com",
   "booksy.com", "facebook.com", "instagram.com", "google.com", "gmail.google.com", "wix.com", "wixpress.com", "example.com",
-  "sentry.io", "yelp.com", "tripadvisor.com", "cylex.si", "cylex-slovenija.si", "infobel.com", "hotfrog.si", "find-open.si",
+  "sentry.io", "ozs.si", "gzs.si", "companywall.si", "yelp.com", "tripadvisor.com", "cylex.si", "cylex-slovenija.si", "infobel.com", "hotfrog.si", "find-open.si",
 ];
 
 /** Free mail providers: a business without its own domain uses these. */
@@ -150,6 +150,31 @@ export async function sweepForeignEmails(db: Db, now = new Date()): Promise<{ ma
       .where(and(eq(contacts.companyId, r.companyId), eq(contacts.email, r.email!)));
     marked++;
     touched.add(r.companyId);
+  }
+  // A directory taken for a company's website is cleared first, so its page is not mistaken for the own site below.
+  const dirSites = (await db.select({ id: companies.id, d: companies.websiteDomain }).from(companies).where(sql`${companies.websiteDomain} is not null`)).filter((x) => isDirectorySite(x.d));
+  for (const x of dirSites) {
+    await db.update(companies).set({ website: null, websiteDomain: null, updatedAt: now }).where(eq(companies.id, x.id));
+    touched.add(x.id);
+  }
+  // Addresses taken from a page that lists several businesses (owner 2026-10-21, OZS catalogue): 3 or more addresses of
+  // one company from one page that is not its own site → all of them marked; a directory taken for its website is cleared.
+  const listed = (await db.execute(sql`
+    select ct.company_id as "companyId", ct.email_source as source
+    from contacts ct join deals d on d.company_id = ct.company_id join companies c on c.id = ct.company_id
+    where ct.invalid_at is null and ct.email is not null and ct.email_source like 'http%'
+      and d.stage in ('found', 'researched')
+      and (c.website_domain is null or ct.email_source not ilike '%' || c.website_domain || '%')
+    group by ct.company_id, ct.email_source
+    having count(distinct ct.email) >= 3`)) as unknown as { companyId: string; source: string }[];
+  for (const l of listed) {
+    const r = await db
+      .update(contacts)
+      .set({ invalidAt: now, invalidReason: "s strani z več podjetji (ni njihov naslov) (samodejno)" })
+      .where(and(eq(contacts.companyId, l.companyId), eq(contacts.emailSource, l.source), isNull(contacts.invalidAt)))
+      .returning({ id: contacts.id });
+    marked += r.length;
+    touched.add(l.companyId);
   }
   const { rescoreCompany } = await import("../scoring/apply");
   for (const id of touched) {

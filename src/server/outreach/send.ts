@@ -52,7 +52,7 @@ export const SEND_REASON: Record<SendError, string> = {
   NOT_APPROVED: "Osnutek ni odobren.",
   BLOCKED: "Naslov je na seznamu »ne kontaktiraj« — osnutek je zavržen.",
   CAP: "Dosežena je današnja omejitev pošiljanja.",
-  BOUNCE_STOP: "Pošiljanje novih e-mailov je ustavljeno: v zadnjih 7 dneh je več kot 3 % nedostavljenih (ADR-013). Preveri naslove.",
+  BOUNCE_STOP: "Pošiljanje je začasno ustavljeno: v zadnjih 7 dneh so se vrnili vsaj 3 maili in več kot 3 % (ADR-013). Napačni naslovi so že označeni; pošiljanje se nadaljuje, ko starejši vrnjeni maili padejo iz 7-dnevnega okna.",
   SEND_FAILED: "Pošiljanje ni uspelo. Osnutek ostane odobren, poskusi kasneje.",
   ATTACHMENT_MISSING: "Priponke ni več na strežniku. Odstrani jo in jo pripni znova.",
   NO_DOMAIN: "Domena tega e-naslova ne obstaja, zato mail ne bi prišel. Naslov je označen kot napačen; če podjetje nima drugega, je na seznamu Za klic.",
@@ -60,13 +60,22 @@ export const SEND_REASON: Record<SendError, string> = {
 
 const NEXT_STEP_DAYS: Record<"first" | "followup_1" | "followup_2" | "reply", number | null> = { first: 3, followup_1: 5, followup_2: null, reply: null };
 
-/** Bounce-rate stop (ADR-013): > 3 % bounces among ≥ 20 cold e-mails sent in the last 7 days. */
-export async function bounceStop(db: Db, now = new Date()): Promise<boolean> {
+/** Cold e-mails sent and bounces received in the last 7 days. */
+export async function bounceStats(db: Db, now = new Date()): Promise<{ sent: number; bounces: number }> {
   const since = new Date(now.getTime() - 7 * 86_400_000).toISOString();
   const [r] = (await db.execute(sql`select
-      (select count(*)::int from drafts where status = 'sent' and kind::text <> 'reply' and sent_at >= ${since}) as sent,
+      (select count(*)::int from drafts where status = 'sent' and kind <> 'reply' and sent_at >= ${since}) as sent,
       (select count(*)::int from inbound_messages where classification = 'bounce' and received_at >= ${since}) as bounces`)) as unknown as { sent: number; bounces: number }[];
-  return r.sent >= 20 && r.bounces / r.sent > 0.03;
+  return r ?? { sent: 0, bounces: 0 };
+}
+
+/**
+ * Bounce-rate stop (ADR-013): > 3 % bounces among ≥ 20 cold e-mails sent in the last 7 days, and at least 3 bounces
+ * (owner 2026-10-21: 2 bounces at small volume stopped all sending; dead domains are now caught before sending).
+ */
+export async function bounceStop(db: Db, now = new Date()): Promise<boolean> {
+  const r = await bounceStats(db, now);
+  return r.sent >= 20 && r.bounces >= 3 && r.bounces / r.sent > 0.03;
 }
 
 /** Start of today in Europe/Ljubljana as an instant. */
