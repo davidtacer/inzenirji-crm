@@ -79,6 +79,10 @@ describe("proposals", () => {
     expect(await updateProposal(db, p.id, { title: "Ponudba", intro: "", items: "Prenos | ", timelineDays: "7", depositPct: "50", materials: "", validUntil: "2026-10-30" })).toMatch(/ceno/);
     expect(await updateProposal(db, p.id, { title: "Ponudba", intro: "", items: "Prenos | 900", timelineDays: "10", depositPct: "50", materials: "Logotip\n\nDostop", validUntil: "2026-10-20" })).toBeNull();
     expect((await proposalEmail(db, p.id, seller, NOW)).ok).toBe(true);
+    // Owner 2026-10-21: items at 0 are "included" in the package; only a proposal with no price at all is refused.
+    expect(await updateProposal(db, p.id, { title: "Ponudba", intro: "", items: "Nova stran | 590\nNalaganje videov | 0,00\nObjava | 0", timelineDays: "7", depositPct: "50", materials: "", validUntil: "2026-10-20" })).toBeNull();
+    const [q] = await admin`select items from proposals where id = ${p.id}`;
+    expect(q.items).toHaveLength(3);
     expect(await acceptProposal(db, p.token, "Ana Novak", new Date("2026-10-25T10:00:00Z"))).toMatch(/potekla/);
   });
 });

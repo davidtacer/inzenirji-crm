@@ -114,12 +114,14 @@ export function proposalUrl(token: string, appUrl = process.env.APP_URL ?? "http
 
 /**
  * Prepares the e-mail with the link as a reply draft (threaded to their last message) and marks the proposal sent;
- * the owner approves and sends it in Osnutki. Refuses when a price is 0 or the seller details are missing.
+ * the owner approves and sends it in Osnutki. Refuses when the total is 0 or the seller details are missing; items at
+ * 0 € are shown to the client as "vključeno".
  */
 export async function proposalEmail(db: Db, id: string, st: Settings, now = new Date()): Promise<{ ok: true; draftId: string } | { ok: false; message: string }> {
   const [p] = await db.select().from(proposals).where(eq(proposals.id, id)).limit(1);
   if (!p) return { ok: false, message: "Ponudbe ni." };
-  if ((p.items as Item[]).some((i) => i.priceCents <= 0)) return { ok: false, message: "Vse postavke morajo imeti ceno (pri prenosu jo vpiši po pregledu obsega)." };
+  // Items at 0 € are "included" (owner 2026-10-21); only a proposal without any price is refused.
+  if (totals(p.items as Item[], 0, false, 0).net <= 0) return { ok: false, message: "Ponudba še nima cene: vpiši ceno vsaj pri eni postavki (pri prenosu po pregledu obsega). Postavke z 0 so prikazane kot »vključeno«." };
   if (!st.sellerName || !st.iban) return { ok: false, message: "V Nastavitvah izpolni podatke za ponudbo (ime s.p., naslov, IBAN)." };
   const [d] = await db.select().from(deals).where(eq(deals.id, p.dealId)).limit(1);
   const [lastIn] = await db
