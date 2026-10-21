@@ -30,5 +30,18 @@ export async function startSchedulers() {
   sweepForeignEmails(getDb())
     .then((r) => console.log(`[emails] foreign addresses marked: ${r.marked}, drafts cancelled: ${r.drafts}`))
     .catch((e) => console.error("[emails] sweep failed:", e instanceof Error ? e.message.slice(0, 160) : "unknown"));
+  // Bounces of the last 30 days that arrived before the CRM could match them (owner 2026-10-21); idempotent.
+  setTimeout(async () => {
+    try {
+      const { imapConfigFromEnv, fetchRecentBounces } = await import("./server/mailbox/imap");
+      const { processInbound } = await import("./server/mailbox/process");
+      const cfg = imapConfigFromEnv();
+      if (!cfg) return;
+      const r = await processInbound(getDb(), await fetchRecentBounces(cfg), { ai: null });
+      console.log(`[bounces] rescanned: ${r.seen}, matched: ${r.stored}`);
+    } catch (e) {
+      console.error("[bounces] rescan failed:", e instanceof Error ? e.message.slice(0, 160) : "unknown");
+    }
+  }, 60_000);
   console.log("[scheduler] weekly report + follow-ups on");
 }

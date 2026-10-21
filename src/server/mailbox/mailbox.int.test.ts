@@ -58,6 +58,37 @@ const mail = (over: Partial<InboundMail>): InboundMail => ({
 const stage = async (id: string) => (await admin`select stage, next_action_at from deals where company_id = ${id}`)[0];
 
 describe("mailbox processing", () => {
+  it("a bounce without our Message-ID (owner 2026-10-21) is matched by the failed recipient: address invalid, follow-ups stop", async () => {
+    const { c } = await contacted("mojca");
+    const bounce = mail({
+      from: "MAILER-DAEMON@gateone.datavallis.com",
+      subject: "Undelivered Mail Returned to Sender",
+      text: "I'm sorry to have to inform you that your message could not\nbe delivered.\n\n<info@mojca.si>: Host or domain name not found. Name service\n    error for name=mojca.si type=A: Host not found",
+    });
+    expect((await processInbound(db, [bounce], { ai: null, now: day(1) })).byClass).toEqual({ bounce: 1 });
+    const [ct] = await admin`select invalid_at, invalid_reason from contacts where company_id = ${c.id}`;
+    expect(ct.invalid_reason).toBe("nedostavljivo: domena ne obstaja");
+    expect((await stage(c.id)).next_action_at).toBeNull();
+    expect(await createDueFollowUps(db, day(5))).toBe(0);
+    expect((await admin`select count(*)::int n from do_not_contact where value = 'info@mojca.si'`)[0].n).toBe(1);
+  });
+
+  it("a recipient domain that does not exist is caught before sending", async () => {
+    const [c] = await db.insert(companies).values({ name: "Zina", city: "Celje", group: "B" }).returning();
+    await db.insert(deals).values({ companyId: c.id, source: "places_search", stage: "researched" });
+    await db.insert(audits).values({ companyId: c.id, data: {}, issues: [] });
+    await db.insert(contacts).values({ companyId: c.id, email: "zina@ni-domene.si", emailSource: "x" });
+    const r = await createFirstDraft(db, c.id);
+    if (!r.ok) throw new Error(r.reason);
+    await approveDraft(db, r.draftId, { subject: "S", body: "b" }, T0);
+    const mailer = createCaptureMailer();
+    const s = await sendApprovedDraft(db, r.draftId, { mailer, config: { ...cfg, dailyCap: 100 }, now: T0, checkDomain: async () => "no" });
+    expect(s).toEqual({ ok: false, error: "NO_DOMAIN" });
+    expect(mailer.sent).toHaveLength(0);
+    expect((await admin`select invalid_reason from contacts where company_id = ${c.id}`)[0].invalid_reason).toMatch(/domena ne obstaja/);
+    expect((await admin`select status from drafts where id = ${r.draftId}`)[0].status).toBe("discarded");
+  });
+
   it("sent mail carries our Message-ID; a question reply by thread stops follow-ups and drafts an answer in the thread", async () => {
     const { c, ourId } = await contacted("ana");
     expect(ourId).toMatch(/^<[0-9a-f-]{36}@inzenirji\.si>$/);

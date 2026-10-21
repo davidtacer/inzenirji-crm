@@ -36,6 +36,7 @@ describe("migrations", () => {
       "draft_attachments",
       "drafts",
       "google_accounts",
+      "held_inquiries",
       "inbound_messages",
       "jobs",
       "mailbox_state",

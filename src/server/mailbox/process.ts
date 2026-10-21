@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { addToDnc } from "../contact/dnc";
 import { domainOf, normalizeEmail } from "../contact/normalize";
 import { websiteKind } from "../contact/website";
@@ -6,7 +6,8 @@ import type { Db } from "../db/client";
 import { activities, aiUsage, companies, contacts, deals, drafts, inboundMessages } from "../db/schema";
 import type { AiConfig } from "../ai/remark";
 import { blockCompany } from "../outreach/drafts";
-import { classifyReply, ownText, type InboundMail, type ReplyClass } from "./classify";
+import { markEmailInvalid } from "../contact/emails";
+import { classifyByRules, classifyReply, ownText, type InboundMail, type ReplyClass } from "./classify";
 import { composeReply, type ContactOptions } from "./reply";
 
 /*
@@ -36,7 +37,32 @@ async function matchCompany(db: Db, m: InboundMail): Promise<Match | null> {
     if (d) return d;
   }
   // 2./3. Sender is a known contact, or writes from the company's own domain.
-  return matchAddress(db, m.from);
+  const byFrom = await matchAddress(db, m.from);
+  if (byFrom) return byFrom;
+  // 4. A bounce without our Message-ID: the failed recipient, and our last e-mail to that address.
+  if (classifyByRules(m) === "bounce") {
+    for (const rcpt of failedRecipients(m.text)) {
+      const [d] = await db
+        .select({ draftId: drafts.id, dealId: drafts.dealId, companyId: deals.companyId })
+        .from(drafts)
+        .innerJoin(deals, eq(deals.id, drafts.dealId))
+        .where(and(eq(drafts.toEmail, rcpt), eq(drafts.status, "sent")))
+        .orderBy(desc(drafts.sentAt))
+        .limit(1);
+      if (d) return d;
+      const c = await matchAddress(db, rcpt);
+      if (c) return c;
+    }
+  }
+  return null;
+}
+
+/** Recipients a bounce reports as failed ("Final-Recipient: rfc822; x", "<x>: Host not found", "x: 550 ..."). */
+export function failedRecipients(text: string): string[] {
+  const out = new Set<string>();
+  for (const m of text.matchAll(/(?:Final|Original)-Recipient:\s*rfc822;\s*<?([^\s<>;]+@[^\s<>;]+)>?/gi)) out.add(m[1]!.toLowerCase());
+  for (const m of text.matchAll(/^\s*<([^\s<>]+@[^\s<>]+)>:\s/gim)) out.add(m[1]!.toLowerCase());
+  return [...out].map((e) => normalizeEmail(e)).filter((e): e is string => !!e && !/inzenirji\.si$/i.test(e));
 }
 
 /** A known contact's address, or an address on a company's own website domain (never free-mail). */
@@ -61,6 +87,14 @@ export async function matchAddress(db: Db, raw: string): Promise<Match | null> {
     if (w) return { ...w, draftId: null };
   }
   return null;
+}
+
+/** A short reason from the bounce text for the owner. */
+export function bounceReason(text: string): string {
+  if (/host or domain name not found|domain not found|no such domain|nxdomain|name service error/i.test(text)) return "domena ne obstaja";
+  if (/mailbox not found|user unknown|no such user|does not exist|unknown user|recipient address rejected|mailbox unavailable|invalid recipient|5\.1\.1/i.test(text)) return "nabiralnik ne obstaja";
+  if (/mailbox full|quota|over quota|5\.2\.2/i.test(text)) return "nabiralnik je poln";
+  return "vrnjeno";
 }
 
 async function dropOpenOutreach(db: Db, dealId: string) {
@@ -129,10 +163,18 @@ async function applyEffects(db: Db, match: Match, m: InboundMail, cls: ReplyClas
   const dealId = match.dealId;
   if (cls === "out_of_office") return;
   if (cls === "bounce") {
-    // The address does not work: never use it again; stop this sequence.
+    // The address does not work: never use it again; stop this sequence. It is marked invalid on the company, so
+    // the company moves to "Za klic" when it has no other address (owner 2026-10-21: "da vemo, da lahko ukrepamo").
+    const failed = new Set(failedRecipients(m.text));
     if (match.draftId) {
       const [d] = await db.select({ to: drafts.toEmail }).from(drafts).where(eq(drafts.id, match.draftId)).limit(1);
-      if (d) await addToDnc(db, { kind: "email", value: d.to, reason: "bounce (nedostavljivo)" });
+      if (d) failed.add(d.to);
+    }
+    for (const email of failed) {
+      const [known] = await db.select({ id: contacts.id }).from(contacts).where(and(eq(contacts.companyId, match.companyId), eq(contacts.email, email))).limit(1);
+      if (!known) continue;
+      await addToDnc(db, { kind: "email", value: email, reason: "bounce (nedostavljivo)" });
+      await markEmailInvalid(db, match.companyId, email, `nedostavljivo: ${bounceReason(m.text)}`, now);
     }
     if (dealId) {
       await dropOpenOutreach(db, dealId);

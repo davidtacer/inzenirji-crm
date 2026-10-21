@@ -40,13 +40,19 @@ describe("scoring in the database", () => {
 
     expect(await rescoreMissing(db)).toBe(4);
     const top = await topLeads(db);
-    expect(top.map((t) => t.name)).toEqual(["Močan", "Šibek"]);
+    // Danes lists only e-mailable leads (owner 2026-10-21): "Šibek" has no address, a call-marked lead is left out too.
+    expect(top.map((t) => t.name)).toEqual(["Močan"]);
+    await db.insert(contacts).values({ companyId: weak.id, email: "info@sibek.si", emailSource: "x" });
+    expect((await topLeads(db)).map((t) => t.name)).toEqual(["Močan", "Šibek"]);
+    await admin`update deals set channel = 'call' where company_id = ${weak.id}`;
+    await admin`update contacts set invalid_at = now() where company_id = ${strong.id}`;
+    expect(await topLeads(db)).toHaveLength(0);
+    await admin`update contacts set invalid_at = null where company_id = ${strong.id}`;
     expect(top[0].hasEmail).toBe(true);
     expect(top[0].summary).toBe("Povzetek Močan");
     expect((await admin`select score from companies where id = ${blocked.id}`)[0].score).toBe(0);
     expect((await admin`select score from companies where id = ${done.id}`)[0].score).toBeGreaterThan(0);
     expect(await rescoreMissing(db)).toBe(0);
-    void weak;
   });
 
   it("returns null for a company without research", async () => {

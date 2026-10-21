@@ -22,6 +22,7 @@ Conversation with the owner in Slovenian; code and docs in English.
   task list) from the business plan `inzenirji.si/docs/nacrt-rasti.md`.
 
 - 2026-10-21: ADR-051 "Uredi podatke" on the company page (name, phone, address, city, website, category).
+- 2026-10-21: ADR-051 website form guard (domain, rules, AI, held list on Odgovori; time check on the landing). ADR-052 bounces matched by recipient and marked invalid, domain check before send, Danes only e-mailable leads.
 - 2026-10-21: proposals: items at 0 € allowed and shown as "vključeno"; only a proposal with total 0 is refused.
 - 2026-10-20: ADR-050 attachments on e-mails (Osnutki, up to 5 files / 15 MB).
 - 2026-10-20: Osnutki shows today's sends split into first e-mails and follow-ups; the cap still counts all cold e-mails (ADR-013).
