@@ -1,6 +1,6 @@
 "use client";
 import { useActionState, useState } from "react";
-import { addLinkAction, callLaterAction, googleOverviewAction, markInvalidAction, markValidAction, setChannelAction, setTestAction, setWebsiteAction, updateCompanyAction, type ActionState } from "./actions";
+import { addLinkAction, callLaterAction, googleOverviewAction, extraEmailAction, markInvalidAction, markValidAction, setChannelAction, setTestAction, setWebsiteAction, updateCompanyAction, type ActionState } from "./actions";
 import { JobLine, type JobView } from "./buttons";
 
 const small = "border border-accent/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-accent hover:bg-accent hover:text-black disabled:opacity-50";
@@ -133,13 +133,31 @@ export function TestToggle({ companyId, isTest }: { companyId: string; isTest: b
 const REASONS = ["agregator (imenik, portal)", "ne obstaja (vrnjen e-mail)", "ni njihov (tuja domena)", "drug razlog"];
 
 /** One e-mail on the company page: mark it wrong with a reason, or valid again (ADR-044). */
-export function ContactEmail({ companyId, email, source, invalidReason }: { companyId: string; email: string; source: string | null; invalidReason: string | null }) {
+export function ContactEmail({
+  companyId,
+  email,
+  source,
+  invalidReason,
+  canWrite = false,
+  written = null,
+}: {
+  companyId: string;
+  email: string;
+  source: string | null;
+  invalidReason: string | null;
+  /** The company already got a first e-mail and this address did not: offer to write to it too. */
+  canWrite?: boolean;
+  /** What went to this address ("poslano", "čaka v Osnutkih"), if anything. */
+  written?: string | null;
+}) {
   const [state, action, busy] = useActionState<ActionState, FormData>(invalidReason ? markValidAction : markInvalidAction, null);
+  const [xState, extra, xBusy] = useActionState<ActionState, FormData>(extraEmailAction, null);
   return (
     <li className="font-mono text-xs">
       <div className="flex flex-wrap items-center gap-2">
         <span className={invalidReason ? "text-text-secondary line-through" : "text-text-primary"}>{email}</span>
         {invalidReason ? <span className="text-[10px] uppercase tracking-widest text-danger-text">napačen · {invalidReason}</span> : null}
+        {!invalidReason && written ? <span className="text-[10px] uppercase tracking-widest text-accent">{written}</span> : null}
       </div>
       {source ? <span className="block text-[10px] text-text-secondary">vir: {source}</span> : null}
       <form action={action} className="mt-1 flex flex-wrap items-center gap-2">
@@ -157,7 +175,12 @@ export function ContactEmail({ companyId, email, source, invalidReason }: { comp
         <button type="submit" disabled={busy} className={invalidReason ? small : "border border-danger-text/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-danger-text hover:bg-danger-text hover:text-black"}>
           {busy ? "…" : invalidReason ? "Je pravilen" : "Napačen"}
         </button>
-        {state ? <span className={`text-[10px] ${state.ok ? "text-accent" : "text-danger-text"}`}>{state.message}</span> : null}
+        {!invalidReason && canWrite ? (
+          <button type="submit" formAction={extra} disabled={xBusy} className="border border-accent/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-accent hover:bg-accent hover:text-black">
+            {xBusy ? "Pripravljam…" : "Piši tudi na ta naslov"}
+          </button>
+        ) : null}
+        {state ?? xState ? <span className={`text-[10px] ${(state ?? xState)!.ok ? "text-accent" : "text-danger-text"}`}>{(state ?? xState)!.message}</span> : null}
       </form>
     </li>
   );

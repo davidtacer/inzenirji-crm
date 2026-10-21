@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { and, eq, ne } from "drizzle-orm";
+import { drafts as draftsTable } from "@/server/db/schema";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { ScoreBadge } from "@/components/ScoreBadge";
@@ -74,6 +76,20 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
   const { obstaja } = await searchParams;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const d = await companyDetail(getDb(), id);
+  // What went to each address, so another address can get the first e-mail too (owner 2026-10-21).
+  const outMail = d?.deal
+    ? await getDb()
+        .select({ toEmail: draftsTable.toEmail, kind: draftsTable.kind, status: draftsTable.status })
+        .from(draftsTable)
+        .where(and(eq(draftsTable.dealId, d.deal.id), ne(draftsTable.status, "discarded")))
+    : [];
+  const firstSent = outMail.some((m) => m.kind === "first" && m.status === "sent");
+  const writtenTo = (email: string) => {
+    const mine = outMail.filter((m) => m.toEmail === email && m.kind !== "reply");
+    if (mine.some((m) => m.status === "sent")) return "pisal si mu";
+    if (mine.length) return "čaka v Osnutkih";
+    return null;
+  };
   if (!d) notFound();
   const c = d.company;
   const demo = await demoNotes(getDb(), c.id);
@@ -534,7 +550,15 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
               {d.contacts
                 .filter((p) => !!p.email)
                 .map((p) => (
-                  <ContactEmail key={p.id} companyId={c.id} email={p.email!} source={p.emailSource} invalidReason={p.invalidAt ? (p.invalidReason ?? "napačen") : null} />
+                  <ContactEmail
+                    key={p.id}
+                    companyId={c.id}
+                    email={p.email!}
+                    source={p.emailSource}
+                    invalidReason={p.invalidAt ? (p.invalidReason ?? "napačen") : null}
+                    written={writtenTo(p.email!)}
+                    canWrite={firstSent && !writtenTo(p.email!)}
+                  />
                 ))}
             </ul>
           )}

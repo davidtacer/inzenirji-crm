@@ -21,6 +21,7 @@ Conversation with the owner in Slovenian; code and docs in English.
 - 2026-10-15: repo created by the owner; docs foundation (manifest, product spec, architecture, ADR-001…010,
   task list) from the business plan `inzenirji.si/docs/nacrt-rasti.md`.
 
+- 2026-10-21: ADR-055 "Piši tudi na ta naslov" (draft kind extra); follow-ups never to a wrong address.
 - 2026-10-21: ADR-054 OZS member catalogue as second directory (after bizi.si).
 - 2026-10-21: ADR-053 directory pages never a website, only the company's own entry on listing pages, clean-up; bounce stop needs 3 bounces.
 - 2026-10-21: ADR-051 "Uredi podatke" on the company page (name, phone, address, city, website, category).

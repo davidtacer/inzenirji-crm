@@ -191,3 +191,17 @@ export async function callLaterAction(_prev: ActionState, form: FormData): Promi
   revalidatePath("/za-klic");
   return { ok: true, message: "Pokažem znova čez 2 dni." };
 }
+
+export async function extraEmailAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  if (!(await getCurrentUser())) return { ok: false, message: "Prijava je potekla." };
+  const id = String(form.get("companyId") ?? "");
+  if (!/^[0-9a-f-]{36}$/.test(id)) return { ok: false, message: "Neveljavno podjetje." };
+  const { createExtraDraft, EXTRA_REASON } = await import("@/server/outreach/drafts");
+  const { aiConfig } = await import("@/server/ai/remark");
+  const { getSettings } = await import("@/server/settings");
+  const db = getDb();
+  const r = await createExtraDraft(db, id, String(form.get("email") ?? ""), aiConfig(await getSettings(db)));
+  revalidatePath(`/podjetja/${id}`);
+  revalidatePath("/osnutki");
+  return r.ok ? { ok: true, message: "Osnutek čaka v Osnutkih." } : { ok: false, message: EXTRA_REASON[r.reason] };
+}
