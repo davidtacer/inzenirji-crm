@@ -133,7 +133,7 @@ async function dueFollowUps(db: Db, now: Date) {
     const sent = await db
       .select({ kind: drafts.kind, status: drafts.status, subject: drafts.subject, body: drafts.body, toEmail: drafts.toEmail, messageId: drafts.messageId })
       .from(drafts)
-      .where(and(eq(drafts.dealId, d.dealId), ne(drafts.status, "discarded"), sql`${drafts.kind}::text <> 'reply'`))
+      .where(and(eq(drafts.dealId, d.dealId), ne(drafts.status, "discarded"), sql`${drafts.kind}::text in ('first', 'followup_1', 'followup_2')`))
       .orderBy(asc(drafts.createdAt));
     // Wait while a step is still open (pending or approved); the next step follows the last *sent* one.
     if (sent.some((s) => s.status !== "sent")) continue;
@@ -143,6 +143,9 @@ async function dueFollowUps(db: Db, now: Date) {
     const next = !has("followup_1") ? "followup_1" : !has("followup_2") ? "followup_2" : null;
     if (!next) continue;
     if (await isBlocked(db, { email: first.toEmail, companyId: d.companyId })) continue;
+    // Follow-ups only to the address of the first e-mail, and only while it is not marked wrong (owner 2026-10-21);
+    // another address gets its own first e-mail ("extra").
+    if (!(await validEmails(db, d.companyId)).includes(first.toEmail)) continue;
     out.push({ ...d, next, first } as const);
   }
   return out;
@@ -318,4 +321,36 @@ export async function addContactEmail(db: Db, companyId: string, rawEmail: strin
     .onConflictDoUpdate({ target: [contacts.companyId, contacts.email], set: { invalidAt: null, invalidReason: null } });
   await rescoreCompany(db, companyId);
   return { ok: true as const, message: `Dodan ${email}.` };
+}
+
+export const EXTRA_REASON = {
+  NOT_FOUND: "Podjetja ni.",
+  NOT_VALID: "Tega e-naslova ni med veljavnimi naslovi podjetja.",
+  BLOCKED: "Podjetje ali e-naslov je na seznamu »ne kontaktiraj«.",
+  ALREADY: "Na ta naslov je e-mail že poslan ali čaka v Osnutkih.",
+  NOT_STARTED: "Temu podjetju še nisi pisal. Pripravi prvi e-mail.",
+} as const;
+
+/**
+ * The first e-mail once more, to another address of a company we already wrote to (owner 2026-10-21: "ko sem že
+ * poslal mail, pa follow up bi moral poslati na drug email"). Written fresh (AI within the usual checks, or the
+ * template), not threaded: that person has not seen the first one. It waits in Osnutki like any e-mail (ADR-004).
+ */
+export async function createExtraDraft(db: Db, companyId: string, rawEmail: string, ai: AiConfig | null = null): Promise<{ ok: true; draftId: string } | { ok: false; reason: keyof typeof EXTRA_REASON }> {
+  const email = normalizeEmail(rawEmail);
+  const ctx = await composeInput(db, companyId);
+  if (!ctx) return { ok: false, reason: "NOT_FOUND" };
+  if (!email || !(await validEmails(db, companyId)).includes(email)) return { ok: false, reason: "NOT_VALID" };
+  if (await isBlocked(db, { email, companyId })) return { ok: false, reason: "BLOCKED" };
+  const own = await db
+    .select({ toEmail: drafts.toEmail, kind: drafts.kind, status: drafts.status })
+    .from(drafts)
+    .where(and(eq(drafts.dealId, ctx.dealId), ne(drafts.status, "discarded")));
+  if (!own.some((x) => x.kind === "first" && x.status === "sent")) return { ok: false, reason: "NOT_STARTED" };
+  if (own.some((x) => x.toEmail === email && x.kind !== "reply")) return { ok: false, reason: "ALREADY" };
+  const full = await aiFirstEmail(db, companyId, ai, ctx.rivals);
+  const m = "body" in full ? full : composeFirst({ ...ctx.input, aiRemark: (await ensureAiRemark(db, companyId, ai))?.remark ?? null });
+  const writtenBy = "body" in full ? `ai:${full.model}` : `predloga: ${full.reason}`.slice(0, 300);
+  const [d] = await db.insert(drafts).values({ dealId: ctx.dealId, kind: "extra", toEmail: email, subject: m.subject, body: m.body, writtenBy }).returning({ id: drafts.id });
+  return { ok: true, draftId: d!.id };
 }

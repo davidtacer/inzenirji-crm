@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { markEmailInvalid } from "../contact/emails";
 import postgres from "postgres";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { addToDnc, listDnc } from "../contact/dnc";
@@ -11,6 +12,7 @@ import {
   approveDraft,
   blockCompany,
   createDueFollowUps,
+  createExtraDraft,
   createFirstDraft,
   discardDraft,
   listDrafts,
@@ -172,6 +174,32 @@ describe("outreach flow", () => {
       delete process.env.UPLOAD_DIR;
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  it("another address of a contacted company gets its own first e-mail; follow-ups never go to a wrong address (owner 2026-10-21)", async () => {
+    const c = await lead("Bojan");
+    const r = await createFirstDraft(db, c.id);
+    if (!r.ok) throw new Error("no draft");
+    expect(await createExtraDraft(db, c.id, "info@bojan.si")).toEqual({ ok: false, reason: "NOT_STARTED" });
+    await approveDraft(db, r.draftId, { subject: "S", body: "Pozdravljeni,\n\nprvi." }, T0);
+    await sendApprovedDraft(db, r.draftId, { mailer: createCaptureMailer(), config: cfg, now: T0 });
+    expect(await createExtraDraft(db, c.id, "helena@gmail.com")).toEqual({ ok: false, reason: "NOT_VALID" });
+    await db.insert(contacts).values({ companyId: c.id, email: "helena@gmail.com", emailSource: "https://www1.ozs.si/katalog?ooz=13" });
+    expect(await createExtraDraft(db, c.id, "info@bojan.si")).toEqual({ ok: false, reason: "ALREADY" });
+    const x = await createExtraDraft(db, c.id, "helena@gmail.com");
+    if (!x.ok) throw new Error(x.reason);
+    const [row] = await admin`select kind, to_email, in_reply_to, subject from drafts where id = ${x.draftId}`;
+    expect(row).toMatchObject({ kind: "extra", to_email: "helena@gmail.com", in_reply_to: null, subject: "Spletna stran za Bojan" });
+    expect(await createExtraDraft(db, c.id, "helena@gmail.com")).toEqual({ ok: false, reason: "ALREADY" });
+    // An open extra e-mail does not hold back the follow-up to the first address.
+    expect(await createDueFollowUps(db, day(3))).toBe(1);
+    await admin`delete from drafts where kind = 'followup_1'`;
+    // The first address is wrong: no follow-up is prepared to it.
+    await markEmailInvalid(db, c.id, "info@bojan.si", "ni njihov", day(3));
+    expect(await createDueFollowUps(db, day(3))).toBe(0);
+    await approveDraft(db, x.draftId, { subject: "S", body: "Pozdravljeni,\n\nže drugič." }, day(3));
+    expect((await sendApprovedDraft(db, x.draftId, { mailer: createCaptureMailer(), config: cfg, now: day(3) })).ok).toBe(true);
+    expect(await sentTodayByKind(db, day(3))).toEqual({ first: 1, followUps: 0 });
   });
 
   it("daily cap counts across drafts, also for parallel sends", async () => {
