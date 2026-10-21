@@ -10,6 +10,7 @@ import { PlacesError, placeProfile, type PlaceProfile, type PlaceReview } from "
 import { QuotaError, reserveCall } from "../places/quota";
 import { PLACES_PROVIDER } from "../places/search";
 import { lookupBizi, type DirectoryResult } from "../directories/bizi";
+import { lookupOzs } from "../directories/ozs";
 import { emptyFindings, findOnWeb, isBuilderSite, type ParsedResearch, verifyFindings, type WebFindings } from "./websearch";
 import { spentTodayMicroUsd, type AiConfig } from "../ai/remark";
 import { safeFetch, type FetchedPage, type Resolver } from "./safe-fetch";
@@ -146,6 +147,15 @@ export async function runAudit(db: Db, companyId: string, deps: AuditDeps = {}) 
   if (deps.directories && emailSource.size === 0) {
     try {
       directory = await lookupBizi(c, deps);
+      // The OZS member catalogue when bizi.si has no e-mail (owner 2026-10-21): craftsmen enter their own there.
+      if (!directory?.match || !directory.emails.length) {
+        const ozs = await lookupOzs(db, c, { fetchImpl: deps.fetchImpl }).catch((e) => {
+          console.error("[research] OZS lookup failed:", e instanceof Error ? e.message : "unknown");
+          return null;
+        });
+        if (ozs?.match && ozs.emails.length) directory = ozs;
+        else if (!directory?.match && ozs) directory = directory ?? ozs;
+      }
     } catch (e) {
       directory = null;
       console.error("[research] directory lookup failed:", e instanceof Error ? e.message : "unknown");
