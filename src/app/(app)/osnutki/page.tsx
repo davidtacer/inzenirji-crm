@@ -15,7 +15,7 @@ import { aiConfig, spentTodayMicroUsd } from "@/server/ai/remark";
 
 export const dynamic = "force-dynamic";
 
-const KIND: Record<string, string> = { first: "1. e-mail", followup_1: "Follow-up (3. dan)", followup_2: "Zadnji follow-up (8. dan)", reply: "Odgovor" };
+const KIND: Record<string, string> = { first: "1. e-mail", followup_1: "Follow-up (3. dan)", followup_2: "Zadnji follow-up (8. dan)", reply: "Odgovor", extra: "1. e-mail na drug naslov" };
 const when = (d: Date | null) => (d ? d.toLocaleString("sl-SI", { timeZone: "Europe/Ljubljana", dateStyle: "short", timeStyle: "short" }) : "—");
 
 function Head({ d }: { d: { companyId: string; companyName: string; group: "A" | "B" | null; score: number | null; kind: string; toEmail: string } }) {

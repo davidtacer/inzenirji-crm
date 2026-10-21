@@ -55,7 +55,8 @@ export const activityType = pgEnum("activity_type", ["email_in", "email_out", "c
 export const draftStatus = pgEnum("draft_status", ["pending", "approved", "sent", "discarded"]);
 
 /** Outreach sequence step (spec §5.5): day 0, day 3, day 8. */
-export const draftKind = pgEnum("draft_kind", ["first", "followup_1", "followup_2", "reply"]);
+/** "extra": the first e-mail again, to another address of a company already written to (owner 2026-10-21). */
+export const draftKind = pgEnum("draft_kind", ["first", "followup_1", "followup_2", "reply", "extra"]);
 
 /** Classification of an incoming reply (spec §5.5, TASK-009). */
 export const replyClass = pgEnum("reply_class", ["interested", "not_now", "no", "question", "out_of_office", "bounce"]);
@@ -239,7 +240,7 @@ export const drafts = pgTable(
     index("drafts_status_idx").on(t.status),
     // One live draft per sequence step and deal; a discarded draft can be prepared again.
     // Replies are exempt (a conversation has many).
-    uniqueIndex("drafts_deal_kind_live_uq").on(t.dealId, t.kind).where(sql`${t.status} <> 'discarded' and ${t.kind} <> 'reply'`),
+    uniqueIndex("drafts_deal_kind_live_uq").on(t.dealId, t.kind).where(sql`${t.status} <> 'discarded' and ${t.kind} in ('first', 'followup_1', 'followup_2')`),
     // One reply draft per incoming message (follow-ups also thread to the first e-mail, so only replies).
     // Only open drafts count: after a reply is sent, a new one (e.g. the proposal) may answer the same message.
     uniqueIndex("drafts_in_reply_to_uq").on(t.inReplyTo).where(sql`${t.inReplyTo} is not null and ${t.status} in ('pending', 'approved') and ${t.kind} = 'reply'`),

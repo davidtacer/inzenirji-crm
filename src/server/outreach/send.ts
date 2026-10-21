@@ -58,7 +58,7 @@ export const SEND_REASON: Record<SendError, string> = {
   NO_DOMAIN: "Domena tega e-naslova ne obstaja, zato mail ne bi prišel. Naslov je označen kot napačen; če podjetje nima drugega, je na seznamu Za klic.",
 };
 
-const NEXT_STEP_DAYS: Record<"first" | "followup_1" | "followup_2" | "reply", number | null> = { first: 3, followup_1: 5, followup_2: null, reply: null };
+const NEXT_STEP_DAYS: Record<"first" | "followup_1" | "followup_2" | "reply" | "extra", number | null> = { first: 3, followup_1: 5, followup_2: null, reply: null, extra: null };
 
 /** Cold e-mails sent and bounces received in the last 7 days. */
 export async function bounceStats(db: Db, now = new Date()): Promise<{ sent: number; bounces: number }> {
@@ -105,7 +105,7 @@ export async function sentTodayByKind(db: Db, now = new Date()): Promise<{ first
     .where(and(eq(drafts.status, "sent"), gte(drafts.sentAt, startOfLocalDay(now)), sql`${drafts.kind}::text <> 'reply'`))
     .groupBy(drafts.kind);
   const n = (k: string) => rows.filter((r) => r.kind === k).reduce((a, r) => a + r.n, 0);
-  return { first: n("first"), followUps: n("followup_1") + n("followup_2") };
+  return { first: n("first") + n("extra"), followUps: n("followup_1") + n("followup_2") };
 }
 
 export const messageIdFor = (draftId: string) => `<${draftId}@inzenirji.si>`;
