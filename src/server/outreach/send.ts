@@ -1,4 +1,5 @@
 import { attachmentsForSend } from "./attachments";
+import { defaultDomainCheck, type DomainCheck } from "../contact/domain";
 import { and, eq, gte, sql } from "drizzle-orm";
 import { isBlocked } from "../contact/dnc";
 import type { Db } from "../db/client";
@@ -43,7 +44,7 @@ export function lockReason(st: Settings, env: Record<string, string | undefined>
   return null;
 }
 
-export type SendError = "NOT_FOUND" | "LOCKED" | "NOT_APPROVED" | "BLOCKED" | "CAP" | "BOUNCE_STOP" | "SEND_FAILED" | "ATTACHMENT_MISSING";
+export type SendError = "NOT_FOUND" | "LOCKED" | "NOT_APPROVED" | "BLOCKED" | "CAP" | "BOUNCE_STOP" | "SEND_FAILED" | "ATTACHMENT_MISSING" | "NO_DOMAIN";
 
 export const SEND_REASON: Record<SendError, string> = {
   NOT_FOUND: "Osnutka ni.",
@@ -54,6 +55,7 @@ export const SEND_REASON: Record<SendError, string> = {
   BOUNCE_STOP: "Pošiljanje novih e-mailov je ustavljeno: v zadnjih 7 dneh je več kot 3 % nedostavljenih (ADR-013). Preveri naslove.",
   SEND_FAILED: "Pošiljanje ni uspelo. Osnutek ostane odobren, poskusi kasneje.",
   ATTACHMENT_MISSING: "Priponke ni več na strežniku. Odstrani jo in jo pripni znova.",
+  NO_DOMAIN: "Domena tega e-naslova ne obstaja, zato mail ne bi prišel. Naslov je označen kot napačen; če podjetje nima drugega, je na seznamu Za klic.",
 };
 
 const NEXT_STEP_DAYS: Record<"first" | "followup_1" | "followup_2" | "reply", number | null> = { first: 3, followup_1: 5, followup_2: null, reply: null };
@@ -123,11 +125,25 @@ export function buildMail(
 export async function sendApprovedDraft(
   db: Db,
   id: string,
-  deps: { mailer: Mailer; config: OutreachConfig; now?: Date },
+  deps: { mailer: Mailer; config: OutreachConfig; now?: Date; checkDomain?: DomainCheck },
 ): Promise<{ ok: true } | { ok: false; error: SendError }> {
   const now = deps.now ?? new Date();
   const cfg = deps.config;
   if (!cfg.enabled) return { ok: false, error: "LOCKED" };
+  // A domain that does not exist would only bounce (and hurt the domain's reputation): checked before sending.
+  const [pre] = await db
+    .select({ to: drafts.toEmail, status: drafts.status, companyId: deals.companyId })
+    .from(drafts)
+    .innerJoin(deals, eq(deals.id, drafts.dealId))
+    .where(eq(drafts.id, id))
+    .limit(1);
+  const domain = pre?.to.split("@")[1];
+  if (pre?.status === "approved" && domain && (await (deps.checkDomain ?? defaultDomainCheck)(domain)) === "no") {
+    const { markEmailInvalid } = await import("../contact/emails");
+    const r = await markEmailInvalid(db, pre.companyId, pre.to, "domena ne obstaja (preverjeno pred pošiljanjem)", now);
+    if (!r.ok) await db.update(drafts).set({ status: "discarded" }).where(eq(drafts.id, id));
+    return { ok: false, error: "NO_DOMAIN" };
+  }
   return db.transaction(async (tx) => {
     // One send at a time, so the daily cap cannot be passed by two clicks.
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext('outreach_send'))`);

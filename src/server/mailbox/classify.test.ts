@@ -74,3 +74,24 @@ describe("toInbound", () => {
     expect(m!.text.trim()).toBe("Zanima me, pokličite.");
   });
 });
+
+import { bounceReason, failedRecipients } from "./process";
+import { withReportParts } from "./imap";
+
+describe("bounces (owner 2026-10-21)", () => {
+  it("finds the failed recipients and a short reason", () => {
+    const postfix = "<mojca@frizerstvomojca-sp.si>: Host or domain name not found. Name service\n\nFinal-Recipient: rfc822; mojca@frizerstvomojca-sp.si\nX-Postfix-Sender: rfc822; david@inzenirji.si";
+    expect(failedRecipients(postfix)).toEqual(["mojca@frizerstvomojca-sp.si"]);
+    expect(bounceReason(postfix)).toBe("domena ne obstaja");
+    const yahoo = "<zinastrasek@yahoo.com>: host mta7.am0.yahoodns.net[98.136.96.75] said: 552 1\n    Requested mail action aborted, mailbox not found";
+    expect(failedRecipients(yahoo)).toEqual(["zinastrasek@yahoo.com"]);
+    expect(bounceReason(yahoo)).toBe("nabiralnik ne obstaja");
+  });
+  it("appends report parts to the text", () => {
+    const t = withReportParts("notice", [
+      { contentType: "message/delivery-status", content: Buffer.from("Final-Recipient: rfc822; a@b.si") },
+      { contentType: "image/png", content: Buffer.from("x") },
+    ]);
+    expect(t).toBe("notice\n\nFinal-Recipient: rfc822; a@b.si");
+  });
+});

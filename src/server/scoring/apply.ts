@@ -76,13 +76,24 @@ export async function topLeads(db: Db, limit = 10) {
       score: companies.score,
       website: companies.website,
       websiteDomain: companies.websiteDomain,
-      hasEmail: sql<boolean>`exists (select 1 from ${contacts} where ${contacts.companyId} = ${companies.id} and ${contacts.email} is not null)`,
+      hasEmail: sql<boolean>`exists (select 1 from ${contacts} where ${contacts.companyId} = ${companies.id} and ${contacts.email} is not null and ${contacts.invalidAt} is null)`,
       hasDraft: sql<boolean>`exists (select 1 from drafts d where d.deal_id = ${deals.id} and d.status <> 'discarded')`,
       summary: sql<string | null>`(select ${audits.summary} from ${audits} where ${audits.companyId} = ${companies.id} order by ${audits.createdAt} desc limit 1)`,
     })
     .from(companies)
     .innerJoin(deals, eq(deals.companyId, companies.id))
-    .where(and(eq(deals.stage, "researched"), sql`${companies.score} > 0`))
+    // Danes is the e-mail list (owner 2026-10-21: "pod danes želim da so samo emaili"): only leads with a valid address
+    // that are not marked for a call; those are on "Za klic".
+    .where(
+      and(
+        eq(deals.stage, "researched"),
+        sql`${companies.score} > 0`,
+        sql`not ${companies.isTest}`,
+        sql`${deals.channel} is distinct from 'call'`,
+        sql`exists (select 1 from ${contacts} where ${contacts.companyId} = ${companies.id} and ${contacts.email} is not null and ${contacts.invalidAt} is null)`,
+        sql`not exists (select 1 from do_not_contact n where n.kind = 'company' and n.value = ${companies.id}::text)`,
+      ),
+    )
     .orderBy(desc(companies.score), desc(companies.reviewCount))
     .limit(limit);
 }

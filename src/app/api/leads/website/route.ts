@@ -4,6 +4,7 @@ import { getDb } from "@/server/db/client";
 import { checkDemoToken } from "@/server/demo/demo";
 import { createMailerFromEnv } from "@/server/email/mailer";
 import { importWebsiteLead, parseWebsiteLead } from "@/server/leads/website";
+import { guardLead, holdLead } from "@/server/leads/guard";
 import { contactOptions } from "@/server/mailbox/reply";
 import { getSettings } from "@/server/settings";
 
@@ -28,6 +29,14 @@ export async function POST(req: Request) {
   const lead = parseWebsiteLead(body);
   if (!lead) return Response.json({ error: "invalid_request" }, { status: 400 });
   const st = await getSettings(db);
+  // Guard (owner 2026-10-21): a domain that does not exist is sent back to the visitor; spam, scams, insults and
+  // tests are held without a company, a draft or an e-mail to the owner. The visitor sees the usual thank-you.
+  const g = await guardLead(db, lead, { ai: aiConfig(st) });
+  if (g.action === "reject_email") return Response.json({ error: "email_domain", message: "Domena tega e-naslova ne obstaja. Preverite e-naslov." }, { status: 422 });
+  if (g.action === "hold") {
+    await holdLead(db, lead, g);
+    return Response.json({ ok: true, held: true });
+  }
   const owner = [...parseEmailList(process.env.OWNER_EMAILS)][0];
   let notify: { mailer: ReturnType<typeof createMailerFromEnv>; to: string; appUrl: string } | undefined;
   try {
