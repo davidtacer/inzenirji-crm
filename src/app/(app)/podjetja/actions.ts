@@ -13,6 +13,7 @@ import { eq } from "drizzle-orm";
 import { markEmailInvalid, markEmailValid } from "@/server/contact/emails";
 import { callLater, setChannel } from "@/server/calls/calllist";
 import { rescoreCompany } from "@/server/scoring/apply";
+import { updateCompanyDetails } from "@/server/companies/edit";
 
 /** Research options from Nastavitve: Google Places cap, AI web search (TASK-031). */
 async function researchDeps() {
@@ -118,6 +119,19 @@ export async function setTestAction(_prev: ActionState, form: FormData): Promise
   revalidatePath(`/podjetja/${id}`);
   revalidatePath("/porocila");
   return { ok: true, message: on ? "Označeno kot testno: ne šteje več v poročila." : "Ni več testno: spet šteje v poročila." };
+}
+
+/** Owner corrects the company's name and basic details (ADR-051). */
+export async function updateCompanyAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  if (!(await getCurrentUser())) return { ok: false, message: "Prijava je potekla." };
+  const id = String(form.get("companyId") ?? "");
+  if (!/^[0-9a-f-]{36}$/.test(id)) return { ok: false, message: "Neveljavno podjetje." };
+  const f = (k: string) => String(form.get(k) ?? "");
+  const r = await updateCompanyDetails(getDb(), id, { name: f("name"), phone: f("phone"), address: f("address"), city: f("city"), website: f("website"), category: f("category") });
+  if (!r.ok) return r;
+  revalidatePath(`/podjetja/${id}`);
+  revalidatePath("/podjetja");
+  return { ok: true, message: "Shranjeno." };
 }
 
 /** Owner confirmed the company's website from the Google overview (TASK-037). */
