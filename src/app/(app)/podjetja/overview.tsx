@@ -1,6 +1,6 @@
 "use client";
-import { useActionState } from "react";
-import { addLinkAction, callLaterAction, googleOverviewAction, markInvalidAction, markValidAction, setChannelAction, setTestAction, setWebsiteAction, type ActionState } from "./actions";
+import { useActionState, useState } from "react";
+import { addLinkAction, callLaterAction, googleOverviewAction, markInvalidAction, markValidAction, setChannelAction, setTestAction, setWebsiteAction, updateCompanyAction, type ActionState } from "./actions";
 import { JobLine, type JobView } from "./buttons";
 
 const small = "border border-accent/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-accent hover:bg-accent hover:text-black disabled:opacity-50";
@@ -60,6 +60,57 @@ export function PasteLink({ companyId }: { companyId: string }) {
         {busy ? "…" : "Dodaj povezavo"}
       </button>
       {state ? <span className={`font-mono text-[10px] ${state.ok ? "text-accent" : "text-danger-text"}`}>{state.ok ? "✓ dodano" : state.message}</span> : null}
+    </form>
+  );
+}
+
+type Details = { name: string; phone: string | null; address: string | null; city: string | null; website: string | null; category: string | null };
+
+const FIELDS: [keyof Details, string, string][] = [
+  ["name", "Ime podjetja *", "npr. Dego ali Dejan Novak s.p."],
+  ["phone", "Telefon", "npr. 041 123 456"],
+  ["address", "Naslov", "npr. Gosposka ulica 2, 2000 Maribor"],
+  ["city", "Kraj", "npr. Maribor"],
+  ["website", "Spletna stran", "npr. https://podjetje.si"],
+  ["category", "Dejavnost", "npr. frizerski salon"],
+];
+
+/** "Uredi podatke" on the company page: name and basic details (ADR-051). */
+export function EditCompany({ companyId, details }: { companyId: string; details: Details }) {
+  const [open, setOpen] = useState(false);
+  const [state, action, busy] = useActionState<ActionState, FormData>(async (prev, form) => {
+    const r = await updateCompanyAction(prev, form);
+    if (r?.ok) setOpen(false);
+    return r;
+  }, null);
+  if (!open)
+    return (
+      <div className="flex flex-wrap items-center gap-3">
+        <button type="button" onClick={() => setOpen(true)} className={small}>
+          Uredi podatke
+        </button>
+        {state?.ok ? <span className="font-mono text-[10px] text-accent">✓ {state.message}</span> : null}
+      </div>
+    );
+  return (
+    <form action={action} className="flex flex-col gap-3">
+      <input type="hidden" name="companyId" value={companyId} />
+      {FIELDS.map(([k, label, ph]) => (
+        <label key={k} className="flex flex-col gap-1">
+          <span className="font-mono text-[10px] uppercase tracking-widest text-text-secondary">{label}</span>
+          <input name={k} defaultValue={details[k] ?? ""} placeholder={ph} required={k === "name"} className="border border-border bg-transparent px-2 py-1 font-sans text-sm text-text-primary" />
+        </label>
+      ))}
+      <p className="font-mono text-[10px] text-text-secondary">Ime se pokaže tudi na ponudbi (»Za:«) in v namenu plačila. E-naslove urejaš v razdelku Stik in e-mail.</p>
+      <div className="flex flex-wrap items-center gap-3">
+        <button type="submit" disabled={busy} className="border border-accent bg-accent px-3 py-1 font-mono text-xs font-bold uppercase tracking-widest text-black disabled:opacity-60">
+          {busy ? "Shranjujem…" : "> Shrani"}
+        </button>
+        <button type="button" onClick={() => setOpen(false)} className="font-mono text-[10px] uppercase tracking-widest text-text-secondary hover:text-text-primary">
+          Prekliči
+        </button>
+        {state && !state.ok ? <span className="font-mono text-[10px] text-danger-text">{state.message}</span> : null}
+      </div>
     </form>
   );
 }

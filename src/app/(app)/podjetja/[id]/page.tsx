@@ -23,7 +23,7 @@ import { groupSources, latestOverview, linkKind, mentioned } from "@/server/rese
 import { geminiStatus } from "@/server/google/gemini";
 import { isAggregatorDomain } from "@/server/contact/emails";
 import { domainOf } from "@/server/contact/normalize";
-import { AddLink, ChannelToggle, ContactEmail, OverviewButton, PasteLink, SetWebsite, TestToggle } from "../overview";
+import { AddLink, ChannelToggle, ContactEmail, EditCompany, OverviewButton, PasteLink, SetWebsite, TestToggle } from "../overview";
 import { jobView } from "@/lib/jobs";
 import { formatLj } from "@/lib/time";
 
@@ -267,6 +267,9 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
             <Row k="Kanal" v={<ChannelToggle companyId={c.id} call={d.deal?.channel === "call"} />} />
             <Row k="Testno" v={<TestToggle companyId={c.id} isTest={c.isTest} />} />
           </dl>
+          <div className="mt-4 border-t border-border pt-4">
+            <EditCompany companyId={c.id} details={{ name: c.name, phone: c.phone, address: c.address, city: c.city, website: c.website, category: c.category }} />
+          </div>
         </Box>
 
         <Box title="Google pregled (Gemini)">
