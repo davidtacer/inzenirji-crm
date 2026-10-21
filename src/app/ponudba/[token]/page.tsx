@@ -56,7 +56,7 @@ export default async function PublicProposal({ params }: { params: Promise<{ tok
               {items.map((i, n) => (
                 <tr key={n} className="border-b border-[#222]">
                   <td className="py-3 pr-4">{i.label}</td>
-                  <td className="py-3 text-right font-mono whitespace-nowrap">{eur(i.priceCents)}</td>
+                  <td className="py-3 text-right font-mono whitespace-nowrap">{i.priceCents > 0 ? eur(i.priceCents) : "vključeno"}</td>
                 </tr>
               ))}
               <tr>

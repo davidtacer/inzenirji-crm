@@ -21,6 +21,7 @@ Conversation with the owner in Slovenian; code and docs in English.
 - 2026-10-15: repo created by the owner; docs foundation (manifest, product spec, architecture, ADR-001…010,
   task list) from the business plan `inzenirji.si/docs/nacrt-rasti.md`.
 
+- 2026-10-21: proposals: items at 0 € allowed and shown as "vključeno"; only a proposal with total 0 is refused.
 - 2026-10-20: ADR-050 attachments on e-mails (Osnutki, up to 5 files / 15 MB).
 - 2026-10-20: Osnutki shows today's sends split into first e-mails and follow-ups; the cap still counts all cold e-mails (ADR-013).
 - 2026-10-20: ADR-049 structured outputs (json_schema) for all JSON AI answers, fallback without it.
