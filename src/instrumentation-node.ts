@@ -43,5 +43,14 @@ export async function startSchedulers() {
       console.error("[bounces] rescan failed:", e instanceof Error ? e.message.slice(0, 160) : "unknown");
     }
   }, 60_000);
+  // OZS member catalogue ids (ADR-054): read once in the background so research does not wait for it.
+  setTimeout(async () => {
+    try {
+      const { catalogueIds } = await import("./server/directories/ozs");
+      console.log(`[ozs] catalogues known: ${Object.keys(await catalogueIds(getDb())).length}`);
+    } catch (e) {
+      console.error("[ozs] catalogue list failed:", e instanceof Error ? e.message.slice(0, 160) : "unknown");
+    }
+  }, 120_000);
   console.log("[scheduler] weekly report + follow-ups on");
 }

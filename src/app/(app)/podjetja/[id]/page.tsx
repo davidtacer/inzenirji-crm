@@ -41,7 +41,7 @@ const LINK_KIND: Record<string, string> = {
   email: "E-naslov?",
   other: "Drugo",
 };
-const SOURCE_NAME: Record<string, string> = { google: "Google", site: "njihova stran", web_search: "splet", directory: "bizi.si", owner: "ti" };
+const SOURCE_NAME: Record<string, string> = { google: "Google", site: "njihova stran", web_search: "splet", directory: "imenik (bizi.si / OZS)", owner: "ti" };
 
 const SEV: Record<Issue["severity"], string> = { high: "text-danger-text", medium: "text-[#F0B429]", low: "text-text-secondary" };
 
@@ -453,19 +453,29 @@ export default async function CompanyPage({ params, searchParams }: { params: Pr
             ))}
             {data.directory ? (
               <Row
-                k="Imenik bizi.si"
+                k={data.directory.source === "ozs" ? "Katalog OZS" : "Imenik bizi.si"}
                 v={
                   data.directory.match ? (
                     <span>
                       {ext(data.directory.match.url, data.directory.match.legalName)}
                       <span className="block font-mono text-[10px] text-text-secondary">
-                        ujemanje: naslov{data.directory.match.by === "name" ? " + ime" : data.directory.match.by === "phone" ? " + telefon" : ""} ·{" "}
+                        ujemanje:{" "}
+                        {data.directory.source === "ozs"
+                          ? ({ phone: "telefon", name: "ime in kraj", only: "naslov" } as const)[data.directory.match.by]
+                          : `naslov${data.directory.match.by === "name" ? " + ime" : data.directory.match.by === "phone" ? " + telefon" : ""}`}{" "}
+                        ·{" "}
                         {data.directory.emails.length ? `e-naslov: ${data.directory.emails.join(", ")}` : "e-naslova ni objavljenega"}
                       </span>
                     </span>
                   ) : (
                     <span className="text-text-secondary">
-                      {data.directory.candidates ? `${data.directory.candidates} podjetij na naslovu, nobeno zanesljivo` : "ni najdeno"} · {ext(data.directory.searchUrl, "iskanje")}
+                      {data.directory.source === "ozs"
+                        ? data.directory.candidates
+                          ? `${data.directory.candidates} zadetkov v katalogu, nobeden zanesljivo ne ustreza`
+                          : "ni v katalogu"
+                        : data.directory.candidates
+                          ? `${data.directory.candidates} podjetij na naslovu, nobeno zanesljivo`
+                          : "ni najdeno"} · {ext(data.directory.searchUrl, "iskanje")}
                     </span>
                   )
                 }

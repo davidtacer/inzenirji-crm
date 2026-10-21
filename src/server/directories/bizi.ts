@@ -75,7 +75,7 @@ function nameOverlap(googleName: string, legalName: string): boolean {
 }
 
 export type DirectoryResult = {
-  source: "bizi";
+  source: "bizi" | "ozs";
   searchUrl: string;
   match: { url: string; legalName: string; by: "only" | "name" | "phone" } | null;
   emails: string[];
