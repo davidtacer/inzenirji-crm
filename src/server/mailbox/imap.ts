@@ -35,12 +35,35 @@ export async function toInbound(source: Buffer): Promise<InboundMail | null> {
     from,
     to: [...addrs(p.to), ...addrs(p.cc)],
     subject: p.subject ?? "",
-    text: p.text ?? (typeof p.html === "string" ? p.html.replace(/<[^>]+>/g, " ") : ""),
+    text: withReportParts(p.text ?? (typeof p.html === "string" ? p.html.replace(/<[^>]+>/g, " ") : ""), p.attachments ?? []),
     date: p.date ?? new Date(),
     inReplyTo: p.inReplyTo ?? null,
     references: refs,
     autoSubmitted: typeof auto === "string" ? auto.toLowerCase() : null,
   };
+}
+
+/**
+ * A bounce carries the failed recipient and our original Message-ID in its report parts (message/delivery-status,
+ * message/rfc822, text/rfc822-headers), which mailparser treats as attachments. Their text is appended so the CRM can
+ * match the bounce to the e-mail it returns (owner 2026-10-21: two bounces were not noticed).
+ */
+export function withReportParts(text: string, attachments: { contentType?: string; content?: Buffer }[]): string {
+  const parts = attachments
+    .filter((a) => /^(message\/(delivery-status|rfc822|global-delivery-status|global-headers)|text\/rfc822-headers)$/i.test(a.contentType ?? ""))
+    .map((a) => (a.content ? a.content.toString("utf8").slice(0, 8000) : ""))
+    .filter(Boolean);
+  return parts.length ? `${text}\n\n${parts.join("\n\n")}` : text;
+}
+
+/** Bounces of the last `days` days in INBOX (also ones read before the CRM could match them). */
+export async function fetchRecentBounces(cfg: ImapConfig, days = 30, now = new Date()): Promise<InboundMail[]> {
+  const since = new Date(now.getTime() - days * 86_400_000);
+  return withImap(cfg, async (client) => {
+    await client.mailboxOpen("INBOX", { readOnly: true });
+    const uids = (await client.search({ since, or: [{ from: "mailer-daemon" }, { from: "postmaster" }, { subject: "Undelivered" }] }, { uid: true })) || [];
+    return (await readUids(client, uids.slice(-200))).mails;
+  });
 }
 
 async function withImap<T>(cfg: ImapConfig, fn: (c: ImapFlow) => Promise<T>): Promise<T> {

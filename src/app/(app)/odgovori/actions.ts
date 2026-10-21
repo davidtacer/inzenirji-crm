@@ -30,3 +30,19 @@ export async function historyAction(_prev: ActionState, form: FormData): Promise
   if (!r.ok) return r;
   return { ok: true, message: r.inbound + r.sent ? `Uvoženo: ${r.sent} tvojih in ${r.inbound} njihovih e-mailov.` : "V nabiralniku ni najdenih e-mailov s tem podjetjem (zadnjih 12 mesecev)." };
 }
+
+export async function releaseHeldAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  if (!(await getCurrentUser())) return { ok: false, message: "Prijava je potekla. Osveži stran." };
+  const id = form.get("id");
+  if (typeof id !== "string" || !/^[0-9a-f-]{36}$/.test(id)) return { ok: false, message: "Neveljavno sporočilo." };
+  const { releaseHeld } = await import("@/server/leads/guard");
+  const { getSettings } = await import("@/server/settings");
+  const { aiConfig } = await import("@/server/ai/remark");
+  const { contactOptions } = await import("@/server/mailbox/reply");
+  const db = getDb();
+  const st = await getSettings(db);
+  const r = await releaseHeld(db, id, { ai: aiConfig(st), contact: contactOptions(st) });
+  revalidatePath("/odgovori");
+  revalidatePath("/osnutki");
+  return r ? { ok: true, message: "Preneseno v CRM. Osnutek odgovora čaka v Osnutkih." } : { ok: false, message: "Sporočila ni več." };
+}

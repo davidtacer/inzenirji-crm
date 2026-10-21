@@ -632,3 +632,21 @@ export const draftAttachments = pgTable(
   },
   (t) => [index("draft_attachments_draft_idx").on(t.draftId)],
 );
+
+/** Form inquiries held back as spam, scam, insults or tests (owner 2026-10-21); the owner can release one. */
+export const heldInquiries = pgTable(
+  "held_inquiries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ref: text("ref").notNull().unique(),
+    email: text("email").notNull(),
+    name: text("name").notNull(),
+    message: text("message").notNull(),
+    verdict: text("verdict").notNull(),
+    reason: text("reason").notNull(),
+    lead: jsonb("lead").notNull(),
+    at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+    releasedAt: timestamp("released_at", { withTimezone: true }),
+  },
+  (t) => [index("held_inquiries_at_idx").on(t.at), index("held_inquiries_email_idx").on(t.email)],
+);

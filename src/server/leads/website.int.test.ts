@@ -6,6 +6,7 @@ import { runMigrations } from "../db/migrate";
 import { companies, contacts, deals, drafts, inboundMessages } from "../db/schema";
 import { createCaptureMailer } from "../email/mailer";
 import { importWebsiteLead, parseWebsiteLead } from "./website";
+import { guardLead, holdLead, listHeld, releaseHeld } from "./guard";
 
 const url = process.env.TEST_DATABASE_URL!;
 const admin = postgres(url, { max: 1, onnotice: () => {} });
@@ -17,7 +18,7 @@ beforeAll(async () => {
   await runMigrations(url);
 });
 beforeEach(async () => {
-  await admin.unsafe("TRUNCATE companies, settings RESTART IDENTITY CASCADE");
+  await admin.unsafe("TRUNCATE companies, settings, held_inquiries RESTART IDENTITY CASCADE");
 });
 afterAll(async () => {
   await admin.end({ timeout: 5 });
@@ -38,6 +39,41 @@ const body = (over: Record<string, unknown> = {}) => ({
 const contact = { bookingUrl: "https://calendar.app.google/x", phone: "041 000 000" };
 
 describe("website inquiries (TASK-033)", () => {
+  it("guard (owner 2026-10-21): fake domain sent back, AI holds a joke, links and floods held, owner can release", async () => {
+    const ok = async () => "yes" as const;
+    const lead = parseWebsiteLead(body({ name: "AI SLOP", email: "claude@ai.slop", company: null, message: "Tako, ki ni AI slop." }), T0)!;
+    expect(await guardLead(db, lead, { ai: null, checkDomain: async () => "no" })).toEqual({ action: "reject_email" });
+    const prompts: string[] = [];
+    const fetchImpl = (async (_u: string, init: RequestInit) => {
+      prompts.push(String(init.body));
+      return Response.json({ content: [{ type: "text", text: '{"verdict":"test","reason":"Šala, lažno ime in posmeh."}' }], usage: { input_tokens: 300, output_tokens: 20 } });
+    }) as unknown as typeof fetch;
+    const ai = { apiKey: "K", model: "claude-sonnet-5-5", dailyBudgetMicroUsd: 1_000_000, fetchImpl };
+    const g = await guardLead(db, lead, { ai, checkDomain: ok, now: T0 });
+    expect(g).toEqual({ action: "hold", verdict: "test", reason: "Šala, lažno ime in posmeh." });
+    expect(JSON.parse(prompts[0]!)).toMatchObject({ model: "claude-haiku-5-5", output_config: { format: { type: "json_schema" } } });
+    if (g.action !== "hold") return;
+    await holdLead(db, lead, g);
+    expect((await listHeld(db, T0)).map((h) => h.email)).toEqual(["claude@ai.slop"]);
+    expect((await admin`select count(*)::int n from companies`)[0].n).toBe(0);
+
+    const links = parseWebsiteLead(body({ message: "SEO https://a.com https://b.com https://c.com" }), T0)!;
+    expect(await guardLead(db, links, { ai: null, checkDomain: ok, now: T0 })).toMatchObject({ action: "hold", verdict: "spam" });
+    // A real, short question passes when AI says ok, and when AI fails.
+    const real = parseWebsiteLead(body(), T0)!;
+    const okAi = { ...ai, fetchImpl: (async () => Response.json({ content: [{ type: "text", text: '{"verdict":"ok","reason":"Pravo vprašanje."}' }], usage: {} })) as unknown as typeof fetch };
+    expect(await guardLead(db, real, { ai: okAi, checkDomain: ok, now: T0 })).toEqual({ action: "accept" });
+    const downAi = { ...ai, fetchImpl: (async () => new Response("x", { status: 500 })) as unknown as typeof fetch };
+    expect(await guardLead(db, real, { ai: downAi, checkDomain: ok, now: T0 })).toEqual({ action: "accept" });
+
+    // Released by the owner → a normal inquiry in the CRM.
+    const [h] = await listHeld(db, T0);
+    const r = await releaseHeld(db, h!.id, { ai: null, contact }, T0);
+    expect(r?.created).toBe(true);
+    expect(await listHeld(db, T0)).toHaveLength(0);
+    expect((await admin`select count(*)::int n from inbound_messages where from_email = 'claude@ai.slop'`)[0].n).toBe(1);
+  });
+
   it("parses and refuses bad payloads", () => {
     const l = parseWebsiteLead(body(), T0)!;
     expect(l).toMatchObject({ ref: "0f5e2c1a7b3d4e8f9a10112233445566", email: "maja@frizerstvo-maja.si", company: "Frizerstvo Maja" });
