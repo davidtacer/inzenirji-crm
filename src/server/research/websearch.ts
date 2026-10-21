@@ -148,6 +148,44 @@ export function pageMatches(html: string, c: CompanyForSearch): boolean {
   return !!c.city && nameWords.some((w) => words.includes(` ${w} `)) && words.includes(` ${norm(c.city)} `);
 }
 
+/**
+ * On a page that lists several businesses (a catalogue, a directory), only the e-mails in the company's own entry:
+ * the lines from where its name, phone or street address appears up to the next entry. Owner 2026-10-21: all 8
+ * addresses of an OZS catalogue page were saved for one salon.
+ */
+export function emailsNearCompany(html: string, c: CompanyForSearch): string[] {
+  const text = html
+    .replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<(br|\/p|\/div|\/li|\/tr|\/h\d|hr)[^>]*>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&");
+  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+  const phone = (c.phone ?? "").replace(/\D/g, "").replace(/^386/, "0").replace(/^0/, "");
+  const k = addressKey(c.address);
+  const nameWords = distinctiveWords(c.name);
+  const isAnchor = (l: string) => {
+    const w = ` ${norm(l)} `;
+    const digits = l.replace(/\D/g, "").replace(/^386/, "0");
+    if (phone.length >= 7 && digits.includes(phone)) return true;
+    if (k && w.includes(` ${k.token} `) && w.includes(` ${norm(k.number)} `)) return true;
+    return nameWords.length > 0 && nameWords.every((x) => w.includes(` ${x} `));
+  };
+  const entryStart = (l: string) => /\b(s\.\s?p\.|d\.\s?o\.\s?o\.|d\.\s?n\.\s?o\.|k\.\s?d\.)\s*$/i.test(l) || /^[A-ZČŠŽĆĐ &.,'-]{12,}$/.test(l);
+  const out = new Set<string>();
+  for (let i = 0; i < lines.length; i++) {
+    if (!isAnchor(lines[i]!)) continue;
+    // The entry may start a line or two above the matching line (name above address/phone).
+    let start = i;
+    while (start > 0 && i - start < 3 && !entryStart(lines[start]!)) start--;
+    for (let j = start; j < Math.min(lines.length, start + 10); j++) {
+      if (j > start && entryStart(lines[j]!) && !isAnchor(lines[j]!)) break;
+      for (const e of extractEmails("", lines[j])) out.add(e);
+    }
+  }
+  return [...out];
+}
+
 export const distinctiveWords = (name: string) => norm(name).split(" ").filter((w) => w.length >= 4 && !GENERIC.has(w));
 
 /** "salonfantazija.si" carries "Frizerski salon FANTAZIJA" (a distinctive name word in the domain label). */
@@ -345,12 +383,17 @@ export async function verifyFindings(
       candidate.delete(em);
     } else if (!candidate.has(em)) candidate.set(em, source);
   };
-  for (const [u, pg] of pages) if (pg.html && pageMatches(pg.html, c)) for (const e of extractEmails(pg.html)) consider(e, u, true);
+  // A page with more than 2 addresses that is not the company's own lists several businesses: only its own entry.
+  const pageEmails = (u: string, html: string) => {
+    const all = extractEmails(html);
+    return all.length > 2 && !isOwnPage(u) ? emailsNearCompany(html, c) : all;
+  };
+  for (const [u, pg] of pages) if (pg.html && pageMatches(pg.html, c)) for (const e of pageEmails(u, pg.html)) consider(e, u, true);
   for (const e of p.emails) {
     const src = e.source ? pages.get(e.source) : undefined;
     const em = normalizeEmail(e.email);
     // A profile (Facebook "O nas") cannot be opened by us; the researcher read it there.
-    const published = !!em && ((!!src?.html && extractEmails(src.html).includes(em)) || isProfile(e.source));
+    const published = !!em && ((!!src?.html && pageEmails(e.source, src.html).includes(em)) || isProfile(e.source));
     consider(e.email, e.source, published);
   }
   for (const [e, u] of verified) out.emails.push({ email: e, source: u });

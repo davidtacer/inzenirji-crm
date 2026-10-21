@@ -7,7 +7,7 @@ import { createDueFollowUps, dueFollowUpCount, listDrafts } from "@/server/outre
 import { jobView } from "@/lib/jobs";
 import { latestJob, runningJob, startJob } from "@/server/jobs";
 import { JobLine } from "../podjetja/buttons";
-import { lockReason, outreachConfig, sentToday, sentTodayByKind } from "@/server/outreach/send";
+import { bounceStats, lockReason, outreachConfig, sentToday, sentTodayByKind } from "@/server/outreach/send";
 import { getSettings } from "@/server/settings";
 import { ApprovedDraftActions, DraftAttachments, PendingDraftForm } from "./forms";
 import { attachmentsFor, sizeLabel } from "@/server/outreach/attachments";
@@ -54,7 +54,7 @@ export default async function DraftsPage() {
     });
   }
   const fuJobPromise = latestJob(db, ["followups"], undefined, 10 * 60_000);
-  const [d, today, byKind, aiSpent, fuJob] = await Promise.all([listDrafts(db), sentToday(db), sentTodayByKind(db), spentTodayMicroUsd(db), fuJobPromise]);
+  const [d, today, byKind, aiSpent, fuJob, bounces] = await Promise.all([listDrafts(db), sentToday(db), sentTodayByKind(db), spentTodayMicroUsd(db), fuJobPromise, bounceStats(db)]);
   const files = await attachmentsFor(db, [...d.pending, ...d.approved].map((x) => x.id));
   const filesOf = (id: string) => (files[id] ?? []).map((a) => ({ id: a.id, name: a.name, size: sizeLabel(a.size) }));
   const cfg = outreachConfig(st);
@@ -73,6 +73,10 @@ export default async function DraftsPage() {
         <p className="mt-1 text-text-secondary">
           Danes poslanih: {today} / {cfg.dailyCap} (prvi e-maili: {byKind.first}, follow-upi: {byKind.followUps}; odgovori se ne štejejo) · odjava je v vsakem
           e-mailu (stavek + glava List-Unsubscribe)
+        </p>
+        <p className={`mt-1 ${bounces.bounces >= 3 ? "text-[#F0B429]" : "text-text-secondary"}`}>
+          Vrnjeni (nedostavljeni) v zadnjih 7 dneh: {bounces.bounces} od {bounces.sent} poslanih
+          {bounces.sent ? ` (${((bounces.bounces / bounces.sent) * 100).toFixed(1).replace(".", ",")} %)` : ""} · pošiljanje se ustavi pri vsaj 3 vrnjenih in več kot 3 %
         </p>
         <p className="mt-1 text-text-secondary">
           Omejitev šteje vse hladne e-maile, ker za ugled domene inzenirji.si šteje skupno število. Dvigni jo postopoma v Nastavitvah (+5 na teden, dokler ni
