@@ -21,6 +21,7 @@ Conversation with the owner in Slovenian; code and docs in English.
 - 2026-10-15: repo created by the owner; docs foundation (manifest, product spec, architecture, ADR-001…010,
   task list) from the business plan `inzenirji.si/docs/nacrt-rasti.md`.
 
+- 2026-10-21: ADR-051 "Uredi podatke" on the company page (name, phone, address, city, website, category).
 - 2026-10-21: proposals: items at 0 € allowed and shown as "vključeno"; only a proposal with total 0 is refused.
 - 2026-10-20: ADR-050 attachments on e-mails (Osnutki, up to 5 files / 15 MB).
 - 2026-10-20: Osnutki shows today's sends split into first e-mails and follow-ups; the cap still counts all cold e-mails (ADR-013).
@@ -107,4 +108,4 @@ throwaway database. In the cloud sandbox: `initdb` as user postgres in `/var/tmp
 ## Next
 TASK-001 scaffold (Next.js + Tailwind + Drizzle + Postgres in Docker locally, CI), TASK-002 Kamal deploy skeleton, then the C1 phase (prospecting, research, scoring) — target 2026-11-07.
 
-Latest TASK: 038 · latest ADR: 050. Next candidates: Meta lead forms (rest of TASK-011, not a priority), after launch (TASK-018), win/loss (TASK-019), rest of TASK-011 inbound leads. Local Postgres for int tests may stop when the sandbox restarts — restart with `pg_ctl` (see above).
+Latest TASK: 038 · latest ADR: 051. Next candidates: Meta lead forms (rest of TASK-011, not a priority), after launch (TASK-018), win/loss (TASK-019), rest of TASK-011 inbound leads. Local Postgres for int tests may stop when the sandbox restarts — restart with `pg_ctl` (see above).
