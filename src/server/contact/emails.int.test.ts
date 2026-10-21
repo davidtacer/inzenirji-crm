@@ -107,6 +107,19 @@ describe("wrong e-mails and the phone channel (ADR-044)", () => {
     void b;
   });
 
+  it("addresses from a page with several businesses and a directory taken as website are cleaned (owner 2026-10-21)", async () => {
+    const c = await salon("Frizerski Salon Aleksandra, Aleksandra Lever S.P.", [], { website: "https://www1.ozs.si/katalog?ooz=13&page=16" });
+    const src = "https://www1.ozs.si/katalog?ooz=13&page=16";
+    for (const e of ["fulidoo@gmail.com", "goran.stegu@siol.net", "helena.catoric@gmail.com"]) await db.insert(contacts).values({ companyId: c.id, email: e, emailSource: src });
+    // An own site with 3 own addresses stays.
+    const own = await salon("Salon Ena", [], { website: "https://salonena.si" });
+    for (const e of ["info@salonena.si", "ana@salonena.si", "salonena@gmail.com"]) await db.insert(contacts).values({ companyId: own.id, email: e, emailSource: "https://salonena.si/kontakt" });
+    expect((await sweepForeignEmails(db, T0)).marked).toBe(3);
+    expect((await admin`select count(*)::int n from contacts where company_id = ${c.id} and invalid_at is null`)[0].n).toBe(0);
+    expect((await admin`select count(*)::int n from contacts where company_id = ${own.id} and invalid_at is null`)[0].n).toBe(3);
+    expect((await admin`select website, website_domain from companies where id = ${c.id}`)[0]).toEqual({ website: null, website_domain: null });
+  });
+
   it("manual 'pokliči' puts a company with an e-mail on the list too", async () => {
     const { setChannel } = await import("../calls/calllist");
     const c = await salon("Salon Dan", ["dan@gmail.com"]);
