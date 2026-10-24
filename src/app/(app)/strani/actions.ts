@@ -10,7 +10,7 @@ import { createGithub } from "@/server/sites/github";
 import { startKickoff } from "@/server/sites/kickoff";
 import { STAGES, type Stage } from "@/server/sites/stages";
 import { checklistFor } from "@/server/sites/checklist";
-import { createSiteProject, moveStage, registerSiteProject, setLinks, updateSiteFacts, type Kind } from "@/server/sites/store";
+import { createSiteProject, moveStage, registerSiteProject, updateRegistered, setLinks, updateSiteFacts, type Kind } from "@/server/sites/store";
 
 export type ActionState = { ok: boolean; message: string } | null;
 const isId = (v: unknown): v is string => typeof v === "string" && /^[0-9a-f-]{36}$/.test(v);
@@ -131,6 +131,9 @@ export async function siteAction(_prev: ActionState, form: FormData): Promise<Ac
     });
     const err = await updateSiteFacts(db, id, { editors });
     res = err ? { ok: false, message: err } : { ok: true, message: "Uredniki shranjeni. Za zapis v repozitorij klikni »Osveži paket«." };
+  } else if (op === "registered") {
+    const err = await updateRegistered(db, id, { hosting: s(form, "hosting"), editorState: s(form, "editorState"), legacy: form.get("legacy") === "on", repo: s(form, "repo") });
+    res = err ? { ok: false, message: err } : { ok: true, message: "Shranjeno (samo v CRM-ju)." };
   } else if (op === "links") {
     const err = await setLinks(db, id, Object.fromEntries(["live", "dev", "preview", "design"].map((k) => [k, s(form, k)]).filter(([, v]) => v)));
     res = err ? { ok: false, message: err } : { ok: true, message: "Povezave shranjene." };

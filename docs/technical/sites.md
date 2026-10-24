@@ -38,7 +38,12 @@ All steps ok (except `editor_registry`) → stage `setup` → `brief_ready`.
 `/strani/registriraj` (`registerSiteProject` in `store.ts`) records a site that already exists on our infrastructure: company (existing or new), kind, domain, live URL, optional `owner/repo`, hosting, editor state (`none|planned|active`), editors, `legacy` flag (repo has no `editor.config.json` = migration candidate). It sets `registered = true`, stage `handed_over`, link `live`.
 - It is a record only. No repository is created and nothing is written to it. `startKickoff` refuses a registered site and `runKickoff` throws `SITE_REGISTERED_READONLY`; the detail page shows an info box instead of the kickoff panel.
 - Migration `0025_site_registered.sql` adds `registered`, `legacy`, `hosting`, `editor_state`.
+- The detail page of a registered site hides the stage panel and the manual checklist and shows an edit form for repo, hosting, editor state and the legacy flag (`updateRegistered`, CRM row only).
+- "Legacy" means old architecture (no JSON content in `content/`). A site built the new way that only lacks `editor.config.json` is not legacy.
 - Open (rest of TASK-041): daily plain-HTTP health checks, filters, "behind the guide" flag, Danes alerts, optional read-only repo read.
+
+## Dev preview URL
+Always `https://dev.<domain>` (`devUrl` in `siteId.ts`); `*.pages.dev` / `*.workers.dev` names that contain the client domain are flagged by Chrome as fakes. Runbook: `docs/technical/cloudflare.md`.
 
 ## Not done in v1
 Captured old-site text and images for `migration` sites (the agent fetches them from the old site), Cloudflare automation, glossary and prohibited-items fields in the CLAUDE.md section (they go in the brief notes).

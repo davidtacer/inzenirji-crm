@@ -10,7 +10,7 @@ import { getSitesConfig } from "@/server/sites/config";
 import { STEPS, type StepResult } from "@/server/sites/kickoff";
 import { STAGES, STAGE_LABEL, type Stage } from "@/server/sites/stages";
 import { getSite } from "@/server/sites/store";
-import { ApproveForm, CopyPrompt, EditorsForm, FactsForm, LinksForm, OpButton, StageForm, Tick } from "./panels";
+import { ApproveForm, CopyPrompt, EditorsForm, FactsForm, LinksForm, OpButton, RegisteredForm, StageForm, Tick } from "./panels";
 
 export const dynamic = "force-dynamic";
 const STEP_LABEL: Record<string, string> = { repo: "Repozitorij iz predloge", editor_config: "editor.config.json", brief: "BRIEF.md", claude_md: "CLAUDE.md (razdelek stranke)", assets: "brief/assets", prompt: "Poziv za Claude", editor_registry: "Vpis v repozitorij urednikov" };
@@ -53,9 +53,10 @@ export default async function SitePage({ params }: { params: Promise<{ id: strin
             Registrirana ročno. CRM v njenem repozitoriju ne ustvarja in ne piše ničesar.
             {s.legacy ? " Stara arhitektura (brez editor.config.json): kandidat za selitev na predlogo." : ""}
           </p>
-          <p className="mt-2 font-sans text-xs text-text-secondary">
-            Repozitorij: {s.repoFullName ? <a className="text-accent" href={`https://github.com/${s.repoFullName}`} target="_blank" rel="noopener noreferrer">{s.repoFullName}</a> : "ni naveden"} · gostovanje: {s.hosting ?? "ni navedeno"} · urejevalnik: {{ none: "ni", planned: "načrtovan", active: "aktiven" }[s.editorState] ?? s.editorState}
+          <p className="mb-3 mt-2 font-sans text-xs text-text-secondary">
+            {s.repoFullName ? <a className="text-accent" href={`https://github.com/${s.repoFullName}`} target="_blank" rel="noopener noreferrer">{s.repoFullName}</a> : "Repozitorij ni naveden"}. Postopek za Cloudflare in urejevalnik: docs/technical/cloudflare.md v repozitoriju CRM.
           </p>
+          <RegisteredForm id={s.id} v={{ hosting: s.hosting ?? "", editorState: s.editorState, legacy: s.legacy, repo: s.repoFullName ?? "" }} />
         </section>
       ) : null}
       {!s.registered ? (
@@ -90,6 +91,7 @@ export default async function SitePage({ params }: { params: Promise<{ id: strin
         </section>
       ) : null}
 
+      {!s.registered ? (
       <section className="mb-8">
         <h2 className={h2}>{"// Faza in odobritev dizajna"}</h2>
         {stage === "design_draft" ? (
@@ -102,6 +104,7 @@ export default async function SitePage({ params }: { params: Promise<{ id: strin
         {s.approvedAt ? <p className="mt-2 font-sans text-xs text-text-secondary">Dizajn odobren {formatLj(s.approvedAt, false)}.</p> : null}
         {s.startReason ? <p className="mt-2 font-sans text-xs text-text-secondary">Začetek brez predplačila: {s.startReason}</p> : null}
       </section>
+      ) : null}
 
       <section className="mb-8">
         <h2 className={h2}>{"// Povezave"}</h2>
@@ -118,6 +121,7 @@ export default async function SitePage({ params }: { params: Promise<{ id: strin
         <EditorsForm id={s.id} value={editors.map((e) => `${e.email} ${e.role}`).join("\n")} />
       </section>
 
+      {!s.registered ? (
       <section className="mb-8">
         <h2 className={h2}>{"// Ročni koraki (v1 brez avtomatizacije)"}</h2>
         <ul className="flex flex-col gap-4">
@@ -136,6 +140,7 @@ export default async function SitePage({ params }: { params: Promise<{ id: strin
           ))}
         </ul>
       </section>
+      ) : null}
     </>
   );
 }
