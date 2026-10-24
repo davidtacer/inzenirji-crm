@@ -34,5 +34,11 @@ All steps ok (except `editor_registry`) → stage `setup` → `brief_ready`.
 - `client` without a paid deposit needs a start reason (activity note on the deal).
 - Brief header is `BRIEF.md` at the repo root (the template has the placeholder there), not `docs/BRIEF.md` as the spec first said.
 
+## Registering an existing site (TASK-041, part 1)
+`/strani/registriraj` (`registerSiteProject` in `store.ts`) records a site that already exists on our infrastructure: company (existing or new), kind, domain, live URL, optional `owner/repo`, hosting, editor state (`none|planned|active`), editors, `legacy` flag (repo has no `editor.config.json` = migration candidate). It sets `registered = true`, stage `handed_over`, link `live`.
+- It is a record only. No repository is created and nothing is written to it. `startKickoff` refuses a registered site and `runKickoff` throws `SITE_REGISTERED_READONLY`; the detail page shows an info box instead of the kickoff panel.
+- Migration `0025_site_registered.sql` adds `registered`, `legacy`, `hosting`, `editor_state`.
+- Open (rest of TASK-041): daily plain-HTTP health checks, filters, "behind the guide" flag, Danes alerts, optional read-only repo read.
+
 ## Not done in v1
 Captured old-site text and images for `migration` sites (the agent fetches them from the old site), Cloudflare automation, glossary and prohibited-items fields in the CLAUDE.md section (they go in the brief notes).

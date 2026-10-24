@@ -104,6 +104,52 @@ export async function createSiteProject(db: Db, i: NewSiteInput, now = new Date(
   return { ok: true, id: row!.id, siteId };
 }
 
+export type RegisterInput = {
+  companyId?: string;
+  newCompany?: Prefill;
+  kind: Kind;
+  siteId?: string;
+  domain: string;
+  liveUrl?: string;
+  /** "owner/repo" of the existing repository; only stored, never touched. */
+  repo?: string;
+  hosting?: string;
+  /** The repo has no editor.config.json (old architecture). */
+  legacy?: boolean;
+  editorState?: "none" | "planned" | "active";
+  editors?: { email: string; role: "owner" | "editor" }[];
+  notes?: string;
+  ownerNotes?: string;
+};
+
+const REPO_RE = /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/;
+
+/**
+ * Registers a site that already exists on our infrastructure (TASK-041). Only a record in the CRM:
+ * no repository is created, no file is written, no kickoff is possible. Stage is `handed_over`.
+ */
+export async function registerSiteProject(db: Db, i: RegisterInput, now = new Date()): Promise<{ ok: true; id: string; siteId: string } | { ok: false; message: string }> {
+  const domain = hostOf(i.domain ?? "");
+  if (!domain) return { ok: false, message: "Domena je obvezna (npr. vodniskuter.si)." };
+  const repo = i.repo?.trim().replace(/^https:\/\/github\.com\//, "").replace(/\.git$/, "").replace(/\/$/, "") ?? "";
+  if (repo && !REPO_RE.test(repo)) return { ok: false, message: "Repozitorij: oblika lastnik/ime (npr. davidtacer/vodniskuter-si)." };
+  const live = i.liveUrl?.trim() ? (hostOf(i.liveUrl) ? (/^https?:\/\//i.test(i.liveUrl.trim()) ? i.liveUrl.trim() : `https://${i.liveUrl.trim()}`) : null) : `https://${domain}`;
+  if (!live) return { ok: false, message: "Povezava do žive strani ni veljavna." };
+  const editorState = i.editorState ?? "none";
+  if (!["none", "planned", "active"].includes(editorState)) return { ok: false, message: "Neveljavno stanje urejevalnika." };
+  const r = await createSiteProject(db, { companyId: i.companyId, newCompany: i.newCompany, kind: i.kind, siteId: i.siteId, domain, currentUrl: live, notes: i.notes, ownerNotes: i.ownerNotes, startReason: "Obstoječa stran, registrirana ročno." }, now);
+  if (!r.ok) return r;
+  await db
+    .update(siteProjects)
+    .set({ registered: true, legacy: !!i.legacy, hosting: i.hosting?.trim() || null, editorState, repoFullName: repo || null, stage: "handed_over", stageNote: "Obstoječa stran, registrirana ročno.", links: { live }, updatedAt: now })
+    .where(eq(siteProjects.id, r.id));
+  if (i.editors?.length) {
+    const err = await updateSiteFacts(db, r.id, { editors: i.editors }, now);
+    if (err) return { ok: false, message: `Stran je registrirana, urednikov nisem shranil: ${err}` };
+  }
+  return r;
+}
+
 export async function getSite(db: Db, id: string) {
   const [r] = await db
     .select({ s: siteProjects, companyName: companies.name })

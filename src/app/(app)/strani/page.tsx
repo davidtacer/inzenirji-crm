@@ -15,9 +15,14 @@ export default async function SitesPage() {
         title="Strani"
         description="Vse strani na našem sistemu in urejevalniku."
         right={
-          <Link href="/strani/nova" className="border border-accent bg-accent px-4 py-2 font-mono text-xs font-bold uppercase tracking-widest text-black hover:bg-transparent hover:text-accent">
-            Nova stran
-          </Link>
+          <div className="flex gap-2">
+            <Link href="/strani/registriraj" className="border border-border px-4 py-2 font-mono text-xs font-bold uppercase tracking-widest text-text-primary hover:border-accent hover:text-accent">
+              Registriraj obstoječo
+            </Link>
+            <Link href="/strani/nova" className="border border-accent bg-accent px-4 py-2 font-mono text-xs font-bold uppercase tracking-widest text-black hover:bg-transparent hover:text-accent">
+              Nova stran
+            </Link>
+          </div>
         }
       />
       {rows.length === 0 ? (
@@ -31,6 +36,7 @@ export default async function SitesPage() {
               </Link>
               <span className="font-mono text-xs text-text-secondary">{s.siteId}</span>
               <span className="font-mono text-[10px] uppercase tracking-widest text-text-secondary">{KIND[s.kind]}</span>
+              {s.registered ? <span className="font-mono text-[10px] uppercase tracking-widest text-text-secondary">obstoječa{s.legacy ? " · stara arhitektura" : ""}</span> : null}
               <span className="ml-auto font-mono text-xs text-accent">{STAGE_LABEL[s.stage as Stage]}</span>
             </li>
           ))}
