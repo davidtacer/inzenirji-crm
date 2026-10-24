@@ -46,6 +46,19 @@ export default async function SitePage({ params }: { params: Promise<{ id: strin
       </div>
       {s.stageNote ? <p className="mb-6 font-sans text-sm text-text-secondary">Zadnja opomba: {s.stageNote}</p> : null}
 
+      {s.registered ? (
+        <section className="mb-8 border border-border bg-surface p-4">
+          <h2 className={h2}>{"// Obstoječa stran"}</h2>
+          <p className="font-sans text-sm text-text-secondary">
+            Registrirana ročno. CRM v njenem repozitoriju ne ustvarja in ne piše ničesar.
+            {s.legacy ? " Stara arhitektura (brez editor.config.json): kandidat za selitev na predlogo." : ""}
+          </p>
+          <p className="mt-2 font-sans text-xs text-text-secondary">
+            Repozitorij: {s.repoFullName ? <a className="text-accent" href={`https://github.com/${s.repoFullName}`} target="_blank" rel="noopener noreferrer">{s.repoFullName}</a> : "ni naveden"} · gostovanje: {s.hosting ?? "ni navedeno"} · urejevalnik: {{ none: "ni", planned: "načrtovan", active: "aktiven" }[s.editorState] ?? s.editorState}
+          </p>
+        </section>
+      ) : null}
+      {!s.registered ? (
       <section className="mb-8">
         <h2 className={h2}>{"// Priprava paketa"}</h2>
         <ul className="mb-3 border border-border">
@@ -67,6 +80,7 @@ export default async function SitePage({ params }: { params: Promise<{ id: strin
         </div>
         <p className="mt-2 font-sans text-xs text-text-secondary">Brief v{s.briefVersion} · repozitorij: {s.repoFullName ? <a className="text-accent" href={`https://github.com/${s.repoFullName}`} target="_blank" rel="noopener noreferrer">{s.repoFullName}</a> : "še ni"} · navodila v{s.guideVersion ?? cfg.guideVersion}</p>
       </section>
+      ) : null}
 
       {s.kickoffPrompt ? (
         <section className="mb-8">

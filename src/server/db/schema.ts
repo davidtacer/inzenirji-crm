@@ -695,12 +695,20 @@ export const siteProjects = pgTable(
     editors: jsonb("editors").notNull().default([]),
     checklist: jsonb("checklist").notNull().default({}),
     approvedAt: timestamp("approved_at", { withTimezone: true }),
+    /** Existing site registered by hand (TASK-041): the CRM never creates or writes anything in its repo. */
+    registered: boolean("registered").notNull().default(false),
+    /** Registered site without editor.config.json (old architecture): migration candidate. */
+    legacy: boolean("legacy").notNull().default(false),
+    hosting: text("hosting"),
+    /** none | planned | active */
+    editorState: text("editor_state").notNull().default("none"),
     ...timestamps,
   },
   (t) => [
     uniqueIndex("site_projects_site_id_uq").on(t.siteId),
     index("site_projects_company_idx").on(t.companyId),
     check("site_projects_kind", sql`${t.kind} in ('client', 'migration', 'own')`),
+    check("site_projects_editor_state", sql`${t.editorState} in ('none','planned','active')`),
     check("site_projects_site_id_format", sql`${t.siteId} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`),
     check("site_projects_stage", sql`${t.stage} in ('setup','brief_ready','cgp','research','design_draft','design_approved','building','preview_ready','handed_over')`),
   ],

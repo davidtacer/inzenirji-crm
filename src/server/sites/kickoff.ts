@@ -31,6 +31,7 @@ export async function runKickoff(db: Db, id: string, deps: KickoffDeps, opts: { 
   const cfg = await getSitesConfig(db);
   const [s0] = await db.select().from(siteProjects).where(eq(siteProjects.id, id)).limit(1);
   if (!s0) throw new Error("SITE_NOT_FOUND");
+  if (s0.registered) throw new Error("SITE_REGISTERED_READONLY");
   const steps = { ...(s0.steps as Record<string, StepResult>) };
   const repo = s0.siteId;
   const full = `${cfg.owner}/${repo}`;
@@ -158,8 +159,9 @@ async function assetList(db: Db, projectId: string | null) {
 
 /** Starts the kickoff as a background job (one at a time per site). */
 export async function startKickoff(db: Db, id: string, deps: KickoffDeps, opts: { refreshBrief?: boolean } = {}): Promise<{ ok: true; jobId: string } | { ok: false; message: string }> {
-  const [s] = await db.select({ companyId: siteProjects.companyId }).from(siteProjects).where(eq(siteProjects.id, id)).limit(1);
+  const [s] = await db.select({ companyId: siteProjects.companyId, registered: siteProjects.registered }).from(siteProjects).where(eq(siteProjects.id, id)).limit(1);
   if (!s) return { ok: false, message: "Strani ni." };
+  if (s.registered) return { ok: false, message: "To je registrirana obstoječa stran: CRM ne ustvarja ničesar v njenem repozitoriju." };
   if (await runningJob(db, ["site_kickoff"], s.companyId)) return { ok: false, message: "Priprava že teče, počakaj minuto." };
   const jobId = await startJob(db, { kind: "site_kickoff", companyId: s.companyId }, async () => {
     const r = await runKickoff(db, id, deps, opts);

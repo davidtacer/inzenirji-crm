@@ -176,6 +176,13 @@
       "when": 1792838446955,
       "tag": "0024_site_projects",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792841685547,
+      "tag": "0025_site_registered",
+      "breakpoints": true
     }
   ]
 }
