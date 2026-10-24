@@ -651,3 +651,57 @@ export const heldInquiries = pgTable(
   },
   (t) => [index("held_inquiries_at_idx").on(t.at), index("held_inquiries_email_idx").on(t.email)],
 );
+
+/**
+ * A client (or own, or migrated) website built on the Inženirji.si site template (TASK-039, ADR-056).
+ * Independent of `projects` (those need a deal and a deposit); `projectId` links the two when there is one.
+ * `steps` records the result of each kickoff step so the job can be retried without duplicating anything.
+ */
+export const siteProjects = pgTable(
+  "site_projects",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id").references(() => projects.id, { onDelete: "set null" }),
+    /** client | migration | own */
+    kind: text("kind").notNull(),
+    /** a-z0-9-, never changed once the repo exists. */
+    siteId: text("site_id").notNull(),
+    /** setup → brief_ready → cgp → research → design_draft → design_approved → building → preview_ready → handed_over */
+    stage: text("stage").notNull().default("setup"),
+    stageNote: text("stage_note"),
+    domain: text("domain"),
+    currentUrl: text("current_url"),
+    contact: text("contact"),
+    languages: jsonb("languages").notNull().default(["sl"]),
+    features: text("features"),
+    priceCents: integer("price_cents"),
+    deadline: date("deadline"),
+    hasCgp: boolean("has_cgp").notNull().default(false),
+    /** Facts for the agent (goes into BRIEF.md). */
+    notes: text("notes"),
+    /** Owner-private notes: never leave the CRM (not in BRIEF.md, not over MCP). */
+    ownerNotes: text("owner_notes"),
+    /** Why the build started without a deposit. */
+    startReason: text("start_reason"),
+    briefVersion: integer("brief_version").notNull().default(0),
+    repoFullName: text("repo_full_name"),
+    guideVersion: text("guide_version"),
+    kickoffPrompt: text("kickoff_prompt"),
+    steps: jsonb("steps").notNull().default({}),
+    links: jsonb("links").notNull().default({}),
+    editors: jsonb("editors").notNull().default([]),
+    checklist: jsonb("checklist").notNull().default({}),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("site_projects_site_id_uq").on(t.siteId),
+    index("site_projects_company_idx").on(t.companyId),
+    check("site_projects_kind", sql`${t.kind} in ('client', 'migration', 'own')`),
+    check("site_projects_site_id_format", sql`${t.siteId} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`),
+    check("site_projects_stage", sql`${t.stage} in ('setup','brief_ready','cgp','research','design_draft','design_approved','building','preview_ready','handed_over')`),
+  ],
+);

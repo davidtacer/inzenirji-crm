@@ -6,6 +6,9 @@ import { decrypt, encrypt } from "../google/crypto";
 import { runningJob, startJob } from "../jobs";
 import { companyDetail, runAudit, type AuditDeps } from "../research/run";
 import { parseResearch } from "../research/websearch";
+import { buildBrief } from "../sites/brief";
+import { getSiteBySiteId, loadBriefInput, moveStage } from "../sites/store";
+import { STAGES, type Stage } from "../sites/stages";
 
 /*
  * MCP server for the nightly Claude researcher (TASK-036, ADR-038). Claude (a scheduled task on the owner's Claude
@@ -51,7 +54,8 @@ export const INSTRUCTIONS = `CRM Inženirji.si (spletne strani za mala podjetja 
 1) research_queue vrne podjetja, ki jih je treba raziskati.
 2) Za vsako podjetje na spletu poišči vse, kar bi našel izkušen prodajalec v 5 minutah z Googlom (uradna domena, tudi iz opisa na Instagramu/Facebooku, profili s sledilci in opisom, stare strani na Wixu ipd., imeniki najdi.si/bizi.si, pravna oseba, javni e-naslovi in telefoni z URL-jem vira, osebe, storitve, dejstva za osebni e-mail). Odpri strani in preveri, da gre za isto podjetje (ime, naslov, telefon). Ničesar ne ugibaj.
 3) save_research shrani ugotovitve; CRM jih preveri in podjetje znova oceni.
-E-naslovi: samo naslov podjetja (na njegovi domeni ali gmail/siol ipd.), objavljen na njegovi strani ali profilu (Facebook O nas, Instagram). Nikoli naslova imenika ali portala, kjer je podjetje navedeno (doberfrizer.si, najdi.si, bizi.si, pirs.si, visitcelje.eu ...). Naslovov, ki jih get_company kaže kot "invalid", ne pošiljaj znova.`;
+E-naslovi: samo naslov podjetja (na njegovi domeni ali gmail/siol ipd.), objavljen na njegovi strani ali profilu (Facebook O nas, Instagram). Nikoli naslova imenika ali portala, kjer je podjetje navedeno (doberfrizer.si, najdi.si, bizi.si, pirs.si, visitcelje.eu ...). Naslovov, ki jih get_company kaže kot "invalid", ne pošiljaj znova.
+Za izdelavo spletne strani: get_project(site_id) vrne brief stranke, save_project_status(site_id, stage, note, links) sporoči napredek. Dizajna ne odobriš ti, odobri ga lastnik v CRM-ju.`;
 
 export const TOOLS = [
   {
@@ -109,6 +113,28 @@ export const TOOLS = [
             summary: { type: "string", description: "2–3 sentences: who they are, what they offer, state of their online presence." },
           },
         },
+      },
+    },
+  },
+  {
+    name: "get_project",
+    description:
+      "A website project we build on the Inženirji.si template: stage, repo, links and the full brief (company facts, offer, research, call notes, materials, editors) as markdown. Same content as BRIEF.md in the repo; never includes owner-private data.",
+    inputSchema: { type: "object", properties: { site_id: { type: "string" } }, required: ["site_id"], additionalProperties: false },
+  },
+  {
+    name: "save_project_status",
+    description:
+      "Report progress on a site project. stage: cgp, research, design_draft, building or preview_ready. You may move forward up to design_draft; after that the owner must approve the design in the CRM before you set building. Add links (design, preview, dev, cgp) as https URLs.",
+    inputSchema: {
+      type: "object",
+      required: ["site_id", "stage"],
+      additionalProperties: false,
+      properties: {
+        site_id: { type: "string" },
+        stage: { type: "string", enum: ["cgp", "research", "design_draft", "building", "preview_ready"] },
+        note: { type: "string", description: "What you did or decided, 1-3 sentences." },
+        links: { type: "object", additionalProperties: { type: "string" } },
       },
     },
   },
@@ -210,6 +236,21 @@ export async function callTool(db: Db, name: string, args: Record<string, unknow
       if (!UUID.test(id)) return fail("invalid id");
       const r = await saveResearch(db, id, args.findings, deps);
       return "error" in r ? fail(String(r.error)) : ok(r);
+    }
+    case "get_project": {
+      const r = await getSiteBySiteId(db, String(args.site_id ?? ""));
+      if (!r) return fail("site not found");
+      const input = await loadBriefInput(db, r.s.id);
+      return ok({ site_id: r.s.siteId, kind: r.s.kind, stage: r.s.stage, stage_note: r.s.stageNote, repo: r.s.repoFullName, links: r.s.links, brief_version: r.s.briefVersion, brief_markdown: input ? buildBrief(input) : null });
+    }
+    case "save_project_status": {
+      const r = await getSiteBySiteId(db, String(args.site_id ?? ""));
+      if (!r) return fail("site not found");
+      const stage = String(args.stage ?? "");
+      if (!STAGES.includes(stage as Stage)) return fail(`unknown stage ${stage}`);
+      const links = args.links && typeof args.links === "object" ? Object.fromEntries(Object.entries(args.links as Record<string, unknown>).map(([k, v]) => [k, String(v)])) : {};
+      const m = await moveStage(db, r.s.id, stage as Stage, "agent", String(args.note ?? ""), links);
+      return m.ok ? ok({ saved: true, stage: m.stage }) : fail(m.message);
     }
     default:
       return fail(`unknown tool ${name}`);

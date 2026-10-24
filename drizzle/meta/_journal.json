@@ -169,6 +169,13 @@
       "when": 1792589989733,
       "tag": "0023_extra_draft",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792838446955,
+      "tag": "0024_site_projects",
+      "breakpoints": true
     }
   ]
 }
