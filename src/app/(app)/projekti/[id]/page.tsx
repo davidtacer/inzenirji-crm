@@ -5,6 +5,8 @@ import { formatLj } from "@/lib/time";
 import { getDb } from "@/server/db/client";
 import { eur } from "@/server/proposals/proposals";
 import { getProject, projectUrl, type Material } from "@/server/projects/projects";
+import { siteProjects } from "@/server/db/schema";
+import { eq } from "drizzle-orm";
 import { ItemToggle, OpButton, PauseForm } from "../forms";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +23,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   const done = mats.filter((m) => m.done).length;
   const c = r.clock;
   const openPause = r.pauses.find((x) => !x.endAt);
+  const [site] = await getDb().select({ id: siteProjects.id }).from(siteProjects).where(eq(siteProjects.projectId, id)).limit(1);
   return (
     <>
       <p className="mb-3 font-mono text-[10px] uppercase tracking-widest text-text-secondary">
@@ -29,6 +32,18 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         </Link>
       </p>
       <PageHeader title={`Projekt · ${r.companyName}`} description={`Predplačilo ${p.depositCents ? eur(p.depositCents) : "—"} prejeto ${formatLj(p.depositPaidAt, false)}`} />
+
+      <p className="mb-6">
+        {site ? (
+          <Link href={`/strani/${site.id}`} className="font-mono text-xs uppercase tracking-widest text-accent hover:underline">
+            Odpri stran →
+          </Link>
+        ) : (
+          <Link href={`/strani/nova?podjetje=${r.companyId}&projekt=${id}`} className="border border-accent bg-accent px-4 py-2 font-mono text-xs font-bold uppercase tracking-widest text-black hover:bg-transparent hover:text-accent">
+            Začni izdelavo strani
+          </Link>
+        )}
+      </p>
 
       <div className="mb-6 grid grid-cols-1 border border-border md:grid-cols-3">
         <div className="border-b border-border bg-surface p-5 md:border-b-0 md:border-r">

@@ -47,7 +47,7 @@ describe("MCP for the nightly researcher (TASK-036)", () => {
   it("initialize, tools/list, notifications", async () => {
     expect(await rpc("initialize", { protocolVersion: "2025-06-18" })).toMatchObject({ result: { protocolVersion: "2025-06-18", serverInfo: { name: "inzenirji-crm" }, capabilities: { tools: {} } } });
     const list = (await rpc("tools/list")) as { result: { tools: { name: string }[] } };
-    expect(list.result.tools.map((t) => t.name)).toEqual(["research_queue", "get_company", "save_research"]);
+    expect(list.result.tools.map((t) => t.name)).toEqual(["research_queue", "get_company", "save_research", "get_project", "save_project_status"]);
     expect(await handleRpc(db, { jsonrpc: "2.0", method: "notifications/initialized" }, deps)).toBeNull();
     expect(await rpc("nope")).toMatchObject({ error: { code: -32601 } });
   });
