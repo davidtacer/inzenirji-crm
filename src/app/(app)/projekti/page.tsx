@@ -10,7 +10,15 @@ export default async function ProjectsPage() {
   const rows = await listProjects(getDb());
   return (
     <>
-      <PageHeader title="Projekti" description="Po predplačilu: materiali, 7-dnevni rok, objava." />
+      <PageHeader
+        title="Projekti"
+        description="Po predplačilu: materiali, 7-dnevni rok, objava."
+        right={
+          <Link href="/strani/nova" className="border border-border px-4 py-2 font-mono text-xs uppercase tracking-widest text-text-secondary hover:border-accent hover:text-accent">
+            Nova stran (ročno)
+          </Link>
+        }
+      />
       {rows.length === 0 ? (
         <p className="border border-border bg-surface p-5 font-mono text-xs text-text-secondary">&gt; Še ni projektov. Projekt nastane, ko pri sprejeti ponudbi klikneš »Predplačilo prejeto«.</p>
       ) : (

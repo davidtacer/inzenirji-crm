@@ -161,6 +161,28 @@ export async function updateSiteFacts(db: Db, id: string, i: Partial<Pick<NewSit
   return null;
 }
 
+const LINK_KEYS = /^(design|preview|live|dev|cgp|other)$/;
+
+function mergeLinks(cur: Record<string, string>, add: Record<string, string>): { ok: true; links: Record<string, string> } | { ok: false; message: string } {
+  const out = { ...cur };
+  for (const [k, v] of Object.entries(add)) {
+    if (!LINK_KEYS.test(k)) return { ok: false, message: `Neznana povezava: ${k}.` };
+    if (!/^https:\/\/[^\s]{3,300}$/.test(v)) return { ok: false, message: `Povezava ${k} mora biti https://…` };
+    out[k] = v;
+  }
+  return { ok: true, links: out };
+}
+
+/** Owner: store links (live, dev, preview, design) without touching the stage or its note. */
+export async function setLinks(db: Db, id: string, links: Record<string, string>, now = new Date()): Promise<string | null> {
+  const [s] = await db.select({ links: siteProjects.links }).from(siteProjects).where(eq(siteProjects.id, id)).limit(1);
+  if (!s) return "Strani ni.";
+  const m = mergeLinks(s.links as Record<string, string>, links);
+  if (!m.ok) return m.message;
+  await db.update(siteProjects).set({ links: m.links, updatedAt: now }).where(eq(siteProjects.id, id));
+  return null;
+}
+
 /** Stage change. `actor` decides what is allowed (the agent through MCP, the owner in the CRM). */
 export async function moveStage(db: Db, id: string, to: Stage, actor: Actor, note: string, links: Record<string, string> = {}, now = new Date()): Promise<{ ok: true; stage: Stage } | { ok: false; message: string }> {
   if (!STAGES.includes(to)) return { ok: false, message: `Neznana faza: ${to}.` };
@@ -168,12 +190,9 @@ export async function moveStage(db: Db, id: string, to: Stage, actor: Actor, not
   if (!s) return { ok: false, message: "Strani ni." };
   const ok = canMove(s.stage as Stage, to, actor);
   if (!ok.ok) return ok;
-  const clean: Record<string, string> = { ...(s.links as Record<string, string>) };
-  for (const [k, v] of Object.entries(links)) {
-    if (!/^(design|preview|live|dev|cgp|other)$/.test(k)) return { ok: false, message: `Neznana povezava: ${k}.` };
-    if (!/^https:\/\/[^\s]{3,300}$/.test(v)) return { ok: false, message: `Povezava ${k} mora biti https://…` };
-    clean[k] = v;
-  }
+  const merged = mergeLinks(s.links as Record<string, string>, links);
+  if (!merged.ok) return merged;
+  const clean = merged.links;
   await db
     .update(siteProjects)
     .set({ stage: to, stageNote: note.trim().slice(0, 1000) || null, links: clean, updatedAt: now, ...(to === "design_approved" ? { approvedAt: now } : {}) })

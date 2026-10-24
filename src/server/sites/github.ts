@@ -6,7 +6,8 @@ import { createSign } from "node:crypto";
  * idempotent where it can be (reuse an existing repo, update a file by its sha).
  */
 
-export type GhConfig = { appId: string; installationId: string; privateKey: string; owner: string };
+/** GitHub App credentials, or (fallback) a fine-grained personal access token that is used as is. */
+export type GhConfig = { owner: string; appId?: string; installationId?: string; privateKey?: string; token?: string };
 export class GhError extends Error {
   constructor(
     message: string,
@@ -19,7 +20,7 @@ export class GhError extends Error {
 const b64 = (v: Buffer | string) => Buffer.from(v).toString("base64url");
 
 /** App JWT (RS256), valid 9 minutes. */
-export function appJwt(cfg: Pick<GhConfig, "appId" | "privateKey">, nowSec = Math.floor(Date.now() / 1000)): string {
+export function appJwt(cfg: { appId: string; privateKey: string }, nowSec = Math.floor(Date.now() / 1000)): string {
   const head = b64(JSON.stringify({ alg: "RS256", typ: "JWT" }));
   const body = b64(JSON.stringify({ iat: nowSec - 60, exp: nowSec + 540, iss: cfg.appId }));
   const sig = createSign("RSA-SHA256").update(`${head}.${body}`).sign(cfg.privateKey);
@@ -34,10 +35,12 @@ export function createGithub(cfg: GhConfig, fetchImpl: typeof fetch = fetch) {
 
   async function raw(method: string, path: string, body?: unknown, auth: "app" | "install" = "install"): Promise<Response> {
     let bearer: string;
-    if (auth === "app") bearer = appJwt(cfg);
+    if (cfg.token) bearer = cfg.token;
+    else if (!cfg.appId || !cfg.privateKey || !cfg.installationId) throw new GhError("GitHub ni nastavljen.", 401);
+    else if (auth === "app") bearer = appJwt({ appId: cfg.appId, privateKey: cfg.privateKey });
     else {
       if (!token || token.exp < Date.now() + 60_000) {
-        const r = await fetchImpl(`${API}/app/installations/${cfg.installationId}/access_tokens`, { method: "POST", headers: headers(appJwt(cfg)) });
+        const r = await fetchImpl(`${API}/app/installations/${cfg.installationId}/access_tokens`, { method: "POST", headers: headers(appJwt({ appId: cfg.appId, privateKey: cfg.privateKey })) });
         if (!r.ok) throw new GhError(`GitHub: prijava aplikacije ni uspela (${r.status}). Preveri App ID, Installation ID in zasebni ključ.`, r.status);
         const j = (await r.json()) as { token: string; expires_at: string };
         token = { value: j.token, exp: Date.parse(j.expires_at) };
@@ -59,6 +62,10 @@ export function createGithub(cfg: GhConfig, fetchImpl: typeof fetch = fetch) {
   return {
     /** Who the installation is (for the settings "Preveri povezavo" button). */
     async whoami(): Promise<{ app: string; owner: string }> {
+      if (cfg.token) {
+        const u = await json<{ login: string }>(await raw("GET", "/user"), "user");
+        return { app: "osebni žeton", owner: u.login };
+      }
       const a = await json<{ name: string }>(await raw("GET", "/app", undefined, "app"), "app");
       const r = await json<{ total_count: number }>(await raw("GET", "/installation/repositories?per_page=1"), "repositories");
       return { app: a.name, owner: `${cfg.owner} (${r.total_count} repozitorijev)` };

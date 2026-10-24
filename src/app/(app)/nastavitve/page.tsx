@@ -15,6 +15,8 @@ import { metaStatus } from "@/server/ads/meta";
 import { GSC_SCOPE } from "@/server/google/searchconsole";
 import { mcpTokenInfo } from "@/server/mcp/mcp";
 import { demoTokenInfo } from "@/server/demo/demo";
+import { SitesCard } from "./sites";
+import { getSitesConfig } from "@/server/sites/config";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +43,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const mcp = await mcpTokenInfo(db);
   const gemini = await geminiStatus(db);
   const meta = await metaStatus(db);
+  const sites = await getSitesConfig(db);
   const ready = !!oauthConfigFromEnv();
   const g = GOOGLE_MSG[(await searchParams).google ?? ""];
   return (
@@ -98,6 +101,10 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         <aside className="h-fit border border-border bg-surface p-5">
           <h2 className="mb-3 font-mono text-[10px] uppercase tracking-[0.3em] text-accent">{"// Nočna raziskava (Claude)"}</h2>
           <McpCard createdAt={mcp ? formatLj(mcp.createdAt, false) : null} />
+        </aside>
+        <aside className="h-fit border border-border bg-surface p-5">
+          <h2 className="mb-3 font-mono text-[10px] uppercase tracking-[0.3em] text-accent">{"// Izdelava strani"}</h2>
+          <SitesCard c={sites} />
         </aside>
         <aside className="h-fit border border-border bg-surface p-5">
           <h2 className="mb-3 font-mono text-[10px] uppercase tracking-[0.3em] text-accent">{"// Leadi s spleta (demo + obrazec)"}</h2>

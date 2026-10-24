@@ -7,6 +7,7 @@ import {
   CalendarClock,
   FileText,
   FolderKanban,
+  Globe,
   Gauge,
   Inbox,
   Mail,
@@ -34,7 +35,7 @@ const GROUPS: Group[] = [
       { href: "/ponudbe", label: "Ponudbe", icon: FileText },
     ],
   },
-  { title: "Izvedba", items: [{ href: "/projekti", label: "Projekti", icon: FolderKanban }] },
+  { title: "Izvedba", items: [{ href: "/projekti", label: "Projekti", icon: FolderKanban }, { href: "/strani", label: "Strani", icon: Globe }] },
   {
     title: "Analitika",
     items: [{ href: "/porocila", label: "Poročila", icon: BarChart3 }],
