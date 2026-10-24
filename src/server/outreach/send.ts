@@ -52,7 +52,7 @@ export const SEND_REASON: Record<SendError, string> = {
   NOT_APPROVED: "Osnutek ni odobren.",
   BLOCKED: "Naslov je na seznamu »ne kontaktiraj« — osnutek je zavržen.",
   CAP: "Dosežena je današnja omejitev pošiljanja.",
-  BOUNCE_STOP: "Pošiljanje je začasno ustavljeno: v zadnjih 7 dneh so se vrnili vsaj 3 maili in več kot 3 % (ADR-013). Napačni naslovi so že označeni; pošiljanje se nadaljuje, ko starejši vrnjeni maili padejo iz 7-dnevnega okna.",
+  BOUNCE_STOP: "Prvi e-maili na nove naslove so začasno ustavljeni: v zadnjih 7 dneh so se vrnili vsaj 3 maili in več kot 3 % (ADR-013). Follow-upi in odgovori gredo normalno. Prvi maili se nadaljujejo, ko starejši vrnjeni maili padejo iz 7-dnevnega okna.",
   SEND_FAILED: "Pošiljanje ni uspelo. Osnutek ostane odobren, poskusi kasneje.",
   ATTACHMENT_MISSING: "Priponke ni več na strežniku. Odstrani jo in jo pripni znova.",
   NO_DOMAIN: "Domena tega e-naslova ne obstaja, zato mail ne bi prišel. Naslov je označen kot napačen; če podjetje nima drugega, je na seznamu Za klic.",
@@ -171,7 +171,10 @@ export async function sendApprovedDraft(
     }
     const cold = d.draft.kind !== "reply";
     if (cold && (await sentToday(tx as unknown as Db, now)) >= cfg.dailyCap) return { ok: false as const, error: "CAP" as const };
-    if (cold && (await bounceStop(tx as unknown as Db, now))) return { ok: false as const, error: "BOUNCE_STOP" as const };
+    // The stop protects against mailing unknown addresses. A follow-up goes to an address that already took our first
+    // e-mail without bouncing (a bounce marks it wrong and drops the follow-up), so it is not held (owner 2026-10-24).
+    const newAddress = d.draft.kind === "first" || d.draft.kind === "extra";
+    if (cold && newAddress && (await bounceStop(tx as unknown as Db, now))) return { ok: false as const, error: "BOUNCE_STOP" as const };
     let files: NonNullable<Mail["attachments"]>;
     try {
       files = await attachmentsForSend(tx as unknown as Db, id);
