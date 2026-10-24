@@ -10,7 +10,8 @@ import { getSitesConfig, saveSitesConfig, validateSitesConfig } from "./config";
 import { fakeGithub } from "./fakeGithub.testutil";
 import { createGithub } from "./github";
 import { runKickoff } from "./kickoff";
-import { createSiteProject, getSite, loadBriefInput, moveStage } from "./store";
+import { createSiteProject, getSite, loadBriefInput, moveStage, registerSiteProject } from "./store";
+import { startKickoff } from "./kickoff";
 
 const url = process.env.TEST_DATABASE_URL!;
 const admin = postgres(url, { max: 1, onnotice: () => {} });
@@ -274,5 +275,31 @@ describe("settings card", () => {
     expect(validateSitesConfig({ ...ok, siteGuideUrl: "http://x" }).ok).toBe(false);
     expect(validateSitesConfig({ ...ok, privateKey: "not a key" }).ok).toBe(false);
     expect(validateSitesConfig({ ...ok, guideVersion: "v1" }).ok).toBe(false);
+  });
+});
+
+describe("registering an existing site (TASK-041)", () => {
+  it("records the site as handed over, legacy flag and editors, without touching GitHub", async () => {
+    const id = await seedCompany();
+    const gh = await configured();
+    const r = await registerSiteProject(db, { companyId: id, kind: "client", domain: "https://www.vodniskuter.si/", repo: "https://github.com/owner/vodniskuter-si.git", hosting: "Cloudflare Pages", legacy: true, editors: [{ email: "Info@Vodniskuter.si", role: "owner" }] });
+    expect(r).toMatchObject({ ok: true, siteId: "vodniskuter-si" });
+    if (!r.ok) return;
+    const s = (await getSite(db, r.id))!.s;
+    expect(s).toMatchObject({ registered: true, legacy: true, stage: "handed_over", repoFullName: "owner/vodniskuter-si", hosting: "Cloudflare Pages", editorState: "none", domain: "vodniskuter.si" });
+    expect(s.links).toEqual({ live: "https://vodniskuter.si" });
+    expect(s.editors).toEqual([{ email: "info@vodniskuter.si", role: "owner" }]);
+    expect(gh.calls?.length ?? 0).toBe(0);
+  });
+  it("refuses kickoff and validates input", async () => {
+    const id = await seedCompany();
+    const r = await registerSiteProject(db, { companyId: id, kind: "own", domain: "inzenirji.si" });
+    if (!r.ok) throw new Error(r.message);
+    const gh = await configured();
+    expect(await startKickoff(db, r.id, { gh: ghClient(gh) })).toMatchObject({ ok: false });
+    await expect(runKickoff(db, r.id, { gh: ghClient(gh) })).rejects.toThrow("SITE_REGISTERED_READONLY");
+    expect(await registerSiteProject(db, { companyId: id, kind: "own", domain: "" })).toMatchObject({ ok: false });
+    expect(await registerSiteProject(db, { companyId: id, kind: "own", domain: "x.si", repo: "not a repo" })).toMatchObject({ ok: false });
+    expect(await registerSiteProject(db, { companyId: id, kind: "own", domain: "inzenirji.si" })).toMatchObject({ ok: false });
   });
 });

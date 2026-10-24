@@ -10,7 +10,7 @@ import { createGithub } from "@/server/sites/github";
 import { startKickoff } from "@/server/sites/kickoff";
 import { STAGES, type Stage } from "@/server/sites/stages";
 import { checklistFor } from "@/server/sites/checklist";
-import { createSiteProject, moveStage, setLinks, updateSiteFacts, type Kind } from "@/server/sites/store";
+import { createSiteProject, moveStage, registerSiteProject, setLinks, updateSiteFacts, type Kind } from "@/server/sites/store";
 
 export type ActionState = { ok: boolean; message: string } | null;
 const isId = (v: unknown): v is string => typeof v === "string" && /^[0-9a-f-]{36}$/.test(v);
@@ -44,6 +44,41 @@ export async function createSiteAction(_prev: ActionState, form: FormData): Prom
     ownerNotes: s(form, "ownerNotes"),
     startReason: s(form, "startReason"),
     projectId: isId(form.get("projectId")) ? s(form, "projectId") : undefined,
+  });
+  if (!r.ok) return r;
+  revalidatePath("/strani");
+  redirect(`/strani/${r.id}`);
+}
+
+/** "Registriraj obstoječo stran": record only, nothing is created or written in any repository. */
+export async function registerSiteAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  if (!(await getCurrentUser())) return { ok: false, message: "Prijava je potekla." };
+  const db = getDb();
+  let companyId = isId(form.get("companyId")) ? s(form, "companyId") : undefined;
+  const name = s(form, "companyName");
+  if (!companyId && name) {
+    const found = await db.select({ id: companies.id }).from(companies).where(sql`lower(${companies.name}) = lower(${name})`).limit(2);
+    if (found.length === 1) companyId = found[0]!.id;
+  }
+  const editors = s(form, "editors").split("\n").map((l) => l.trim()).filter(Boolean).map((l) => {
+    const [email = "", role = "editor"] = l.split(/[\s,;]+/);
+    return { email, role: role.toLowerCase() === "owner" ? ("owner" as const) : ("editor" as const) };
+  });
+  const state = s(form, "editorState");
+  const r = await registerSiteProject(db, {
+    companyId,
+    newCompany: companyId ? undefined : { name, address: "", city: s(form, "city"), phone: s(form, "phone"), email: s(form, "email"), emailSource: "", website: s(form, "domain"), category: "" },
+    kind: s(form, "kind") as Kind,
+    siteId: s(form, "siteId") || undefined,
+    domain: s(form, "domain"),
+    liveUrl: s(form, "liveUrl"),
+    repo: s(form, "repo"),
+    hosting: s(form, "hosting"),
+    legacy: form.get("legacy") === "on",
+    editorState: state === "planned" || state === "active" ? state : "none",
+    editors,
+    notes: s(form, "notes"),
+    ownerNotes: s(form, "ownerNotes"),
   });
   if (!r.ok) return r;
   revalidatePath("/strani");
