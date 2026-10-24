@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import type { Db } from "../db/client";
 import { settings } from "../db/schema";
 import { decrypt, encrypt } from "../google/crypto";
-import type { GhConfig } from "./github";
+import { normalizePem, type GhConfig } from "./github";
 
 /*
  * "Izdelava strani" settings (TASK-039 §6): GitHub App credentials and the template. One row in `settings`
@@ -70,9 +70,10 @@ export function validateSitesConfig(i: SitesConfigInput): { ok: true; value: Omi
   for (const [v, label] of [[templateRepo, "Ime predloge"], [editorConfigRepo, "Ime repozitorija urednikov"]] as const) if (!/^[A-Za-z0-9._-]{1,100}$/.test(v)) return { ok: false, message: `${label}: samo črke, številke, . _ -` };
   if (siteGuideUrl && !/^https:\/\/[^\s]+$/.test(siteGuideUrl)) return { ok: false, message: "Povezava do navodil se mora začeti s https://" };
   if (!/^\d+\.\d+$/.test(guideVersion)) return { ok: false, message: "Verzija navodil: oblika 1.2" };
-  if (pk && !/^-----BEGIN (RSA )?PRIVATE KEY-----[\s\S]+-----END (RSA )?PRIVATE KEY-----$/.test(pk)) return { ok: false, message: "Zasebni ključ mora biti celotna vsebina .pem datoteke (od -----BEGIN do -----END)." };
+  const pem = pk ? normalizePem(pk) : null;
+  if (pk && !pem) return { ok: false, message: "Zasebni ključ mora biti celotna vsebina .pem datoteke (od -----BEGIN do -----END)." };
   if (tok && !/^(github_pat_|ghp_)[A-Za-z0-9_]{20,}$/.test(tok)) return { ok: false, message: "Žeton se mora začeti z github_pat_ (fine-grained žeton)." };
-  return { ok: true, value: { appId, installationId, owner, templateRepo, editorConfigRepo, siteGuideUrl, guideVersion }, privateKey: pk || null, token: tok || null };
+  return { ok: true, value: { appId, installationId, owner, templateRepo, editorConfigRepo, siteGuideUrl, guideVersion }, privateKey: pem, token: tok || null };
 }
 
 /** Saves the settings; an empty private key keeps the stored one. */

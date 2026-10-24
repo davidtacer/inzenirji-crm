@@ -19,11 +19,24 @@ export class GhError extends Error {
 
 const b64 = (v: Buffer | string) => Buffer.from(v).toString("base64url");
 
+/**
+ * Rebuilds a PEM that was mangled by copy and paste (spaces or \r\n instead of newlines, literal "\n", one long line):
+ * keeps the BEGIN/END type, re-wraps the body at 64 characters. Returns null when it is not a PEM private key.
+ */
+export function normalizePem(raw: string): string | null {
+  const t = raw.trim().replace(/\\n/g, "\n").replace(/\r/g, "");
+  const m = t.match(/-----BEGIN ((?:RSA |EC )?PRIVATE KEY)-----([\s\S]+?)-----END \1-----/);
+  if (!m) return null;
+  const body = (m[2] as string).replace(/[^A-Za-z0-9+/=]/g, "");
+  if (body.length < 100) return null;
+  return `-----BEGIN ${m[1]}-----\n${body.match(/.{1,64}/g)!.join("\n")}\n-----END ${m[1]}-----\n`;
+}
+
 /** App JWT (RS256), valid 9 minutes. */
 export function appJwt(cfg: { appId: string; privateKey: string }, nowSec = Math.floor(Date.now() / 1000)): string {
   const head = b64(JSON.stringify({ alg: "RS256", typ: "JWT" }));
   const body = b64(JSON.stringify({ iat: nowSec - 60, exp: nowSec + 540, iss: cfg.appId }));
-  const sig = createSign("RSA-SHA256").update(`${head}.${body}`).sign(cfg.privateKey);
+  const sig = createSign("RSA-SHA256").update(`${head}.${body}`).sign(normalizePem(cfg.privateKey) ?? cfg.privateKey);
   return `${head}.${body}.${b64(sig)}`;
 }
 
