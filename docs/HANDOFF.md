@@ -21,6 +21,7 @@ Conversation with the owner in Slovenian; code and docs in English.
 - 2026-10-15: repo created by the owner; docs foundation (manifest, product spec, architecture, ADR-001…010,
   task list) from the business plan `inzenirji.si/docs/nacrt-rasti.md`.
 
+- 2026-10-24: bounce stop holds only first e-mails to new addresses; follow-ups go out (ADR-053 update).
 - 2026-10-21: ADR-055 "Piši tudi na ta naslov" (draft kind extra); follow-ups never to a wrong address.
 - 2026-10-21: ADR-054 OZS member catalogue as second directory (after bizi.si).
 - 2026-10-21: ADR-053 directory pages never a website, only the company's own entry on listing pages, clean-up; bounce stop needs 3 bounces.
@@ -112,4 +113,4 @@ throwaway database. In the cloud sandbox: `initdb` as user postgres in `/var/tmp
 ## Next
 TASK-001 scaffold (Next.js + Tailwind + Drizzle + Postgres in Docker locally, CI), TASK-002 Kamal deploy skeleton, then the C1 phase (prospecting, research, scoring) — target 2026-11-07.
 
-Latest TASK: 038 · latest ADR: 051. Next candidates: Meta lead forms (rest of TASK-011, not a priority), after launch (TASK-018), win/loss (TASK-019), rest of TASK-011 inbound leads. Local Postgres for int tests may stop when the sandbox restarts — restart with `pg_ctl` (see above).
+Latest TASK: 041 (039–041 specified, not started; build order 040 → 039 → 041) · latest ADR: 057 (ADR-051 number is used twice). Next candidates: Meta lead forms (rest of TASK-011, not a priority), after launch (TASK-018), win/loss (TASK-019), rest of TASK-011 inbound leads. Local Postgres for int tests may stop when the sandbox restarts — restart with `pg_ctl` (see above).
