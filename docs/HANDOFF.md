@@ -18,6 +18,7 @@ Conversation with the owner in Slovenian; code and docs in English.
 - No CI yet (TASK-001).
 
 ## Done
+- 2026-10-24: TASK-040 site template Done (repo `davidtacer/inzenirji-site-template`, v1.2.0, main + dev). TASK-039 site kickoff Built (PR open): `/strani`, "Nova stran", kickoff job, MCP `get_project`/`save_project_status`, Nastavitve → Izdelava strani. Owner: create the GitHub App (steps in the card), set the guide URL, run the first kickoff on a test site; if GitHub refuses repo creation for a personal account use the fallback token. Next: TASK-041 register.
 - 2026-10-15: repo created by the owner; docs foundation (manifest, product spec, architecture, ADR-001…010,
   task list) from the business plan `inzenirji.si/docs/nacrt-rasti.md`.
 

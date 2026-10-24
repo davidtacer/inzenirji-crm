@@ -47,6 +47,7 @@ describe("migrations", () => {
       "proposals",
       "session",
       "settings",
+      "site_projects",
       "user",
       "verification",
       "weekly_reports",

@@ -20,6 +20,8 @@ Never values here — only names and where they live.
 Sending on/off, e-mails per day, booking link, phone, AI budget, Google calls per day: https://crm.inzenirji.si/nastavitve (ADR-026).
 Leads key (editor demo + inzenirji.si form → CRM, ADR-034/035): Nastavitve → Leadi s spleta → Ustvari ključ → paste into (1) the editor Worker secret `CRM_LEADS_TOKEN` (Cloudflare → Workers & Pages → inzenirji-editor-dev → Settings → Variables and Secrets) and (2) Vercel env `CRM_LEADS_TOKEN` of the inzenirji.si project, then redeploy.
 
+Site kickoff (TASK-039): Nastavitve → Izdelava strani: GitHub App id, installation id, private key (encrypted in the DB), template repo, editor-config repo, guide URL. Steps are written in the card ("Kako ustvarim GitHub App"). Fallback: fine-grained token (`github_pat_…`).
+
 ## Secrets (names only)
 | Name | Used by | Lives in | Status |
 |---|---|---|---|
