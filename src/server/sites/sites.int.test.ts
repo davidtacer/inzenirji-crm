@@ -10,7 +10,7 @@ import { getSitesConfig, saveSitesConfig, validateSitesConfig } from "./config";
 import { fakeGithub } from "./fakeGithub.testutil";
 import { createGithub } from "./github";
 import { runKickoff } from "./kickoff";
-import { createSiteProject, getSite, loadBriefInput, moveStage, registerSiteProject } from "./store";
+import { createSiteProject, getSite, loadBriefInput, moveStage, registerSiteProject, updateRegistered } from "./store";
 import { startKickoff } from "./kickoff";
 
 const url = process.env.TEST_DATABASE_URL!;
@@ -107,7 +107,7 @@ describe("kickoff job (mocked GitHub)", () => {
     expect(row.repoFullName).toBe("owner/vodniskuter-si");
     expect(g.repos.get("vodniskuter-si")?.private).toBe(true);
     const conf = JSON.parse(g.file("vodniskuter-si", "editor.config.json")!);
-    expect(conf).toMatchObject({ siteId: "vodniskuter-si", enabled: false, guideVersion: "1.2", urls: { live: "https://vodniskuter.si", dev: "https://vodniskuter-si-dev.pages.dev" } });
+    expect(conf).toMatchObject({ siteId: "vodniskuter-si", enabled: false, guideVersion: "1.2", urls: { live: "https://vodniskuter.si", dev: "https://dev.vodniskuter.si" } });
     expect(g.file("vodniskuter-si", "BRIEF.md")).toContain("Vodni skuter d.o.o.");
     expect(g.file("vodniskuter-si", "CLAUDE.md")).toContain("## Client");
     expect(g.file("vodniskuter-si", "brief/assets/INDEX.md")).toContain("ni datotek");
@@ -301,5 +301,20 @@ describe("registering an existing site (TASK-041)", () => {
     expect(await registerSiteProject(db, { companyId: id, kind: "own", domain: "" })).toMatchObject({ ok: false });
     expect(await registerSiteProject(db, { companyId: id, kind: "own", domain: "x.si", repo: "not a repo" })).toMatchObject({ ok: false });
     expect(await registerSiteProject(db, { companyId: id, kind: "own", domain: "inzenirji.si" })).toMatchObject({ ok: false });
+  });
+});
+
+describe("editing a registered site", () => {
+  it("updates hosting, editor state, legacy flag and repo only for registered sites", async () => {
+    const id = await seedCompany();
+    const r = await registerSiteProject(db, { companyId: id, kind: "own", domain: "vodniskuter.si" });
+    if (!r.ok) throw new Error(r.message);
+    expect(await updateRegistered(db, r.id, { hosting: "Cloudflare Workers", editorState: "planned", legacy: false, repo: "https://github.com/davidtacer/vodniskuter-si" })).toBeNull();
+    expect((await getSite(db, r.id))!.s).toMatchObject({ hosting: "Cloudflare Workers", editorState: "planned", legacy: false, repoFullName: "davidtacer/vodniskuter-si" });
+    expect(await updateRegistered(db, r.id, { editorState: "on" })).toMatch(/Neveljavno/);
+    expect(await updateRegistered(db, r.id, { repo: "bad repo" })).toMatch(/Repozitorij/);
+    const n = await createSiteProject(db, { companyId: id, kind: "own", domain: "nova.si" });
+    if (!n.ok) throw new Error(n.message);
+    expect(await updateRegistered(db, n.id, { hosting: "x" })).toMatch(/ni registrirana/);
   });
 });

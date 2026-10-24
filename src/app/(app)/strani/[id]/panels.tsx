@@ -119,6 +119,33 @@ export function EditorsForm({ id, value }: { id: string; value: string }) {
   );
 }
 
+export function RegisteredForm({ id, v }: { id: string; v: { hosting: string; editorState: string; legacy: boolean; repo: string } }) {
+  const [state, action, busy] = useOp();
+  return (
+    <form action={action} className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      <input type="hidden" name="id" value={id} />
+      <input type="hidden" name="op" value="registered" />
+      <label className="flex flex-col gap-1"><span className={lbl}>Repozitorij (lastnik/ime)</span><input name="repo" defaultValue={v.repo} className={input} /></label>
+      <label className="flex flex-col gap-1"><span className={lbl}>Gostovanje</span><input name="hosting" defaultValue={v.hosting} placeholder="Cloudflare Workers, Cloudflare Pages …" className={input} /></label>
+      <label className="flex flex-col gap-1">
+        <span className={lbl}>Urejevalnik</span>
+        <select name="editorState" defaultValue={v.editorState} className={input}>
+          <option value="none">Ni</option>
+          <option value="planned">Načrtovan</option>
+          <option value="active">Aktiven</option>
+        </select>
+      </label>
+      <label className="flex items-center gap-2 self-end pb-2 font-sans text-sm text-text-primary">
+        <input type="checkbox" name="legacy" defaultChecked={v.legacy} /> Stara arhitektura (ni JSON vsebine v content/): kandidat za selitev
+      </label>
+      <div className="flex flex-wrap items-center gap-3 md:col-span-2">
+        <button type="submit" disabled={busy} className={ghost}>Shrani</button>
+        <Msg s={state} />
+      </div>
+    </form>
+  );
+}
+
 export function LinksForm({ id, v }: { id: string; v: { live: string; dev: string; preview: string; design: string } }) {
   const [state, action, busy] = useOp();
   return (

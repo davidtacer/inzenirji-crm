@@ -20,3 +20,10 @@ export function deriveSiteId(input: string): string {
 
 /** Cloudflare Pages project names for a site (guide §19.2). */
 export const pagesProjects = (siteId: string) => ({ live: siteId, dev: `${siteId}-dev` });
+
+/**
+ * Dev preview URL. Always a subdomain of the client's own domain: a *.pages.dev or *.workers.dev name that contains
+ * the client's domain (vodniskuter-si-dev…) is flagged by Chrome as a lookalike ("site looks fake"). The pages.dev
+ * address is only a placeholder until the domain is known and is never sent to the client.
+ */
+export const devUrl = (siteId: string, domain: string | null | undefined) => (domain ? `https://dev.${domain}` : `https://${siteId}-dev.pages.dev`);

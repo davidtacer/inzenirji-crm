@@ -6,6 +6,7 @@ import { readStored } from "../projects/storage";
 import { buildBrief, buildKickoffPrompt, fillClaudeMd } from "./brief";
 import { getSitesConfig } from "./config";
 import type { Gh } from "./github";
+import { devUrl } from "./siteId";
 import { loadBriefInput } from "./store";
 
 /*
@@ -73,7 +74,7 @@ export async function runKickoff(db: Db, id: string, deps: KickoffDeps, opts: { 
       siteName: input.company.name,
       repo: full,
       branches: { dev: "dev", main: "main" },
-      urls: { live: s!.domain ? `https://${s!.domain}` : `https://${repo}.pages.dev`, dev: `https://${repo}-dev.pages.dev` },
+      urls: { live: s!.domain ? `https://${s!.domain}` : `https://${repo}.pages.dev`, dev: devUrl(repo, s!.domain) },
       editorUrl: EDITOR_URL,
       guideVersion: cfg.guideVersion,
       enabled,
@@ -138,7 +139,7 @@ export async function runKickoff(db: Db, id: string, deps: KickoffDeps, opts: { 
   await blocked("editor_registry", async () => {
     const [s] = await db.select().from(siteProjects).where(eq(siteProjects.id, id));
     const input = (await loadBriefInput(db, id, now()))!;
-    const meta = { siteId: repo, name: input.company.name, repo: full, live: s!.domain ? `https://${s!.domain}` : `https://${repo}.pages.dev`, dev: `https://${repo}-dev.pages.dev`, kind: s!.kind };
+    const meta = { siteId: repo, name: input.company.name, repo: full, live: s!.domain ? `https://${s!.domain}` : `https://${repo}.pages.dev`, dev: devUrl(repo, s!.domain), kind: s!.kind };
     if (!(await deps.gh.repoExists(cfg.editorConfigRepo))) throw new Error(`Repozitorij ${cfg.editorConfigRepo} še ne obstaja (ustvari ga, ko vklopiš urejevalnik).`);
     const a = await deps.gh.putFile(cfg.editorConfigRepo, `sites/${repo}/site.json`, `${JSON.stringify(meta, null, 2)}\n`, `chore: register site ${repo}`, "main");
     const b = await deps.gh.putFile(cfg.editorConfigRepo, `sites/${repo}/editors.json`, `${JSON.stringify(s!.editors, null, 2)}\n`, `chore: editors of ${repo}`, "main");

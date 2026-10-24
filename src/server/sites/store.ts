@@ -150,6 +150,27 @@ export async function registerSiteProject(db: Db, i: RegisterInput, now = new Da
   return r;
 }
 
+/** Owner edits the record of a registered site (TASK-041). Only the CRM row changes, never the repository. */
+export async function updateRegistered(db: Db, id: string, i: { hosting?: string; editorState?: string; legacy?: boolean; repo?: string }, now = new Date()): Promise<string | null> {
+  const [s] = await db.select({ registered: siteProjects.registered }).from(siteProjects).where(eq(siteProjects.id, id)).limit(1);
+  if (!s) return "Strani ni.";
+  if (!s.registered) return "To ni registrirana obstoječa stran.";
+  const patch: Partial<typeof siteProjects.$inferInsert> = { updatedAt: now };
+  if (i.hosting !== undefined) patch.hosting = i.hosting.trim().slice(0, 200) || null;
+  if (i.editorState !== undefined) {
+    if (!["none", "planned", "active"].includes(i.editorState)) return "Neveljavno stanje urejevalnika.";
+    patch.editorState = i.editorState;
+  }
+  if (i.legacy !== undefined) patch.legacy = i.legacy;
+  if (i.repo !== undefined) {
+    const r = i.repo.trim().replace(/^https:\/\/github\.com\//, "").replace(/\.git$/, "").replace(/\/$/, "");
+    if (r && !REPO_RE.test(r)) return "Repozitorij: oblika lastnik/ime.";
+    patch.repoFullName = r || null;
+  }
+  await db.update(siteProjects).set(patch).where(eq(siteProjects.id, id));
+  return null;
+}
+
 export async function getSite(db: Db, id: string) {
   const [r] = await db
     .select({ s: siteProjects, companyName: companies.name })

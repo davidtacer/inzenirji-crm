@@ -50,7 +50,7 @@ export function RegisterForm({ names }: { names: string[] }) {
         </select>
       </Field>
       <label className="flex items-center gap-2 font-sans text-sm text-text-primary md:col-span-2">
-        <input type="checkbox" name="legacy" /> Stara arhitektura (v repozitoriju ni editor.config.json): kandidat za selitev
+        <input type="checkbox" name="legacy" /> Stara arhitektura (ni JSON vsebine v content/, npr. WordPress ali stara koda): kandidat za selitev. Stran po novi arhitekturi brez editor.config.json NI stara.
       </label>
       <div className="md:col-span-2">
         <Field l="Uredniki (neobvezno)" hint="Ena vrstica na urednika: e-naslov in po želji »owner«.">
