@@ -112,4 +112,4 @@ throwaway database. In the cloud sandbox: `initdb` as user postgres in `/var/tmp
 ## Next
 TASK-001 scaffold (Next.js + Tailwind + Drizzle + Postgres in Docker locally, CI), TASK-002 Kamal deploy skeleton, then the C1 phase (prospecting, research, scoring) — target 2026-11-07.
 
-Latest TASK: 040 (039, 040 specified, not started) · latest ADR: 056 (Proposed; ADR-051 number is used twice). Next candidates: Meta lead forms (rest of TASK-011, not a priority), after launch (TASK-018), win/loss (TASK-019), rest of TASK-011 inbound leads. Local Postgres for int tests may stop when the sandbox restarts — restart with `pg_ctl` (see above).
+Latest TASK: 041 (039–041 specified, not started; build order 040 → 039 → 041) · latest ADR: 057 (ADR-051 number is used twice). Next candidates: Meta lead forms (rest of TASK-011, not a priority), after launch (TASK-018), win/loss (TASK-019), rest of TASK-011 inbound leads. Local Postgres for int tests may stop when the sandbox restarts — restart with `pg_ctl` (see above).

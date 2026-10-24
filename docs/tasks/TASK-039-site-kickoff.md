@@ -2,7 +2,7 @@
 Depends on: TASK-014 (projects), TASK-026 (manual company entry), TASK-036 (MCP endpoint), TASK-040 (site template repo)
 Read first: docs/00-MANIFEST.md, docs/03-DECISIONS.md (ADR-024, ADR-033, ADR-038, ADR-056), docs/01-PRODUCT-SPEC.md §5.9, editor guide v1.2 (repo `davidtacer/inzenirji.si`, `docs/urejevalnik-navodila.md`, sections 14, 17–19, 21–23), TASK-014 and TASK-026 feedback, code paths of projects, company entry and MCP.
 
-Status: **Planned** (spec only). Decision: ADR-056 (Proposed - three open questions below).
+Status: **Planned** (spec only). Decision: ADR-056 (Accepted). Register of sites: TASK-041.
 
 ## Goal
 The owner opens a company or project in crm.inzenirji.si, clicks "Začni izdelavo strani", and gets: a private repo with the
@@ -54,19 +54,19 @@ Checklist with exact steps copied from the guide: create the two Cloudflare Page
 notification (§20), editor emails (§18.3), GA4 property (§22.3). Each item can be ticked; nothing here is automated in v1.
 
 ### 6. Settings
-Nastavitve card "Izdelava strani": GitHub credential (secret), repo owner, template repo name, `siteGuideUrl`, current
+Nastavitve card "Izdelava strani": GitHub App id, installation id and private key (secret), repo owner, template repo name, `siteGuideUrl`, current
 `guideVersion`. Card shows exact owner steps (where to create the GitHub App or token, which permissions, where to paste).
 
 ## Decisions already made (do not re-decide)
 - Source of truth is the CRM; `BRIEF.md` is a snapshot (ADR-056).
-- Repos are private, in the owner's account, transferred at handover on request.
+- Repos are private, in the owner's account, transferred only if a client asks.
 - No Cloudflare automation in v1. No guide URL in client repos. Owner-only approval of the design.
 - Manual entry reuses the existing company entry; no second company form.
 
-## Open questions for the owner (ADR-056 stays Proposed until answered)
-1. Repo owner: our private account (assumed) or the client's account from the start?
-2. GitHub credential: GitHub App (preferred) or fine-grained token? Will he set it up (steps are in the Nastavitve card)?
-3. Template repo: TASK-040 must exist before the "create repo" step can be tested end to end.
+## Owner answers (2026-10-24)
+- Repos are created in the owner's private account; transfer to a client only if he asks later.
+- Credential: GitHub App (installed on the owner's account; Nastavitve card gives every step).
+- The site template (TASK-040) is built first; TASK-039 is tested end to end only after it exists.
 
 ## Tests
 - Unit: `site_id` derivation and validation; BRIEF exclusions (a seeded owner-private field never appears); stage transitions
