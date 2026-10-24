@@ -158,6 +158,7 @@ describe("mailbox processing", () => {
 
   it("bounce found by our Message-ID in the body → address blocked, sequence stopped; bounce rate stops cold sending", async () => {
     const { c, ourId } = await contacted("fika");
+    const { c: ok } = await contacted("lara");
     await processInbound(db, [mail({ from: "MAILER-DAEMON@mx.si", subject: "Undelivered Mail", text: `550 user unknown\nMessage-ID: ${ourId}` })], { ai: null, now: day(1) });
     expect((await admin`select reason from do_not_contact where value = 'info@fika.si'`)[0].reason).toMatch(/bounce/);
     expect((await stage(c.id)).next_action_at).toBeNull();
@@ -173,6 +174,21 @@ describe("mailbox processing", () => {
     expect(await bounceStop(db, day(2))).toBe(false);
     for (const n of [1, 2]) await db.insert(inboundMessages).values({ messageId: `<b${n}@mx.si>`, companyId: c.id, fromEmail: "mailer-daemon@mx.si", subject: "Undelivered", receivedAt: day(1), bodyText: "x", classification: "bounce", classifiedBy: "rule" });
     expect(await bounceStop(db, day(2))).toBe(true);
+
+    // Owner 2026-10-24: the stop holds first e-mails to new addresses, not follow-ups to addresses that took the first.
+    expect(await createDueFollowUps(db, day(4))).toBe(1);
+    const f = (await listDrafts(db)).pending.find((x) => x.kind === "followup_1")!;
+    await approveDraft(db, f.id, { subject: f.subject, body: f.body }, day(4));
+    expect(await sendApprovedDraft(db, f.id, { mailer: createCaptureMailer(), config: { ...cfg, dailyCap: 100 }, now: day(4) })).toEqual({ ok: true });
+    const [n] = await db.insert(companies).values({ name: "Nova" }).returning();
+    await db.insert(deals).values({ companyId: n.id, source: "places_search", stage: "researched" });
+    await db.insert(audits).values({ companyId: n.id, data: {}, issues: [] });
+    await db.insert(contacts).values({ companyId: n.id, email: "info@nova.si", emailSource: "x" });
+    const r = await createFirstDraft(db, n.id);
+    if (!r.ok) throw new Error(r.reason);
+    await approveDraft(db, r.draftId, { subject: "S", body: "b" }, day(4));
+    expect(await sendApprovedDraft(db, r.draftId, { mailer: createCaptureMailer(), config: { ...cfg, dailyCap: 100 }, now: day(4) })).toEqual({ ok: false, error: "BOUNCE_STOP" });
+    void ok;
   });
 
   it("follow-ups are threaded to the first e-mail", async () => {

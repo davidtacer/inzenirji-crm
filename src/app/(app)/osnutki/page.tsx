@@ -76,7 +76,7 @@ export default async function DraftsPage() {
         </p>
         <p className={`mt-1 ${bounces.bounces >= 3 ? "text-[#F0B429]" : "text-text-secondary"}`}>
           Vrnjeni (nedostavljeni) v zadnjih 7 dneh: {bounces.bounces} od {bounces.sent} poslanih
-          {bounces.sent ? ` (${((bounces.bounces / bounces.sent) * 100).toFixed(1).replace(".", ",")} %)` : ""} · pošiljanje se ustavi pri vsaj 3 vrnjenih in več kot 3 %
+          {bounces.sent ? ` (${((bounces.bounces / bounces.sent) * 100).toFixed(1).replace(".", ",")} %)` : ""} · prvi e-maili na nove naslove se ustavijo pri vsaj 3 vrnjenih in več kot 3 % (follow-upi ne)
         </p>
         <p className="mt-1 text-text-secondary">
           Omejitev šteje vse hladne e-maile, ker za ugled domene inzenirji.si šteje skupno število. Dvigni jo postopoma v Nastavitvah (+5 na teden, dokler ni
